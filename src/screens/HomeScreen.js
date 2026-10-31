@@ -24,6 +24,9 @@ export const HomeScreen = () => {
     downloadTrack,
     isTrackDownloaded,
     downloadProgress,
+    streamingQuality,
+    setShowQualityModal,
+    setQualityModalMode,
   } = usePlayer();
   const [showUserModal, setShowUserModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,18 +65,48 @@ export const HomeScreen = () => {
           </View>
         </View>
 
-        {/* Profile Switcher Pill */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.profilePill}
-          onPress={() => setShowUserModal(true)}
-        >
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>{currentUser.avatar}</Text>
-          </View>
-          <Text style={styles.profileName}>{currentUser.name}</Text>
-          <ChevronDown size={14} color="#888888" />
-        </TouchableOpacity>
+        <View style={styles.brandRight}>
+          {/* Quality Mode Pill */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[
+              styles.qualityBadgePill,
+              streamingQuality === '1411k' && styles.qualityBadgePillFlac,
+            ]}
+            onPress={() => {
+              setQualityModalMode('streaming');
+              setShowQualityModal(true);
+            }}
+          >
+            <Text
+              style={[
+                styles.qualityBadgePillText,
+                streamingQuality === '1411k' && { color: colors.gold },
+              ]}
+            >
+              {streamingQuality === '1411k'
+                ? '⚡ FLAC'
+                : streamingQuality === '320k'
+                ? '✨ 320k'
+                : streamingQuality === '256k'
+                ? 'HD'
+                : 'SAVER'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Profile Switcher Pill */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.profilePill}
+            onPress={() => setShowUserModal(true)}
+          >
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarText}>{currentUser.avatar}</Text>
+            </View>
+            <Text style={styles.profileName}>{currentUser.name}</Text>
+            <ChevronDown size={14} color="#888888" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Featured Banner */}
@@ -81,7 +114,7 @@ export const HomeScreen = () => {
         <View style={styles.bannerBadge}>
           <Sparkles size={12} color="#FFFFFF" />
           <Text style={styles.bannerBadgeText}>
-            {flacEnabled ? 'Pure FLAC & Lossless Master' : 'Hi-Fi Studio Audio'}
+            {streamingQuality === '1411k' ? 'Pure FLAC & Lossless Master' : 'Hi-Fi Studio Audio'}
           </Text>
         </View>
 
@@ -94,7 +127,7 @@ export const HomeScreen = () => {
           <TouchableOpacity
             style={styles.playButton}
             activeOpacity={0.85}
-            onPress={() => playTrack(trendingTracks[0])}
+            onPress={() => playTrack(trendingTracks[0], trendingTracks)}
           >
             <Play size={14} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
             <Text style={styles.playButtonText}>Play Top Trending</Text>
@@ -177,7 +210,7 @@ export const HomeScreen = () => {
               key={`${track.id}-${idx}`}
               activeOpacity={0.7}
               style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
-              onPress={() => playTrack(track)}
+              onPress={() => playTrack(track, trendingTracks)}
             >
               <Text style={styles.trackIndex}>{idx + 1}</Text>
               <Image
@@ -194,7 +227,9 @@ export const HomeScreen = () => {
                   </Text>
                   <View style={styles.flacBadge}>
                     <Text style={styles.flacBadgeText}>
-                      {flacEnabled ? 'FLAC' : '320k'}
+                      {isDownloaded
+                        ? (track.isFlac ? 'FLAC' : '320k')
+                        : (streamingQuality === '1411k' ? 'FLAC' : '320k')}
                     </Text>
                   </View>
                 </View>
@@ -208,6 +243,11 @@ export const HomeScreen = () => {
                 style={styles.downloadIconBtn}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 onPress={() => downloadTrack(track)}
+                onLongPress={() => {
+                  setQualityModalMode('download');
+                  setShowQualityModal(true);
+                }}
+                delayLongPress={400}
               >
                 {isDownloaded ? (
                   <CheckCircle2 size={16} color="#22C55E" />
@@ -285,6 +325,32 @@ const styles = StyleSheet.create({
     color: '#737373',
     letterSpacing: 1,
     marginTop: 1,
+  },
+  brandRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  qualityBadgePill: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#262626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qualityBadgePillFlac: {
+    borderColor: 'rgba(245, 185, 66, 0.4)',
+    backgroundColor: 'rgba(245, 185, 66, 0.08)',
+  },
+  qualityBadgePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#CCCCCC',
+    fontFamily: 'monospace',
+    letterSpacing: 0.5,
   },
   profilePill: {
     flexDirection: 'row',

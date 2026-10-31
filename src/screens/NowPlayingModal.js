@@ -1,5 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Image,
+  ActivityIndicator,
+  Animated,
+} from 'react-native';
 import {
   ChevronDown,
   MoreHorizontal,
@@ -52,9 +61,26 @@ export const NowPlayingModal = () => {
     isTrackDownloaded,
     downloadProgress,
     currentUser,
+    streamingQuality,
+    downloadQuality,
+    setShowQualityModal,
+    setQualityModalMode,
   } = usePlayer();
 
   const [scrubberWidth, setScrubberWidth] = useState(width - 48);
+
+  // Smooth tactile animations
+  const artScale = useRef(new Animated.Value(isPlaying ? 1.0 : 0.88)).current;
+  const playBtnScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.spring(artScale, {
+      toValue: isPlaying ? 1.0 : 0.88,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 8,
+    }).start();
+  }, [isPlaying]);
 
   const handleSeek = (e) => {
     if (!duration || scrubberWidth <= 0) return;
@@ -72,32 +98,79 @@ export const NowPlayingModal = () => {
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
   const artSize = Math.min(width - 48, 330);
 
+  const getQualityBadgeText = () => {
+    if (isDownloaded) {
+      return currentTrack.isFlac ? '⚡ FLAC OFFLINE' : '✨ 320k OFFLINE';
+    }
+    switch (streamingQuality) {
+      case '1411k':
+        return '⚡ FLAC MASTER';
+      case '320k':
+        return '✨ STUDIO 320k';
+      case '256k':
+        return 'HD 256k';
+      case '128k':
+        return 'SAVER 128k';
+      default:
+        return '⚡ FLAC MASTER';
+    }
+  };
+
+  const getQualitySubtext = () => {
+    if (isDownloaded) {
+      return 'Saved to Local Device Storage';
+    }
+    switch (streamingQuality) {
+      case '1411k':
+        return '1,411 kbps · 16-bit / 44.1 kHz FLAC';
+      case '320k':
+        return '320 kbps Studio Master Audio';
+      case '256k':
+        return '256 kbps High Definition';
+      case '128k':
+        return '128 kbps Data Saver Audio';
+      default:
+        return '1,411 kbps · Bit-Perfect FLAC';
+    }
+  };
+
   return (
     <View style={styles.modalOverlay}>
       <View style={styles.content}>
         {/* Top Header Bar */}
         <View style={styles.headerBar}>
-          <TouchableOpacity style={styles.iconBtn} onPress={closeModal}>
+          <TouchableOpacity style={styles.iconBtn} onPress={closeModal} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <ChevronDown size={26} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerSuper}>PLAYING FROM</Text>
-            <Text style={styles.headerTitle}>HAZE Top Charts</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {currentTrack.album || currentTrack.artist || 'HAZE Master Vault'}
+            </Text>
           </View>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => setActiveModal('queue')}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => setActiveModal('queue')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <MoreHorizontal size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Square Album Artwork */}
+        {/* Square Album Artwork with Spring Scaling Animation */}
         <View style={styles.artContainer}>
-          <View style={[styles.artWrapper, { width: artSize, height: artSize }]}>
+          <Animated.View
+            style={[
+              styles.artWrapper,
+              {
+                width: artSize,
+                height: artSize,
+                transform: [{ scale: artScale }],
+              },
+            ]}
+          >
             <Image
               source={{ uri: currentTrack.coverLarge || currentTrack.cover || 'https://via.placeholder.com/300' }}
               style={styles.albumArt}
               resizeMode="cover"
             />
-          </View>
+          </Animated.View>
         </View>
 
         {/* Track Title, Artist & Like Heart */}
@@ -112,7 +185,9 @@ export const NowPlayingModal = () => {
           </View>
           <TouchableOpacity
             style={styles.likeBtn}
+            activeOpacity={0.7}
             onPress={() => toggleLike(currentTrack)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Heart
               size={24}
@@ -122,20 +197,39 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
         </View>
 
-        {/* HAZE Monospace Quality Badge */}
+        {/* HAZE Interactive Quality Badge */}
         <View style={styles.badgeRow}>
-          <View style={styles.flacBadge}>
-            <Text style={styles.flacBadgeText}>
-              {isDownloaded ? (currentTrack.isFlac ? 'FLAC OFFLINE' : '320k OFFLINE') : (flacEnabled ? 'FLAC MASTER' : 'STUDIO 320k')}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={[
+              styles.flacBadge,
+              streamingQuality === '1411k' && styles.flacBadgeActive,
+            ]}
+            onPress={() => {
+              setQualityModalMode('streaming');
+              setShowQualityModal(true);
+            }}
+          >
+            <Text
+              style={[
+                styles.flacBadgeText,
+                streamingQuality === '1411k' && { color: colors.gold },
+              ]}
+            >
+              {getQualityBadgeText()}
             </Text>
-          </View>
-          <Text style={styles.qualityLabel}>
-            {isDownloaded
-              ? 'Saved to Local Device Storage'
-              : flacEnabled
-              ? '1,411 kbps · 24-bit Bit-Perfect'
-              : '320 kbps Studio Master Audio'}
-          </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              setQualityModalMode('streaming');
+              setShowQualityModal(true);
+            }}
+          >
+            <Text style={styles.qualityLabel}>
+              {getQualitySubtext()}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Scrubber Progress Bar */}
@@ -157,38 +251,67 @@ export const NowPlayingModal = () => {
 
         {/* Playback Controls matching HAZE Player */}
         <View style={styles.controlsRow}>
-          <TouchableOpacity style={styles.iconBtn} onPress={shuffleQueue}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            activeOpacity={0.7}
+            onPress={shuffleQueue}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Shuffle
               size={20}
               color={isShuffle ? '#FFFFFF' : '#666666'}
             />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.iconBtn} onPress={previousTrack}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            activeOpacity={0.7}
+            onPress={previousTrack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <SkipBack size={26} color="#FFFFFF" fill="#FFFFFF" />
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.85}
-            style={styles.playPauseBtn}
+            onPressIn={() => {
+              Animated.spring(playBtnScale, { toValue: 0.92, useNativeDriver: true }).start();
+            }}
+            onPressOut={() => {
+              Animated.spring(playBtnScale, { toValue: 1, useNativeDriver: true, tension: 80, friction: 6 }).start();
+            }}
             onPress={togglePlayPause}
           >
-            {isLoadingAudio ? (
-              <ActivityIndicator size="small" color="#000000" />
-            ) : isPlaying ? (
-              <Pause size={28} color="#000000" fill="#000000" />
-            ) : (
-              <Play size={28} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
-            )}
+            <Animated.View
+              style={[
+                styles.playPauseBtn,
+                { transform: [{ scale: playBtnScale }] },
+              ]}
+            >
+              {isLoadingAudio ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : isPlaying ? (
+                <Pause size={28} color="#000000" fill="#000000" />
+              ) : (
+                <Play size={28} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
+              )}
+            </Animated.View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.iconBtn} onPress={nextTrack}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            activeOpacity={0.7}
+            onPress={nextTrack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <SkipForward size={26} color="#FFFFFF" fill="#FFFFFF" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.iconBtn}
+            activeOpacity={0.7}
             onPress={() => setIsRepeat(prev => !prev)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Repeat
               size={20}
@@ -199,10 +322,16 @@ export const NowPlayingModal = () => {
 
         {/* Quick Action Buttons matching HAZE player */}
         <View style={styles.actionsRow}>
-          {/* Download Button */}
+          {/* Download Button - Tap to download, Long Press for Quality Picker */}
           <TouchableOpacity
-            style={styles.actionButton}
+            activeOpacity={0.7}
+            style={[styles.actionButton, isDownloaded && styles.actionButtonDownloaded]}
             onPress={() => downloadTrack(currentTrack)}
+            onLongPress={() => {
+              setQualityModalMode('download');
+              setShowQualityModal(true);
+            }}
+            delayLongPress={400}
           >
             {isDownloading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -217,6 +346,7 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.actionButton}
             onPress={() => setActiveModal('lyrics')}
           >
@@ -225,6 +355,7 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.actionButton}
             onPress={() => setActiveModal('queue')}
           >
@@ -233,6 +364,7 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.actionButton}
             onPress={() => setActiveModal('equalizer')}
           >
@@ -267,6 +399,7 @@ const styles = StyleSheet.create({
   },
   headerCenter: {
     alignItems: 'center',
+    maxWidth: '70%',
   },
   headerSuper: {
     fontSize: 9,
@@ -293,11 +426,16 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   artWrapper: {
-    borderRadius: 8,
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#222222',
     backgroundColor: '#121212',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    elevation: 16,
   },
   albumArt: {
     width: '100%',
@@ -334,14 +472,18 @@ const styles = StyleSheet.create({
   },
   flacBadge: {
     backgroundColor: '#1C1C1C',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 3,
-    borderWidth: 0.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
     borderColor: '#333333',
   },
+  flacBadgeActive: {
+    borderColor: 'rgba(245, 185, 66, 0.4)',
+    backgroundColor: 'rgba(245, 185, 66, 0.08)',
+  },
   flacBadgeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
     color: '#E5E5E5',
     fontFamily: 'monospace',
@@ -349,7 +491,7 @@ const styles = StyleSheet.create({
   },
   qualityLabel: {
     fontSize: 11,
-    color: '#666666',
+    color: '#888888',
     fontFamily: 'monospace',
   },
   scrubberContainer: {
@@ -416,9 +558,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#222222',
   },
+  actionButtonDownloaded: {
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+  },
   actionText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#CCCCCC',
   },
 });
+

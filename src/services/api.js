@@ -37,6 +37,7 @@ export async function fetchTrending() {
  */
 export async function resolveAudioStream(track, options = {}) {
   try {
+    const qualityParam = options.quality === '1411k' ? 'flac' : options.quality === '320k' ? 'studio' : options.flac ? 'flac' : 'studio';
     const params = new URLSearchParams({
       id: track.id || '',
       title: track.title || '',
@@ -44,7 +45,7 @@ export async function resolveAudioStream(track, options = {}) {
       album: track.album || '',
       cover: track.coverLarge || track.cover || '',
       duration: String(track.duration || ''),
-      quality: options.flac ? 'flac' : 'studio',
+      quality: qualityParam,
     });
     const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

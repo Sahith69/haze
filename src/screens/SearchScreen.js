@@ -1,6 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
-import { Search, Link, MoreHorizontal, ArrowRight, X, Music, ArrowDownToLine, CheckCircle2 } from 'lucide-react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Image,
+  BackHandler,
+} from 'react-native';
+import {
+  Search,
+  Link,
+  X,
+  Music,
+  ArrowDownToLine,
+  CheckCircle2,
+  Clock,
+  Mic,
+  Disc3,
+  User,
+  Trash2,
+} from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { searchTracks } from '../services/api';
 import { colors } from '../theme/colors';
@@ -16,18 +38,37 @@ export const SearchScreen = () => {
   const {
     playTrack,
     currentTrack,
-    flacEnabled,
+    currentUser,
     downloadTrack,
     isTrackDownloaded,
     downloadProgress,
+    searchHistory,
+    addSearchHistory,
+    removeSearchHistory,
+    clearSearchHistory,
   } = usePlayer();
+
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState(INITIAL_TRACKS);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' | 'songs' | 'artists' | 'albums'
   const [spotifyUrl, setSpotifyUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
+
+  // Android Hardware Back Button: Clear search if active before leaving search tab
+  useEffect(() => {
+    if (!hasSearched && !query) return;
+    const onBackPress = () => {
+      setQuery('');
+      setHasSearched(false);
+      setSearchResults(INITIAL_TRACKS);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [hasSearched, query]);
 
   const executeSearch = useCallback(async (text) => {
     const trimmed = text.trim();
@@ -60,7 +101,7 @@ export const SearchScreen = () => {
 
     const timer = setTimeout(() => {
       executeSearch(query);
-    }, 300);
+    }, 320);
 
     return () => clearTimeout(timer);
   }, [query, executeSearch]);
@@ -70,6 +111,21 @@ export const SearchScreen = () => {
     setSearchResults(INITIAL_TRACKS);
     setHasSearched(false);
     setIsSearching(false);
+  };
+
+  const handleTrackPress = (track) => {
+    if (query.trim()) {
+      addSearchHistory(query.trim());
+    } else {
+      addSearchHistory(track.title);
+    }
+    // Pass searchResults so the playback context and next tracks remain in search!
+    playTrack(track, searchResults);
+  };
+
+  const handleRecentPress = (term) => {
+    setQuery(term);
+    executeSearch(term);
   };
 
   const handleSpotifyImport = () => {
@@ -83,6 +139,48 @@ export const SearchScreen = () => {
     }, 1500);
   };
 
+  // Segregate artists and albums from search results
+  const uniqueArtists = useMemo(() => {
+    const map = new Map();
+    searchResults.forEach((t) => {
+      const artist = (t.artist || 'Unknown Artist').trim();
+      if (!map.has(artist)) {
+        map.set(artist, {
+          artist,
+          cover: t.cover,
+          count: 1,
+          tracks: [t],
+        });
+      } else {
+        const item = map.get(artist);
+        item.count++;
+        item.tracks.push(t);
+      }
+    });
+    return Array.from(map.values());
+  }, [searchResults]);
+
+  const uniqueAlbums = useMemo(() => {
+    const map = new Map();
+    searchResults.forEach((t) => {
+      const album = (t.album || 'Single').trim();
+      if (!map.has(album)) {
+        map.set(album, {
+          album,
+          artist: t.artist,
+          cover: t.cover,
+          count: 1,
+          tracks: [t],
+        });
+      } else {
+        const item = map.get(album);
+        item.count++;
+        item.tracks.push(t);
+      }
+    });
+    return Array.from(map.values());
+  }, [searchResults]);
+
   return (
     <ScrollView
       style={styles.container}
@@ -90,17 +188,20 @@ export const SearchScreen = () => {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* HAZE Search Header matching Header.jsx */}
+      {/* Search Input Header */}
       <View style={styles.searchBar}>
-        <Search size={16} color="#666666" />
+        <Search size={18} color="#71717A" />
         <TextInput
           style={styles.searchInput}
           placeholder="Search songs, artists, albums..."
-          placeholderTextColor="#666666"
+          placeholderTextColor="#71717A"
           value={query}
           onChangeText={setQuery}
           returnKeyType="search"
-          onSubmitEditing={() => executeSearch(query)}
+          onSubmitEditing={() => {
+            if (query.trim()) addSearchHistory(query.trim());
+            executeSearch(query);
+          }}
           autoCapitalize="none"
           autoCorrect={false}
         />
@@ -108,121 +209,233 @@ export const SearchScreen = () => {
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : query.length > 0 ? (
           <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <X size={16} color="#888888" />
+            <X size={18} color="#888888" />
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {/* Spotify Import Card matching Sidebar.jsx */}
-      <View style={styles.importCard}>
-        <View style={styles.importHeader}>
-          <Link size={16} color="#22C55E" />
-          <Text style={styles.importTitle}>Import Spotify Playlist</Text>
-        </View>
-        <Text style={styles.importDesc}>
-          Paste any Spotify playlist link to match and stream tracks in pure Lossless FLAC format.
-        </Text>
-        <View style={styles.importInputRow}>
-          <TextInput
-            style={styles.importInput}
-            placeholder="https://open.spotify.com/playlist/..."
-            placeholderTextColor="#555555"
-            value={spotifyUrl}
-            onChangeText={setSpotifyUrl}
-          />
-          <TouchableOpacity
-            style={styles.importButton}
-            activeOpacity={0.8}
-            onPress={handleSpotifyImport}
-          >
-            {isImporting ? (
-              <ActivityIndicator size="small" color="#000000" />
-            ) : (
-              <ArrowRight size={16} color="#000000" />
-            )}
-          </TouchableOpacity>
-        </View>
-        {importMessage ? (
-          <Text style={styles.importFeedback}>{importMessage}</Text>
-        ) : null}
-      </View>
-
-      {/* Results Header */}
-      <View style={styles.resultsHeader}>
-        <Text style={styles.resultsTitle}>
-          {hasSearched ? `Search Results for "${query}"` : 'Top Songs'}
-        </Text>
-      </View>
-
-      {/* Track List matching TrackList.jsx */}
-      <View style={styles.trackList}>
-        {!isSearching && hasSearched && searchResults.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No tracks found</Text>
-            <Text style={styles.emptySubtitle}>Try searching with different song titles or artists</Text>
-          </View>
-        )}
-
-        {searchResults.map((track, idx) => {
-          const isThisPlaying = currentTrack?.id === track.id;
-          const isDownloaded = isTrackDownloaded(track.id);
-          const isDownloading = downloadProgress[track.id]?.status === 'downloading';
-
+      {/* Segregation Filter Pills: All | Songs | Artists | Albums */}
+      <View style={styles.filterRow}>
+        {[
+          { id: 'all', label: 'All' },
+          { id: 'songs', label: 'Songs' },
+          { id: 'artists', label: 'Artists' },
+          { id: 'albums', label: 'Albums' },
+        ].map((cat) => {
+          const isSelected = selectedCategory === cat.id;
           return (
             <TouchableOpacity
-              key={`${track.id}-${idx}`}
-              activeOpacity={0.7}
-              style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
-              onPress={() => playTrack(track)}
+              key={cat.id}
+              style={[styles.filterPill, isSelected && styles.filterPillActive]}
+              onPress={() => setSelectedCategory(cat.id)}
             >
-              <Text style={styles.trackIndex}>{idx + 1}</Text>
-              <Image
-                source={{ uri: track.cover || 'https://via.placeholder.com/44' }}
-                style={styles.trackCover}
-              />
-              <View style={styles.trackDetails}>
-                <View style={styles.trackTitleRow}>
-                  <Text
-                    style={[styles.trackTitle, isThisPlaying && styles.trackTitlePlaying]}
-                    numberOfLines={1}
-                  >
-                    {track.title}
-                  </Text>
-                  <View style={styles.flacBadge}>
-                    <Text style={styles.flacBadgeText}>
-                      {flacEnabled ? 'FLAC' : '320k'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.trackArtist} numberOfLines={1}>
-                  {track.artist}
-                </Text>
-              </View>
-
-              {/* Quick Download Button */}
-              <TouchableOpacity
-                style={styles.downloadIconBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                onPress={() => downloadTrack(track)}
-              >
-                {isDownloaded ? (
-                  <CheckCircle2 size={16} color="#22C55E" />
-                ) : isDownloading ? (
-                  <Text style={styles.downloadingText}>...</Text>
-                ) : (
-                  <ArrowDownToLine size={15} color="#555555" />
-                )}
-              </TouchableOpacity>
-
-              <Text style={styles.trackDuration}>
-                {formatDuration(track.duration || 215)}
+              <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>
+                {cat.label}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      <View style={{ height: 160 }} />
+      {/* Isolated Search History (Only visible when query is empty) */}
+      {!query.trim() && searchHistory.length > 0 && (
+        <View style={styles.historySection}>
+          <View style={styles.historyHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Clock size={14} color="#71717A" />
+              <Text style={styles.historyTitle}>
+                Recent Searches ({currentUser.name})
+              </Text>
+            </View>
+            <TouchableOpacity onPress={clearSearchHistory}>
+              <Text style={styles.clearText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.historyChips}>
+            {searchHistory.map((item, idx) => (
+              <View key={idx} style={styles.chip}>
+                <TouchableOpacity onPress={() => handleRecentPress(item)}>
+                  <Text style={styles.chipText}>{item}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => removeSearchHistory(item)}
+                  style={styles.chipClose}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <X size={12} color="#71717A" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Spotify Import Banner */}
+      {!hasSearched && (
+        <View style={styles.importCard}>
+          <View style={styles.importHeader}>
+            <Link size={16} color="#22C55E" />
+            <Text style={styles.importTitle}>Import Spotify Playlist</Text>
+          </View>
+          <Text style={styles.importDesc}>
+            Paste any playlist link to match and stream tracks in pure Lossless FLAC format.
+          </Text>
+          <View style={styles.importInputRow}>
+            <TextInput
+              style={styles.importInput}
+              placeholder="https://open.spotify.com/playlist/..."
+              placeholderTextColor="#555555"
+              value={spotifyUrl}
+              onChangeText={setSpotifyUrl}
+            />
+            <TouchableOpacity
+              style={styles.importButton}
+              activeOpacity={0.8}
+              onPress={handleSpotifyImport}
+            >
+              {isImporting ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <Text style={styles.importButtonText}>Import</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {importMessage ? <Text style={styles.importFeedback}>{importMessage}</Text> : null}
+        </View>
+      )}
+
+      {/* ARTISTS VIEW */}
+      {(selectedCategory === 'all' || selectedCategory === 'artists') && uniqueArtists.length > 0 && hasSearched && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Artists</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.artistsRow}>
+            {uniqueArtists.slice(0, 6).map((art, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={styles.artistCard}
+                onPress={() => {
+                  setQuery(art.artist);
+                  executeSearch(art.artist);
+                }}
+              >
+                {art.cover ? (
+                  <Image source={{ uri: art.cover }} style={styles.artistAvatar} />
+                ) : (
+                  <View style={[styles.artistAvatar, styles.artistPlaceholder]}>
+                    <User size={24} color="#FFFFFF" />
+                  </View>
+                )}
+                <Text style={styles.artistName} numberOfLines={1}>
+                  {art.artist}
+                </Text>
+                <Text style={styles.artistSubtitle}>{art.count} track{art.count > 1 ? 's' : ''}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ALBUMS VIEW */}
+      {(selectedCategory === 'all' || selectedCategory === 'albums') && uniqueAlbums.length > 0 && hasSearched && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Albums</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.albumsRow}>
+            {uniqueAlbums.slice(0, 6).map((alb, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={styles.albumCard}
+                onPress={() => {
+                  setQuery(`${alb.artist} ${alb.album}`);
+                  executeSearch(`${alb.artist} ${alb.album}`);
+                }}
+              >
+                {alb.cover ? (
+                  <Image source={{ uri: alb.cover }} style={styles.albumCover} />
+                ) : (
+                  <View style={[styles.albumCover, styles.artistPlaceholder]}>
+                    <Disc3 size={24} color="#FFFFFF" />
+                  </View>
+                )}
+                <Text style={styles.albumTitle} numberOfLines={1}>
+                  {alb.album}
+                </Text>
+                <Text style={styles.albumArtist} numberOfLines={1}>
+                  {alb.artist}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* SONGS VIEW */}
+      {(selectedCategory === 'all' || selectedCategory === 'songs') && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {hasSearched ? `Songs (${searchResults.length})` : 'Popular Searches'}
+          </Text>
+
+          <View style={styles.trackList}>
+            {searchResults.map((track) => {
+              const isPlayingCurrent = currentTrack?.id === track.id;
+              const isDownloaded = isTrackDownloaded(track.id);
+              const isDownloading = downloadProgress[track.id]?.status === 'downloading';
+
+              return (
+                <TouchableOpacity
+                  key={track.id}
+                  style={[styles.trackRow, isPlayingCurrent && styles.trackRowActive]}
+                  activeOpacity={0.7}
+                  onPress={() => handleTrackPress(track)}
+                >
+                  {track.cover ? (
+                    <Image source={{ uri: track.cover }} style={styles.trackArt} />
+                  ) : (
+                    <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
+                      <Music size={16} color="#888888" />
+                    </View>
+                  )}
+
+                  <View style={styles.trackInfo}>
+                    <View style={styles.titleRow}>
+                      <Text
+                        style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
+                        numberOfLines={1}
+                      >
+                        {track.title}
+                      </Text>
+                      <View style={styles.hiResBadge}>
+                        <Text style={styles.hiResText}>FLAC</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.trackArtist} numberOfLines={1}>
+                      {track.artist} · {track.album || 'Single'}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.trackDuration}>{formatDuration(track.duration)}</Text>
+
+                  {/* Download Button */}
+                  <TouchableOpacity
+                    style={styles.downloadBtn}
+                    onPress={() => downloadTrack(track)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {isDownloading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : isDownloaded ? (
+                      <CheckCircle2 size={18} color="#22C55E" />
+                    ) : (
+                      <ArrowDownToLine size={18} color="#71717A" />
+                    )}
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -230,191 +443,288 @@ export const SearchScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   contentContainer: {
-    paddingTop: 54,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 150,
   },
   searchBar: {
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#222222',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     gap: 10,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   searchInput: {
     flex: 1,
-    height: '100%',
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
+    padding: 0,
+    fontWeight: '500',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  filterPillActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#A1A1AA',
+  },
+  filterTextActive: {
+    color: '#000000',
+    fontWeight: '700',
+  },
+  historySection: {
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  historyTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#71717A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  clearText: {
+    fontSize: 12,
+    color: '#A1A1AA',
+    fontWeight: '600',
+  },
+  historyChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 6,
+    paddingLeft: 12,
+    paddingRight: 8,
+    borderRadius: 16,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  chipText: {
+    color: '#E4E4E7',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chipClose: {
+    padding: 2,
   },
   importCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 16,
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#0A0A0A',
     borderWidth: 1,
-    borderColor: '#1E1E1E',
-    marginBottom: 20,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginTop: 12,
+    marginBottom: 16,
   },
   importHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   importTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   importDesc: {
-    fontSize: 11,
-    color: '#8E8E93',
-    lineHeight: 16,
-    marginBottom: 10,
+    fontSize: 12,
+    color: '#71717A',
+    lineHeight: 17,
+    marginBottom: 12,
   },
   importInputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
   importInput: {
     flex: 1,
-    height: 38,
-    borderRadius: 8,
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: '#242424',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   importButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
     backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  importButtonText: {
+    color: '#000000',
+    fontWeight: '700',
+    fontSize: 13,
+  },
   importFeedback: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#22C55E',
     marginTop: 8,
+    fontWeight: '600',
   },
-  resultsHeader: {
-    marginBottom: 10,
+  section: {
+    marginTop: 16,
   },
-  resultsTitle: {
-    fontSize: 15,
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#A1A1AA',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+  artistsRow: {
+    gap: 16,
+    paddingBottom: 8,
+  },
+  artistCard: {
+    alignItems: 'center',
+    width: 80,
+  },
+  artistAvatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    marginBottom: 6,
+  },
+  artistPlaceholder: {
+    backgroundColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artistName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  artistSubtitle: {
+    fontSize: 10,
+    color: '#71717A',
+    marginTop: 2,
+  },
+  albumsRow: {
+    gap: 14,
+    paddingBottom: 8,
+  },
+  albumCard: {
+    width: 100,
+  },
+  albumCover: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    marginBottom: 6,
+  },
+  albumTitle: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  albumArtist: {
+    fontSize: 11,
+    color: '#71717A',
+    marginTop: 2,
+  },
   trackList: {
-    backgroundColor: '#080808',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1A1A1A',
-    overflow: 'hidden',
+    gap: 6,
   },
   trackRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#121212',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    gap: 12,
   },
-  trackRowPlaying: {
-    backgroundColor: '#121212',
+  trackRowActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
-  trackIndex: {
-    width: 22,
-    fontSize: 12,
-    color: '#666666',
-    fontFamily: 'monospace',
-    textAlign: 'center',
+  trackArt: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  trackCover: {
-    width: 40,
-    height: 40,
-    borderRadius: 5,
-    backgroundColor: '#171717',
-    marginLeft: 8,
-  },
-  trackDetails: {
+  trackInfo: {
     flex: 1,
-    marginLeft: 12,
-    paddingRight: 8,
   },
-  trackTitleRow: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   trackTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
-    flexShrink: 1,
   },
-  trackTitlePlaying: {
-    color: '#34D399',
+  trackTitleActive: {
+    color: colors.gold,
     fontWeight: '700',
   },
-  flacBadge: {
-    backgroundColor: '#171717',
-    borderWidth: 0.5,
-    borderColor: '#262626',
-    paddingHorizontal: 4,
+  hiResBadge: {
+    backgroundColor: 'rgba(245, 185, 66, 0.15)',
+    paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 185, 66, 0.3)',
   },
-  flacBadgeText: {
-    fontSize: 8,
-    fontWeight: '700',
-    color: '#A3A3A3',
-    fontFamily: 'monospace',
+  hiResText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.gold,
   },
   trackArtist: {
-    fontSize: 11,
-    color: '#8E8E93',
+    fontSize: 12,
+    color: '#71717A',
     marginTop: 2,
   },
   trackDuration: {
-    fontSize: 11,
-    color: '#666666',
-    fontFamily: 'monospace',
-  },
-  downloadIconBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  downloadingText: {
     fontSize: 12,
-    color: '#F5B942',
-    fontWeight: '700',
+    color: '#52525B',
   },
-  emptyContainer: {
-    paddingVertical: 36,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 4,
+  downloadBtn: {
+    padding: 6,
   },
 });

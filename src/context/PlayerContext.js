@@ -8,8 +8,10 @@ import {
   resolveAudioStream,
   fetchLyrics,
   fetchVaultList,
+  searchTracks,
   saveTrackToVault,
 } from '../services/api';
+import { API_BASE_URL } from '../config';
 
 const PlayerContext = createContext();
 
@@ -83,8 +85,9 @@ export const USERS = {
     avatar: '⚡',
     badge: '⚡ FLAC Master',
     colors: ['#F5B942', '#7C5CFF'],
+    defaultQuality: '1411k',
     defaultFlac: true,
-    description: 'Always Lossless FLAC · 1,411 kbps Master',
+    description: 'Lossless FLAC Master · 1,411 kbps',
   },
   kritika: {
     id: 'kritika',
@@ -92,23 +95,34 @@ export const USERS = {
     avatar: '✨',
     badge: '✨ Hi-Fi Studio',
     colors: ['#FF5C9E', '#9B51E0'],
+    defaultQuality: '320k',
     defaultFlac: false,
-    description: 'Hi-Fi Studio 320k · Tap badge anytime for FLAC',
+    description: 'Hi-Fi Studio 320k · Audiophile Quality',
   },
 };
 
 const OFFLINE_DIR = (FileSystem.documentDirectory || '') + 'haze_offline/';
 
 export const PlayerProvider = ({ children }) => {
-  // 2-User Profiles: Sahith (FLAC by default) & Kritika (Studio / FLAC on demand)
+  // Active User Profile
   const [currentUser, setCurrentUser] = useState(USERS.sahith);
+  const [streamingQuality, setStreamingQualityState] = useState('1411k');
+  const [downloadQuality, setDownloadQualityState] = useState('1411k');
   const [flacEnabled, setFlacEnabled] = useState(true);
+
+  // Quality Modal State
+  const [showQualityModal, setShowQualityModal] = useState(false);
+  const [qualityModalMode, setQualityModalMode] = useState('streaming'); // 'streaming' | 'download'
 
   // User-isolated persistent collections
   const [likedTracks, setLikedTracks] = useState([]);
   const [userPlaylists, setUserPlaylists] = useState([]);
   const [downloadedTracks, setDownloadedTracks] = useState([]);
-  const [downloadProgress, setDownloadProgress] = useState({}); // { [trackId]: { status, percent } }
+  const [downloadProgress, setDownloadProgress] = useState({});
+  const [searchHistory, setSearchHistory] = useState([]);
+
+  // In-app Toast message system
+  const [toastMessage, setToastMessage] = useState(null);
 
   // Player state
   const [currentTrack, setCurrentTrack] = useState(INITIAL_TRACKS[0]);
@@ -143,8 +157,17 @@ export const PlayerProvider = ({ children }) => {
   });
   const [volumeLeveling, setVolumeLeveling] = useState(true);
 
+  // Critical Refs for race-condition & overlap prevention
   const soundRef = useRef(null);
-  const recentHistoryRef = useRef([]); // Spotify smart shuffle history ring buffer
+  const playbackRequestIdRef = useRef(0);
+  const recentHistoryRef = useRef([]);
+
+  // Auto-dismiss toast after 3.5s
+  useEffect(() => {
+    if (!toastMessage) return;
+    const t = setTimeout(() => setToastMessage(null), 3500);
+    return () => clearTimeout(t);
+  }, [toastMessage]);
 
   // Load user data whenever active user changes
   const loadUserData = useCallback(async (userId) => {
@@ -152,16 +175,38 @@ export const PlayerProvider = ({ children }) => {
       const likesKey = `@haze_${userId}_likes`;
       const playlistsKey = `@haze_${userId}_playlists`;
       const downloadsKey = `@haze_${userId}_downloads`;
+      const qualityKey = `@haze_${userId}_quality`;
+      const dlQualityKey = `@haze_${userId}_dl_quality`;
+      const searchKey = `@haze_${userId}_search_history`;
 
-      const [storedLikes, storedPlaylists, storedDownloads] = await Promise.all([
+      const [
+        storedLikes,
+        storedPlaylists,
+        storedDownloads,
+        storedQuality,
+        storedDlQuality,
+        storedSearch,
+      ] = await Promise.all([
         AsyncStorage.getItem(likesKey),
         AsyncStorage.getItem(playlistsKey),
         AsyncStorage.getItem(downloadsKey),
+        AsyncStorage.getItem(qualityKey),
+        AsyncStorage.getItem(dlQualityKey),
+        AsyncStorage.getItem(searchKey),
       ]);
 
       setLikedTracks(storedLikes ? JSON.parse(storedLikes) : []);
       setUserPlaylists(storedPlaylists ? JSON.parse(storedPlaylists) : []);
       setDownloadedTracks(storedDownloads ? JSON.parse(storedDownloads) : []);
+      setSearchHistory(storedSearch ? JSON.parse(storedSearch) : []);
+
+      const fallbackQuality = USERS[userId]?.defaultQuality || '1411k';
+      const activeQ = storedQuality || fallbackQuality;
+      const activeDlQ = storedDlQuality || fallbackQuality;
+
+      setStreamingQualityState(activeQ);
+      setDownloadQualityState(activeDlQ);
+      setFlacEnabled(activeQ === '1411k');
     } catch (e) {
       console.warn(`[PlayerContext] Error loading user data for ${userId}:`, e.message);
     }
@@ -171,15 +216,61 @@ export const PlayerProvider = ({ children }) => {
   const switchUser = async (userId) => {
     const user = USERS[userId] || USERS.sahith;
     setCurrentUser(user);
-    setFlacEnabled(user.defaultFlac);
     try {
       await AsyncStorage.setItem('@haze_active_user', user.id);
     } catch (e) {}
     await loadUserData(user.id);
+    setToastMessage({ type: 'info', text: `Switched profile to ${user.name}` });
+  };
+
+  // Change Streaming Quality
+  const setStreamingQuality = async (qualityId) => {
+    setStreamingQualityState(qualityId);
+    setFlacEnabled(qualityId === '1411k');
+    try {
+      await AsyncStorage.setItem(`@haze_${currentUser.id}_quality`, qualityId);
+    } catch (e) {}
+    setToastMessage({ type: 'success', text: `Streaming quality set to ${qualityId === '1411k' ? 'FLAC Master' : qualityId.toUpperCase()}` });
+  };
+
+  // Change Download Quality
+  const setDownloadQuality = async (qualityId) => {
+    setDownloadQualityState(qualityId);
+    try {
+      await AsyncStorage.setItem(`@haze_${currentUser.id}_dl_quality`, qualityId);
+    } catch (e) {}
+    setToastMessage({ type: 'success', text: `Download quality set to ${qualityId === '1411k' ? 'FLAC Master' : qualityId.toUpperCase()}` });
   };
 
   const toggleFlac = () => {
-    setFlacEnabled(prev => !prev);
+    const nextQ = flacEnabled ? '320k' : '1411k';
+    setStreamingQuality(nextQ);
+  };
+
+  // Search History Management (Isolated per user profile)
+  const addSearchHistory = async (queryText) => {
+    if (!queryText || !queryText.trim()) return;
+    const clean = queryText.trim();
+    const updated = [clean, ...searchHistory.filter(item => item.toLowerCase() !== clean.toLowerCase())].slice(0, 15);
+    setSearchHistory(updated);
+    try {
+      await AsyncStorage.setItem(`@haze_${currentUser.id}_search_history`, JSON.stringify(updated));
+    } catch (e) {}
+  };
+
+  const removeSearchHistory = async (queryText) => {
+    const updated = searchHistory.filter(item => item !== queryText);
+    setSearchHistory(updated);
+    try {
+      await AsyncStorage.setItem(`@haze_${currentUser.id}_search_history`, JSON.stringify(updated));
+    } catch (e) {}
+  };
+
+  const clearSearchHistory = async () => {
+    setSearchHistory([]);
+    try {
+      await AsyncStorage.removeItem(`@haze_${currentUser.id}_search_history`);
+    } catch (e) {}
   };
 
   // Configure background audio mode and notification permissions on mount
@@ -188,7 +279,7 @@ export const PlayerProvider = ({ children }) => {
       try {
         if (Platform.OS === 'android' && Platform.Version >= 33) {
           try {
-            const granted = await PermissionsAndroid.request(
+            await PermissionsAndroid.request(
               PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
               {
                 title: 'HAZE Music Playback Notification',
@@ -196,10 +287,7 @@ export const PlayerProvider = ({ children }) => {
                 buttonPositive: 'Allow',
               }
             );
-            console.log('[PlayerContext] Notification permission status:', granted);
-          } catch (e) {
-            console.warn('[PlayerContext] Notification permission request error:', e);
-          }
+          } catch (e) {}
         }
         await setAudioModeAsync({
           playsInSilentMode: true,
@@ -215,20 +303,17 @@ export const PlayerProvider = ({ children }) => {
     async function initApp() {
       await setupAudio();
       try {
-        // Ensure offline download directory exists
         const dirInfo = await FileSystem.getInfoAsync(OFFLINE_DIR);
         if (!dirInfo.exists) {
           await FileSystem.makeDirectoryAsync(OFFLINE_DIR, { intermediates: true });
         }
       } catch (e) {}
 
-      // Load active user profile and collections
       try {
         const savedUserId = await AsyncStorage.getItem('@haze_active_user');
         const activeId = savedUserId && USERS[savedUserId] ? savedUserId : 'sahith';
         const user = USERS[activeId];
         setCurrentUser(user);
-        setFlacEnabled(user.defaultFlac);
         await loadUserData(user.id);
       } catch (e) {
         await loadUserData('sahith');
@@ -244,16 +329,12 @@ export const PlayerProvider = ({ children }) => {
       try {
         const vaultData = await fetchVaultList();
         if (vaultData) {
-          if (Array.isArray(vaultData.tracks)) {
-            setVaultTracks(vaultData.tracks);
-          }
+          if (Array.isArray(vaultData.tracks)) setVaultTracks(vaultData.tracks);
           if (vaultData.storageUsed) setStorageUsed(vaultData.storageUsed);
           if (vaultData.storageTotal) setStorageTotal(vaultData.storageTotal);
           if (typeof vaultData.storagePercent === 'number') setStoragePercent(vaultData.storagePercent);
         }
-      } catch (e) {
-        console.warn('Error loading vault list:', e.message);
-      }
+      } catch (e) {}
 
       try {
         const trending = await fetchTrending();
@@ -268,58 +349,92 @@ export const PlayerProvider = ({ children }) => {
               ['#3B3B5C', '#8B7CFF'],
             ][idx % 5],
           }));
-          setQueue(mapped);
+          // Only initialize initial track if empty
           if (!currentTrack || currentTrack.id === INITIAL_TRACKS[0].id) {
             setCurrentTrack(mapped[0]);
           }
         }
-      } catch (e) {
-        console.warn('Error loading trending:', e.message);
-      }
+      } catch (e) {}
     }
     loadInitialData();
   }, []);
 
-  // Update Lock Screen & Notification metadata helper
-  const updateLockScreenControls = (playerInstance, track, isFlac) => {
+  // Update Lock Screen & Notification metadata helper with async binding retries
+  const updateLockScreenControls = useCallback((playerInstance, track, qualityLabel) => {
     if (!playerInstance) return;
     try {
       const displayTitle = track?.title || 'Unknown Title';
       const displayArtist = track?.artist || 'HAZE';
-      const displayAlbum = track?.album || (isFlac ? 'Lossless FLAC Master' : 'Studio Master 320k');
-      const displayArtwork = track?.coverLarge || track?.cover || undefined;
+      const displayAlbum = track?.album || qualityLabel || 'HAZE Lossless Vault';
+      const displayArtwork = track?.coverLarge || track?.cover || 'https://c.saavncdn.com/372/b7f9937fefd686876e90be4a96c9a6e9_500x500.jpg';
 
-      playerInstance.setActiveForLockScreen(
-        true,
-        {
-          title: displayTitle,
-          artist: displayArtist,
-          albumTitle: displayAlbum,
-          artworkUrl: displayArtwork,
-        },
-        {
-          showNextTrack: true,
-          showPreviousTrack: true,
-          showSeekForward: true,
-          showSeekBackward: true,
-          seekForwardIntervalSeconds: 10,
-          seekBackwardIntervalSeconds: 10,
-        }
-      );
+      const metadata = {
+        title: displayTitle,
+        artist: displayArtist,
+        albumTitle: displayAlbum,
+        artworkUrl: displayArtwork,
+      };
+
+      const options = {
+        showNextTrack: true,
+        showPreviousTrack: true,
+        showSeekForward: true,
+        showSeekBackward: true,
+        seekForwardIntervalSeconds: 10,
+        seekBackwardIntervalSeconds: 10,
+      };
+
+      // Call immediately
+      playerInstance.setActiveForLockScreen(true, metadata, options);
+
+      // Retry after service binds asynchronously
+      setTimeout(() => {
+        try {
+          if (soundRef.current === playerInstance) {
+            playerInstance.setActiveForLockScreen(true, metadata, options);
+          }
+        } catch (e) {}
+      }, 600);
+
+      setTimeout(() => {
+        try {
+          if (soundRef.current === playerInstance) {
+            playerInstance.setActiveForLockScreen(true, metadata, options);
+          }
+        } catch (e) {}
+      }, 1800);
     } catch (lockErr) {
       console.warn('[PlayerContext] setActiveForLockScreen warning:', lockErr.message);
     }
-  };
+  }, []);
 
-  // Play track (offline local file if available, or cloud stream)
-  const playTrack = async (track) => {
+  // Play track with STRICT OVERLAP PREVENTION and context-aware queue
+  const playTrack = async (track, contextQueue = null) => {
     if (!track) return;
+
+    // Increment request ID to invalidate any prior in-flight audio resolutions
+    const currentReqId = ++playbackRequestIdRef.current;
+
+    // Immediately stop and destroy existing player
+    if (soundRef.current) {
+      try {
+        soundRef.current.pause();
+        soundRef.current.remove();
+      } catch (e) {}
+      soundRef.current = null;
+    }
+
+    // Set queue to the specific context if passed (e.g. from liked, search, album)
+    if (contextQueue && Array.isArray(contextQueue) && contextQueue.length > 0) {
+      setQueue(contextQueue);
+    }
+
     const isDownloadedItem = downloadedTracks.find(d => d.id === track.id);
     const resolvedQuality = isDownloadedItem
       ? `${isDownloadedItem.qualityLabel} · Offline`
-      : flacEnabled
+      : streamingQuality === '1411k'
       ? '1,411 kbps · Lossless FLAC'
-      : '320 kbps · Studio Master';
+      : `${streamingQuality.toUpperCase()} · Studio Master`;
 
     const enrichedTrack = {
       ...track,
@@ -335,42 +450,38 @@ export const PlayerProvider = ({ children }) => {
     setDuration(track.duration || 216);
     setIsLoadingAudio(true);
 
-    // Track in smart shuffle history ring buffer
     recentHistoryRef.current = [track.id, ...recentHistoryRef.current.filter(id => id !== track.id)].slice(0, 20);
 
     // Fetch synced lyrics concurrently
     fetchLyrics(track).then(setLiveLyrics);
 
     try {
-      if (soundRef.current) {
-        try {
-          soundRef.current.pause();
-          soundRef.current.remove();
-        } catch (e) {}
-        soundRef.current = null;
-      }
-
       let audioUriToPlay = null;
 
-      // 1. Check if available offline locally on device
+      // 1. Offline local file
       if (isDownloadedItem && isDownloadedItem.localAudioUri) {
         try {
           const fileInfo = await FileSystem.getInfoAsync(isDownloadedItem.localAudioUri);
-          if (fileInfo.exists) {
+          if (fileInfo.exists && fileInfo.size > 5000) {
             audioUriToPlay = isDownloadedItem.localAudioUri;
             console.log(`[PlayerContext] Playing offline local file: ${audioUriToPlay}`);
           }
         } catch (e) {}
       }
 
-      // 2. Otherwise resolve remote stream from HAZE server
+      // 2. Remote stream
       let fallbackUrl = null;
       if (!audioUriToPlay) {
         console.log(`[PlayerContext] Resolving audio stream for: "${track.title}" by ${track.artist} (${resolvedQuality})`);
-        const streamResult = await resolveAudioStream(track, { flac: flacEnabled });
+        const streamResult = await resolveAudioStream(track, { quality: streamingQuality });
         audioUriToPlay = typeof streamResult === 'string' ? streamResult : streamResult?.streamUrl;
         fallbackUrl = typeof streamResult === 'object' ? streamResult?.fallbackUrl : null;
-        console.log(`[PlayerContext] Resolved stream URL:`, audioUriToPlay);
+      }
+
+      // Check if a newer track was tapped while we were waiting on network!
+      if (currentReqId !== playbackRequestIdRef.current) {
+        console.log(`[PlayerContext] Aborted play request #${currentReqId} (newer request #${playbackRequestIdRef.current} active).`);
+        return;
       }
 
       if (audioUriToPlay) {
@@ -386,12 +497,19 @@ export const PlayerProvider = ({ children }) => {
           updateInterval: 250,
           keepAudioSessionActive: true,
         });
-        soundRef.current = player;
 
-        // Native Android Lock Screen & Notification media controls
-        updateLockScreenControls(player, track, flacEnabled);
+        // Double check request ID before attaching
+        if (currentReqId !== playbackRequestIdRef.current) {
+          try { player.remove(); } catch (e) {}
+          return;
+        }
+
+        soundRef.current = player;
+        updateLockScreenControls(player, track, resolvedQuality);
 
         player.addListener('playbackStatusUpdate', (status) => {
+          if (currentReqId !== playbackRequestIdRef.current) return;
+
           if (status.error) {
             console.warn('[PlayerContext] Audio status error:', status.error);
             if (fallbackUrl && fallbackUrl !== audioUriToPlay) {
@@ -429,7 +547,9 @@ export const PlayerProvider = ({ children }) => {
     } catch (err) {
       console.warn('[PlayerContext] Audio playback error:', err.message);
     } finally {
-      setIsLoadingAudio(false);
+      if (currentReqId === playbackRequestIdRef.current) {
+        setIsLoadingAudio(false);
+      }
     }
   };
 
@@ -448,98 +568,115 @@ export const PlayerProvider = ({ children }) => {
         console.warn('Playback toggle error:', e.message);
       }
     } else if (currentTrack) {
-      await playTrack(currentTrack);
-      return;
+      playTrack(currentTrack);
     }
-    setIsPlaying(prev => !prev);
   };
 
   const seekTo = (seconds) => {
-    setPosition(seconds);
     if (soundRef.current) {
       try {
         soundRef.current.seekTo(seconds);
-      } catch (e) {}
+        setPosition(seconds);
+      } catch (e) {
+        console.warn('Seek error:', e.message);
+      }
     }
   };
 
   /**
-   * Spotify-style Smart Shuffle algorithm:
-   * 1. Excludes tracks in the recent history ring buffer (no immediate repeats).
-   * 2. Avoids consecutive tracks by the exact same artist.
-   * 3. Harmony matching: boosts tracks sharing genre, mood or tempo.
-   * 4. User affinity: boosts tracks the current user has liked (+20 weight).
-   * 5. Weighted random selection so every session feels fresh yet delightfully curated.
+   * VIBE & CONTEXT-AWARE SMART RECOMMENDATION ALGORITHM
+   * 1. Same artist / album context matching first.
+   * 2. User liked library affinity.
+   * 3. Background dynamic similar artist fetch when queue runs low (NEVER random top trends!).
    */
-  const getSpotifySmartNextTrack = useCallback(() => {
+  const getSmartNextTrack = useCallback(async () => {
     if (!queue || queue.length === 0) return currentTrack;
     if (queue.length === 1) return queue[0];
 
-    const currentArtist = (currentTrack?.artist || '').toLowerCase();
-    const currentGenre = (currentTrack?.genre || '').toLowerCase();
-    const likedIds = new Set(likedTracks.map(t => t.id));
+    const currentArtist = (currentTrack?.artist || '').toLowerCase().trim();
+    const currentAlbum = (currentTrack?.album || '').toLowerCase().trim();
     const recentSet = new Set(recentHistoryRef.current);
+    const likedIds = new Set(likedTracks.map(t => t.id));
 
-    // Candidates that haven't been played in recent turns
+    // Candidates in current context (excluding recently played)
     let candidates = queue.filter(t => t.id !== currentTrack?.id && !recentSet.has(t.id));
     if (candidates.length === 0) {
-      // If exhausted, filter only by current track
       candidates = queue.filter(t => t.id !== currentTrack?.id);
     }
-    if (candidates.length === 0) candidates = queue;
 
-    // Score candidates based on Spotify smart shuffle heuristics
-    const scored = candidates.map(t => {
-      let score = 10;
-      const tArtist = (t.artist || '').toLowerCase();
-      const tGenre = (t.genre || '').toLowerCase();
+    if (candidates.length > 0) {
+      const scored = candidates.map(t => {
+        let score = 10;
+        const tArtist = (t.artist || '').toLowerCase().trim();
+        const tAlbum = (t.album || '').toLowerCase().trim();
 
-      // Avoid same artist back-to-back
-      if (tArtist && currentArtist && tArtist !== currentArtist) {
-        score += 15;
-      }
+        // Same artist heavy boost
+        if (tArtist && currentArtist && (tArtist.includes(currentArtist) || currentArtist.includes(tArtist))) {
+          score += 60;
+        }
+        // Same album boost
+        if (tAlbum && currentAlbum && tAlbum === currentAlbum) {
+          score += 40;
+        }
+        // User liked affinity
+        if (likedIds.has(t.id)) {
+          score += 25;
+        }
+        // Duration similarity (vibe pace)
+        const diff = Math.abs((t.duration || 210) - (currentTrack?.duration || 210));
+        if (diff < 40) score += 10;
 
-      // Genre continuity
-      if (tGenre && currentGenre && (tGenre.includes(currentGenre) || currentGenre.includes(tGenre))) {
-        score += 20;
-      }
+        score += Math.random() * 8;
+        return { track: t, score };
+      });
 
-      // User affinity bonus
-      if (likedIds.has(t.id)) {
-        score += 18;
-      }
+      scored.sort((a, b) => b.score - a.score);
+      return scored[0]?.track;
+    }
 
-      // Proximity in duration (energy flow)
-      const diff = Math.abs((t.duration || 210) - (currentTrack?.duration || 210));
-      if (diff < 40) score += 8;
+    // Dynamic similar music fallback from backend
+    if (currentTrack?.artist) {
+      try {
+        const related = await searchTracks(currentTrack.artist);
+        const validRelated = (related || []).filter(t => t.id !== currentTrack.id && !recentSet.has(t.id));
+        if (validRelated.length > 0) {
+          setQueue(prev => [...prev, ...validRelated.slice(0, 8)]);
+          return validRelated[0];
+        }
+      } catch (e) {}
+    }
 
-      // Random jitter for organic exploration
-      score += Math.random() * 12;
-
-      return { track: t, score };
-    });
-
-    scored.sort((a, b) => b.score - a.score);
-    return scored[0]?.track || candidates[0];
+    return currentTrack;
   }, [queue, currentTrack, likedTracks]);
 
-  const nextTrack = () => {
+  const nextTrack = async () => {
     if (isShuffle) {
-      const smartNext = getSpotifySmartNextTrack();
+      const smartNext = await getSmartNextTrack();
       if (smartNext) {
         playTrack(smartNext);
         return;
       }
     }
+
     const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
-    const nextIndex = (currentIndex + 1) % queue.length;
-    playTrack(queue[nextIndex]);
+    if (currentIndex >= 0 && currentIndex + 1 < queue.length) {
+      playTrack(queue[currentIndex + 1]);
+    } else {
+      // Find similar vibe rather than jumping to trend #0
+      const smartNext = await getSmartNextTrack();
+      if (smartNext) playTrack(smartNext);
+    }
   };
 
   const previousTrack = () => {
     const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
-    const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-    playTrack(queue[prevIndex]);
+    if (currentIndex > 0) {
+      playTrack(queue[currentIndex - 1]);
+    } else if (position > 5) {
+      seekTo(0);
+    } else {
+      playTrack(queue[queue.length - 1]);
+    }
   };
 
   const handleTrackFinish = () => {
@@ -551,7 +688,7 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
-  // Toggle Liked Song (Isolated per user profile in persistent AsyncStorage)
+  // Toggle Liked Song (Isolated per user profile)
   const toggleLike = async (track) => {
     const targetTrack = track || currentTrack;
     if (!targetTrack || !targetTrack.id) return;
@@ -560,6 +697,7 @@ export const PlayerProvider = ({ children }) => {
     let updatedLikes;
     if (isCurrentlyLiked) {
       updatedLikes = likedTracks.filter(t => t.id !== targetTrack.id);
+      setToastMessage({ type: 'info', text: `Removed "${targetTrack.title}" from Liked Songs` });
     } else {
       const likedItem = {
         ...targetTrack,
@@ -567,23 +705,21 @@ export const PlayerProvider = ({ children }) => {
         likedAt: new Date().toISOString(),
       };
       updatedLikes = [likedItem, ...likedTracks];
+      setToastMessage({ type: 'success', text: `Added "${targetTrack.title}" to Liked Songs` });
     }
 
     setLikedTracks(updatedLikes);
     const likesKey = `@haze_${currentUser.id}_likes`;
     try {
       await AsyncStorage.setItem(likesKey, JSON.stringify(updatedLikes));
-    } catch (e) {
-      console.warn('Error saving likes to AsyncStorage:', e.message);
-    }
+    } catch (e) {}
 
-    // Update isLiked in currentTrack
     if (currentTrack?.id === targetTrack.id) {
       setCurrentTrack(prev => ({ ...prev, isLiked: !isCurrentlyLiked }));
     }
   };
 
-  // Playlist Management (Isolated per user profile in persistent AsyncStorage)
+  // Playlist Management (Isolated per user profile)
   const createPlaylist = async (name, description = '') => {
     if (!name || !name.trim()) return;
     const newPlaylist = {
@@ -599,10 +735,8 @@ export const PlayerProvider = ({ children }) => {
     setUserPlaylists(updated);
     try {
       await AsyncStorage.setItem(`@haze_${currentUser.id}_playlists`, JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Error creating playlist:', e.message);
-    }
-    return newPlaylist;
+    } catch (e) {}
+    setToastMessage({ type: 'success', text: `Created playlist "${name}"` });
   };
 
   const deletePlaylist = async (playlistId) => {
@@ -614,93 +748,126 @@ export const PlayerProvider = ({ children }) => {
   };
 
   const addTrackToPlaylist = async (playlistId, track) => {
+    if (!playlistId || !track) return;
     const updated = userPlaylists.map(pl => {
-      if (pl.id !== playlistId) return pl;
-      if (pl.tracks.some(t => t.id === track.id)) return pl;
-      return {
-        ...pl,
-        cover: track.cover || pl.cover,
-        tracks: [track, ...pl.tracks],
-      };
+      if (pl.id === playlistId) {
+        if (pl.tracks.some(t => t.id === track.id)) return pl;
+        return {
+          ...pl,
+          tracks: [track, ...pl.tracks],
+          cover: track.cover || pl.cover,
+        };
+      }
+      return pl;
     });
+
     setUserPlaylists(updated);
     try {
       await AsyncStorage.setItem(`@haze_${currentUser.id}_playlists`, JSON.stringify(updated));
     } catch (e) {}
+    setToastMessage({ type: 'success', text: `Added to playlist` });
   };
 
   const removeTrackFromPlaylist = async (playlistId, trackId) => {
     const updated = userPlaylists.map(pl => {
-      if (pl.id !== playlistId) return pl;
-      return {
-        ...pl,
-        tracks: pl.tracks.filter(t => t.id !== trackId),
-      };
+      if (pl.id === playlistId) {
+        return {
+          ...pl,
+          tracks: pl.tracks.filter(t => t.id !== trackId),
+        };
+      }
+      return pl;
     });
+
     setUserPlaylists(updated);
     try {
       await AsyncStorage.setItem(`@haze_${currentUser.id}_playlists`, JSON.stringify(updated));
     } catch (e) {}
   };
 
-  // Local Offline Music Download (Isolated per user, with desired quality)
+  const isTrackLiked = (trackId) => likedTracks.some(t => t.id === trackId);
+
+  // ROBUST OFFLINE DOWNLOAD WITH DIRECT HEADERS & PROXY FALLBACK
   const downloadTrack = async (track) => {
     const target = track || currentTrack;
-    if (!target || !target.id) return;
+    if (!target) return;
 
     if (downloadedTracks.some(d => d.id === target.id)) {
-      console.log(`[Download] "${target.title}" is already downloaded.`);
+      setToastMessage({ type: 'info', text: `"${target.title}" is already downloaded.` });
       return;
     }
 
     setDownloadProgress(prev => ({ ...prev, [target.id]: { status: 'downloading', percent: 0 } }));
+    setToastMessage({ type: 'progress', text: `Downloading "${target.title}" (${downloadQuality === '1411k' ? 'FLAC Master' : 'Studio 320k'})...` });
 
     try {
-      // Ensure download dir exists
       const dirInfo = await FileSystem.getInfoAsync(OFFLINE_DIR);
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(OFFLINE_DIR, { intermediates: true });
       }
 
-      // Sahith gets FLAC Master; Kritika gets 320 kbps (or FLAC if toggled)
-      const downloadFlac = flacEnabled;
-      const qualityTag = downloadFlac ? '1,411 kbps · Lossless FLAC Master' : '320 kbps · Studio Master';
-      const fileExt = downloadFlac ? 'flac' : 'mp4';
+      const isFlacDl = downloadQuality === '1411k';
+      const fileExt = isFlacDl ? 'flac' : 'mp4';
+      const qualityTag = isFlacDl ? '1,411 kbps · Lossless FLAC Master' : '320 kbps · Studio Master';
 
       console.log(`[Download] Resolving audio stream for download: "${target.title}" (${qualityTag})`);
-      const streamRes = await resolveAudioStream(target, { flac: downloadFlac });
-      const streamUrl = typeof streamRes === 'string' ? streamRes : streamRes?.streamUrl;
+      const streamRes = await resolveAudioStream(target, { quality: downloadQuality });
+      let streamUrl = typeof streamRes === 'string' ? streamRes : streamRes?.streamUrl;
 
       if (!streamUrl) {
-        throw new Error('Failed to obtain stream URL for offline download');
+        throw new Error('Failed to obtain stream URL');
+      }
+
+      if (!streamUrl.startsWith('http')) {
+        streamUrl = `${API_BASE_URL}${streamUrl.startsWith('/') ? '' : '/'}${streamUrl}`;
       }
 
       const safeId = String(target.id).replace(/[^a-zA-Z0-9_-]/g, '_');
       const localAudioPath = `${OFFLINE_DIR}${safeId}_${currentUser.id}.${fileExt}`;
       const localCoverPath = `${OFFLINE_DIR}${safeId}_cover.jpg`;
 
-      // Download audio file
-      console.log(`[Download] Downloading audio to: ${localAudioPath}`);
-      const downloadRes = await FileSystem.downloadAsync(streamUrl, localAudioPath);
+      const downloadHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'Accept': '*/*',
+      };
 
-      // Download cover art if available
+      let downloadRes = await FileSystem.downloadAsync(streamUrl, localAudioPath, {
+        headers: downloadHeaders,
+      });
+
+      // If direct CDN blocked with 403, retry through backend proxy
+      if (downloadRes.status >= 400 && !streamUrl.includes('/api/')) {
+        console.warn(`[Download] Direct download returned HTTP ${downloadRes.status}. Retrying via proxy...`);
+        const proxyUrl = `${API_BASE_URL}/api/proxy-stream?url=${encodeURIComponent(streamUrl)}`;
+        downloadRes = await FileSystem.downloadAsync(proxyUrl, localAudioPath, {
+          headers: downloadHeaders,
+        });
+      }
+
+      if (downloadRes.status >= 400) {
+        throw new Error(`Download HTTP error ${downloadRes.status}`);
+      }
+
+      const fileInfo = await FileSystem.getInfoAsync(localAudioPath);
+      if (!fileInfo.exists || (fileInfo.size || 0) < 5000) {
+        throw new Error('Downloaded audio file is invalid');
+      }
+
+      // Download cover art
       let localCoverUri = target.cover || '';
       if (target.cover && target.cover.startsWith('http')) {
         try {
           const coverRes = await FileSystem.downloadAsync(target.cover, localCoverPath);
           localCoverUri = coverRes.uri;
-        } catch (e) {
-          console.warn('[Download] Cover download fallback:', e.message);
-        }
+        } catch (e) {}
       }
 
-      const fileInfo = await FileSystem.getInfoAsync(downloadRes.uri);
       const downloadRecord = {
         ...target,
         localAudioUri: downloadRes.uri,
         localCoverUri,
         qualityLabel: qualityTag,
-        isFlac: downloadFlac,
+        isFlac: isFlacDl,
         fileSize: fileInfo.size || 0,
         downloadedAt: new Date().toISOString(),
         downloadedBy: currentUser.id,
@@ -715,10 +882,11 @@ export const PlayerProvider = ({ children }) => {
       }
 
       setDownloadProgress(prev => ({ ...prev, [target.id]: { status: 'completed', percent: 100 } }));
-      console.log(`[Download] Successfully saved "${target.title}" locally for ${currentUser.name}`);
+      setToastMessage({ type: 'success', text: `✓ Saved "${target.title}" offline (${(fileInfo.size / (1024 * 1024)).toFixed(1)} MB)` });
     } catch (err) {
-      console.error('[Download] Download error:', err);
+      console.error('[Download] Error downloading track:', err);
       setDownloadProgress(prev => ({ ...prev, [target.id]: { status: 'failed', error: err.message } }));
+      setToastMessage({ type: 'error', text: `Download failed: ${err.message}` });
     }
   };
 
@@ -742,61 +910,51 @@ export const PlayerProvider = ({ children }) => {
     if (currentTrack?.id === trackId) {
       setCurrentTrack(prev => ({ ...prev, isDownloaded: false }));
     }
+    setToastMessage({ type: 'info', text: 'Removed from offline downloads' });
   };
 
-  const isTrackDownloaded = (trackId) => {
-    return downloadedTracks.some(d => d.id === trackId);
-  };
+  const isTrackDownloaded = (trackId) => downloadedTracks.some(d => d.id === trackId);
 
-  const isTrackLiked = (trackId) => {
-    return likedTracks.some(t => t.id === trackId);
-  };
-
-  // One-click upgrade to Cloud Vault (Cloudflare R2)
   const saveToVault = async (track) => {
-    const updated = {
-      ...track,
-      inVault: true,
-      isHiRes: true,
-      qualityLabel: '48 kHz · Cloud Vault',
-    };
-
-    setVaultTracks(prev => {
-      if (prev.find(t => t.id === track.id)) return prev;
-      return [updated, ...prev];
-    });
-
-    if (currentTrack?.id === track.id) {
-      setCurrentTrack(updated);
-    }
-
-    saveTrackToVault(track).then((res) => {
-      if (res && res.success) {
-        console.log('[PlayerContext] Successfully saved to R2 Cloud Vault');
+    const target = track || currentTrack;
+    if (!target) return;
+    try {
+      setToastMessage({ type: 'progress', text: `Archiving "${target.title}" to Telegram Cloud...` });
+      const res = await saveTrackToVault(target);
+      if (res.success) {
+        setToastMessage({ type: 'success', text: `✓ Archived to Telegram FLAC Vault!` });
+        const updatedVault = await fetchVaultList();
+        if (updatedVault?.tracks) setVaultTracks(updatedVault.tracks);
       }
-    });
-  };
-
-  const clearQueue = () => {
-    setQueue([currentTrack]);
-  };
-
-  const shuffleQueue = () => {
-    setIsShuffle(prev => !prev);
-    if (!isShuffle) {
-      // Activating Smart Shuffle
-      const nextSong = getSpotifySmartNextTrack();
-      console.log('[Smart Shuffle] Activated Spotify-style smart queue. Up next:', nextSong?.title);
+    } catch (e) {
+      setToastMessage({ type: 'error', text: 'Failed to archive track' });
     }
   };
+
+  const clearQueue = () => setQueue([]);
+  const shuffleQueue = () => setIsShuffle(prev => !prev);
 
   return (
     <PlayerContext.Provider
       value={{
         currentUser,
-        flacEnabled,
         switchUser,
+        flacEnabled,
         toggleFlac,
+        streamingQuality,
+        downloadQuality,
+        setStreamingQuality,
+        setDownloadQuality,
+        showQualityModal,
+        setShowQualityModal,
+        qualityModalMode,
+        setQualityModalMode,
+        searchHistory,
+        addSearchHistory,
+        removeSearchHistory,
+        clearSearchHistory,
+        toastMessage,
+        setToastMessage,
         USERS,
         currentTrack,
         isPlaying,
