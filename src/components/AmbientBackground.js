@@ -6,7 +6,7 @@ import { colors } from '../theme/colors';
 export const AmbientBackground = ({ children }) => {
   return (
     <View style={styles.container}>
-      {/* Subtle Monochrome Dark Vignette */}
+      {/* Subtle HAZE Dark Vignette */}
       <LinearGradient
         colors={['#0D0D0D', '#000000', '#000000']}
         style={StyleSheet.absoluteFillObject}

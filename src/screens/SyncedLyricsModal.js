@@ -36,7 +36,7 @@ export const SyncedLyricsModal = () => {
 
   return (
     <View style={styles.modalOverlay}>
-      {/* Monochrome Pure Dark Background */}
+      {/* HAZE Pure Dark Background */}
       <LinearGradient
         colors={['#0F0F0F', '#000000', '#000000']}
         style={StyleSheet.absoluteFillObject}

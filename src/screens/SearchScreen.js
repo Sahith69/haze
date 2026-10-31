@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
-import { Search, Link, MoreHorizontal, ArrowRight, X, Music } from 'lucide-react-native';
+import { Search, Link, MoreHorizontal, ArrowRight, X, Music, ArrowDownToLine, CheckCircle2 } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { searchTracks } from '../services/api';
 import { colors } from '../theme/colors';
@@ -13,7 +13,14 @@ function formatDuration(seconds) {
 }
 
 export const SearchScreen = () => {
-  const { playTrack, currentTrack, flacEnabled } = usePlayer();
+  const {
+    playTrack,
+    currentTrack,
+    flacEnabled,
+    downloadTrack,
+    isTrackDownloaded,
+    downloadProgress,
+  } = usePlayer();
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState(INITIAL_TRACKS);
   const [isSearching, setIsSearching] = useState(false);
@@ -83,7 +90,7 @@ export const SearchScreen = () => {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Monochrome Search Header matching Header.jsx */}
+      {/* HAZE Search Header matching Header.jsx */}
       <View style={styles.searchBar}>
         <Search size={16} color="#666666" />
         <TextInput
@@ -158,6 +165,9 @@ export const SearchScreen = () => {
 
         {searchResults.map((track, idx) => {
           const isThisPlaying = currentTrack?.id === track.id;
+          const isDownloaded = isTrackDownloaded(track.id);
+          const isDownloading = downloadProgress[track.id]?.status === 'downloading';
+
           return (
             <TouchableOpacity
               key={`${track.id}-${idx}`}
@@ -180,7 +190,7 @@ export const SearchScreen = () => {
                   </Text>
                   <View style={styles.flacBadge}>
                     <Text style={styles.flacBadgeText}>
-                      {flacEnabled ? 'FLAC' : 'HQ'}
+                      {flacEnabled ? 'FLAC' : '320k'}
                     </Text>
                   </View>
                 </View>
@@ -188,6 +198,22 @@ export const SearchScreen = () => {
                   {track.artist}
                 </Text>
               </View>
+
+              {/* Quick Download Button */}
+              <TouchableOpacity
+                style={styles.downloadIconBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => downloadTrack(track)}
+              >
+                {isDownloaded ? (
+                  <CheckCircle2 size={16} color="#22C55E" />
+                ) : isDownloading ? (
+                  <Text style={styles.downloadingText}>...</Text>
+                ) : (
+                  <ArrowDownToLine size={15} color="#555555" />
+                )}
+              </TouchableOpacity>
+
               <Text style={styles.trackDuration}>
                 {formatDuration(track.duration || 215)}
               </Text>
@@ -365,6 +391,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666666',
     fontFamily: 'monospace',
+  },
+  downloadIconBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadingText: {
+    fontSize: 12,
+    color: '#F5B942',
+    fontWeight: '700',
   },
   emptyContainer: {
     paddingVertical: 36,

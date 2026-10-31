@@ -68,7 +68,7 @@ export const MiniPlayer = () => {
         />
       </TouchableOpacity>
 
-      {/* Play/Pause Button - Pure Monochrome: White circle with black icon */}
+      {/* Play/Pause Button - Pure HAZE: White circle with black icon */}
       <TouchableOpacity
         activeOpacity={0.8}
         style={styles.playButton}

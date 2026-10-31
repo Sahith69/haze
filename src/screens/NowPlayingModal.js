@@ -13,6 +13,8 @@ import {
   Mic2,
   ListMusic,
   Activity,
+  ArrowDownToLine,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
@@ -38,6 +40,7 @@ export const NowPlayingModal = () => {
     previousTrack,
     seekTo,
     toggleLike,
+    isTrackLiked,
     isShuffle,
     isRepeat,
     shuffleQueue,
@@ -45,6 +48,10 @@ export const NowPlayingModal = () => {
     setActiveModal,
     closeModal,
     flacEnabled,
+    downloadTrack,
+    isTrackDownloaded,
+    downloadProgress,
+    currentUser,
   } = usePlayer();
 
   const [scrubberWidth, setScrubberWidth] = useState(width - 48);
@@ -59,6 +66,9 @@ export const NowPlayingModal = () => {
 
   if (!currentTrack) return null;
 
+  const isLiked = isTrackLiked(currentTrack.id);
+  const isDownloaded = isTrackDownloaded(currentTrack.id);
+  const isDownloading = downloadProgress[currentTrack.id]?.status === 'downloading';
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
   const artSize = Math.min(width - 48, 330);
 
@@ -72,9 +82,9 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerSuper}>PLAYING FROM</Text>
-            <Text style={styles.headerTitle}>Trending Charts</Text>
+            <Text style={styles.headerTitle}>HAZE Top Charts</Text>
           </View>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => setActiveModal('queue')}>
             <MoreHorizontal size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -102,25 +112,29 @@ export const NowPlayingModal = () => {
           </View>
           <TouchableOpacity
             style={styles.likeBtn}
-            onPress={() => toggleLike(currentTrack.id)}
+            onPress={() => toggleLike(currentTrack)}
           >
             <Heart
               size={24}
-              color={currentTrack.isLiked ? '#EF4444' : '#666666'}
-              fill={currentTrack.isLiked ? '#EF4444' : 'none'}
+              color={isLiked ? '#EF4444' : '#666666'}
+              fill={isLiked ? '#EF4444' : 'none'}
             />
           </TouchableOpacity>
         </View>
 
-        {/* Monochrome Monospace Quality Badge */}
+        {/* HAZE Monospace Quality Badge */}
         <View style={styles.badgeRow}>
           <View style={styles.flacBadge}>
             <Text style={styles.flacBadgeText}>
-              {flacEnabled ? 'FLAC' : 'HQ 320k'}
+              {isDownloaded ? (currentTrack.isFlac ? 'FLAC OFFLINE' : '320k OFFLINE') : (flacEnabled ? 'FLAC MASTER' : 'STUDIO 320k')}
             </Text>
           </View>
           <Text style={styles.qualityLabel}>
-            {flacEnabled ? '1,411 kbps · 24-bit Lossless' : '320 kbps Studio Audio'}
+            {isDownloaded
+              ? 'Saved to Local Device Storage'
+              : flacEnabled
+              ? '1,411 kbps · 24-bit Bit-Perfect'
+              : '320 kbps Studio Master Audio'}
           </Text>
         </View>
 
@@ -141,7 +155,7 @@ export const NowPlayingModal = () => {
           </View>
         </TouchableOpacity>
 
-        {/* Playback Controls matching Monochrome NowPlayingBar */}
+        {/* Playback Controls matching HAZE Player */}
         <View style={styles.controlsRow}>
           <TouchableOpacity style={styles.iconBtn} onPress={shuffleQueue}>
             <Shuffle
@@ -183,8 +197,25 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Quick Action Buttons matching Monochrome player */}
+        {/* Quick Action Buttons matching HAZE player */}
         <View style={styles.actionsRow}>
+          {/* Download Button */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => downloadTrack(currentTrack)}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : isDownloaded ? (
+              <CheckCircle2 size={16} color="#22C55E" />
+            ) : (
+              <ArrowDownToLine size={16} color="#A3A3A3" />
+            )}
+            <Text style={[styles.actionText, isDownloaded && { color: '#22C55E' }]}>
+              {isDownloading ? 'Saving...' : isDownloaded ? 'Saved' : 'Download'}
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => setActiveModal('lyrics')}

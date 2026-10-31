@@ -22,9 +22,9 @@ export const CloudVaultScreen = () => {
       showsVerticalScrollIndicator={false}
     >
       {/* Title */}
-      <Text style={styles.headerTitle}>Lossless Vault</Text>
+      <Text style={styles.headerTitle}>HAZE Lossless Vault</Text>
 
-      {/* Storage Card matching Monochrome theme */}
+      {/* Storage Card matching HAZE theme */}
       <View style={styles.storageCard}>
         <View style={styles.storageHeaderRow}>
           <View style={styles.storageLeft}>

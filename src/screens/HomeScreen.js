@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal } from 'react-native';
-import { Play, Sparkles, Music2, ChevronDown, Check, Disc3 } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal, RefreshControl } from 'react-native';
+import { Play, Sparkles, Music2, ChevronDown, Check, ArrowDownToLine, CheckCircle2 } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
@@ -12,27 +12,53 @@ function formatDuration(seconds) {
 }
 
 export const HomeScreen = () => {
-  const { playTrack, currentTrack, isPlaying, queue, currentUser, switchUser, flacEnabled, USERS } = usePlayer();
+  const {
+    playTrack,
+    currentTrack,
+    isPlaying,
+    queue,
+    currentUser,
+    switchUser,
+    flacEnabled,
+    USERS,
+    downloadTrack,
+    isTrackDownloaded,
+    downloadProgress,
+  } = usePlayer();
   const [showUserModal, setShowUserModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const trendingTracks = queue && queue.length > 0 ? queue : INITIAL_TRACKS;
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 800);
+  };
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#FFFFFF"
+          colors={['#FFFFFF']}
+        />
+      }
     >
-      {/* Monochrome Brand Header matching Sidebar & Header */}
+      {/* HAZE Brand Header matching Sidebar & Header */}
       <View style={styles.brandRow}>
         <View style={styles.brandLeft}>
-          {/* Monochrome Signature Dot Logo */}
+          {/* HAZE Signature Dot Logo */}
           <View style={styles.logoCircle}>
             <View style={styles.logoDot} />
           </View>
           <View style={styles.brandTextGroup}>
-            <Text style={styles.brandTitle}>MONOCHROME</Text>
-            <Text style={styles.brandSubtitle}>HI-RES AUDIO</Text>
+            <Text style={styles.brandTitle}>HAZE</Text>
+            <Text style={styles.brandSubtitle}>STUDIO & LOSSLESS AUDIO</Text>
           </View>
         </View>
 
@@ -50,18 +76,18 @@ export const HomeScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Featured Banner matching App.jsx */}
+      {/* Featured Banner */}
       <View style={styles.featuredBanner}>
         <View style={styles.bannerBadge}>
           <Sparkles size={12} color="#FFFFFF" />
           <Text style={styles.bannerBadgeText}>
-            {flacEnabled ? 'Pure FLAC & Lossless Master' : 'Pure Lossless Audio'}
+            {flacEnabled ? 'Pure FLAC & Lossless Master' : 'Hi-Fi Studio Audio'}
           </Text>
         </View>
 
-        <Text style={styles.bannerTitle}>Welcome to Monochrome.</Text>
+        <Text style={styles.bannerTitle}>Welcome to HAZE.</Text>
         <Text style={styles.bannerSubtitle}>
-          Stream millions of songs with bit-perfect lossless quality, synchronized lyrics, audio visualizers, and Spotify imports.
+          Stream and download millions of tracks with bit-perfect lossless quality, synchronized lyrics, Spotify smart shuffle, and offline vault.
         </Text>
 
         <View style={styles.bannerActionRow}>
@@ -71,7 +97,7 @@ export const HomeScreen = () => {
             onPress={() => playTrack(trendingTracks[0])}
           >
             <Play size={14} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
-            <Text style={styles.playButtonText}>Play Top Songs</Text>
+            <Text style={styles.playButtonText}>Play Top Trending</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -139,10 +165,13 @@ export const HomeScreen = () => {
         <Text style={styles.sectionBadge}>Top Charts</Text>
       </View>
 
-      {/* Monochrome Track List (exact TrackList.jsx design) */}
+      {/* HAZE Track List (exact TrackList design) */}
       <View style={styles.trackList}>
         {trendingTracks.map((track, idx) => {
           const isThisPlaying = currentTrack?.id === track.id;
+          const isDownloaded = isTrackDownloaded(track.id);
+          const isDownloading = downloadProgress[track.id]?.status === 'downloading';
+
           return (
             <TouchableOpacity
               key={`${track.id}-${idx}`}
@@ -165,7 +194,7 @@ export const HomeScreen = () => {
                   </Text>
                   <View style={styles.flacBadge}>
                     <Text style={styles.flacBadgeText}>
-                      {flacEnabled ? 'FLAC' : 'HQ'}
+                      {flacEnabled ? 'FLAC' : '320k'}
                     </Text>
                   </View>
                 </View>
@@ -173,6 +202,22 @@ export const HomeScreen = () => {
                   {track.artist}
                 </Text>
               </View>
+
+              {/* Quick Download Button */}
+              <TouchableOpacity
+                style={styles.downloadIconBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => downloadTrack(track)}
+              >
+                {isDownloaded ? (
+                  <CheckCircle2 size={16} color="#22C55E" />
+                ) : isDownloading ? (
+                  <Text style={styles.downloadingText}>...</Text>
+                ) : (
+                  <ArrowDownToLine size={15} color="#555555" />
+                )}
+              </TouchableOpacity>
+
               <Text style={styles.trackDuration}>
                 {formatDuration(track.duration || 215)}
               </Text>
@@ -422,6 +467,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666666',
     fontFamily: 'monospace',
+  },
+  downloadIconBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadingText: {
+    fontSize: 12,
+    color: '#F5B942',
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
