@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Audio } from 'expo-av';
+import { setAudioModeAsync, createAudioPlayer } from 'expo-audio';
 import {
   fetchTrending,
   resolveAudioStream,
@@ -146,11 +146,9 @@ export const PlayerProvider = ({ children }) => {
   useEffect(() => {
     async function setupAudio() {
       try {
-        await Audio.setAudioModeAsync({
-          staysActiveInBackground: true,
-          playsInSilentModeIOS: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          interruptionMode: 'doNotMix',
         });
       } catch (e) {
         console.warn('Audio mode setup:', e);
@@ -186,7 +184,7 @@ export const PlayerProvider = ({ children }) => {
     loadInitialData();
   }, []);
 
-  // Play a track and resolve actual audio stream
+  // Play a track and resolve actual audio stream with expo-audio
   const playTrack = async (track) => {
     if (!track) return;
     const resolvedQuality = flacEnabled ? '1,411 kbps · Lossless FLAC' : '48 kHz · Studio Master';
@@ -207,7 +205,8 @@ export const PlayerProvider = ({ children }) => {
     try {
       if (soundRef.current) {
         try {
-          await soundRef.current.unloadAsync();
+          soundRef.current.pause();
+          soundRef.current.remove();
         } catch (e) {}
         soundRef.current = null;
       }
@@ -217,13 +216,25 @@ export const PlayerProvider = ({ children }) => {
       console.log(`[Player] Resolved stream URL:`, streamUrl);
 
       if (streamUrl) {
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: streamUrl },
-          { shouldPlay: true, progressUpdateIntervalMillis: 500 },
-          onPlaybackStatusUpdate
-        );
-        soundRef.current = sound;
-        await sound.playAsync();
+        const player = createAudioPlayer({ uri: streamUrl }, { updateInterval: 500 });
+        soundRef.current = player;
+
+        player.addListener('playbackStatusUpdate', (status) => {
+          if (status.playing !== undefined) {
+            setIsPlaying(status.playing);
+          }
+          if (typeof status.currentTime === 'number') {
+            setPosition(Math.round(status.currentTime));
+          }
+          if (status.duration) {
+            setDuration(Math.round(status.duration));
+          }
+          if (status.didJustFinish) {
+            nextTrack();
+          }
+        });
+
+        player.play();
         setIsPlaying(true);
       }
     } catch (err) {
@@ -233,32 +244,17 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
-  const onPlaybackStatusUpdate = (status) => {
-    if (!status.isLoaded) return;
-    setIsPlaying(status.isPlaying);
-    setPosition(Math.round(status.positionMillis / 1000));
-    if (status.durationMillis) {
-      setDuration(Math.round(status.durationMillis / 1000));
-    }
-    if (status.didJustFinish) {
-      nextTrack();
-    }
-  };
-
   const togglePlayPause = async () => {
     if (soundRef.current) {
       try {
-        const status = await soundRef.current.getStatusAsync();
-        if (status.isLoaded) {
-          if (status.isPlaying) {
-            await soundRef.current.pauseAsync();
-            setIsPlaying(false);
-          } else {
-            await soundRef.current.playAsync();
-            setIsPlaying(true);
-          }
-          return;
+        if (soundRef.current.playing) {
+          soundRef.current.pause();
+          setIsPlaying(false);
+        } else {
+          soundRef.current.play();
+          setIsPlaying(true);
         }
+        return;
       } catch (e) {
         console.warn('Playback toggle error:', e.message);
       }
@@ -269,12 +265,11 @@ export const PlayerProvider = ({ children }) => {
     setIsPlaying(prev => !prev);
   };
 
-
-  const seekTo = async (seconds) => {
+  const seekTo = (seconds) => {
     setPosition(seconds);
     if (soundRef.current) {
       try {
-        await soundRef.current.setPositionAsync(seconds * 1000);
+        soundRef.current.seekTo(seconds);
       } catch (e) {}
     }
   };

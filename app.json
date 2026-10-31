@@ -1,12 +1,11 @@
 {
   "expo": {
-    "name": "HAZE",
+    "name": "Haze",
     "slug": "monochrome-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
     "android": {
       "package": "com.haze.music",
       "permissions": [
@@ -26,6 +25,10 @@
       "eas": {
         "projectId": "5c6b698f-3aac-46a8-9da3-ebf27b78667f"
       }
-    }
+    },
+    "plugins": [
+      "expo-audio",
+      "expo-asset"
+    ]
   }
 }
