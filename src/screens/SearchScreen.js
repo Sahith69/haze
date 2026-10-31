@@ -202,10 +202,6 @@ export const SearchScreen = () => {
           );
         })}
       </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
 
       {/* Spotify Import Card matching 05_Search */}
       <View style={styles.importCard}>
