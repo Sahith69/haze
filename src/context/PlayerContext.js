@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { setAudioModeAsync, createAudioPlayer } from 'expo-audio';
 import {
   fetchTrending,
@@ -152,6 +153,11 @@ export const PlayerProvider = ({ children }) => {
   useEffect(() => {
     async function setupAudio() {
       try {
+        if (Platform.OS === 'android' && Platform.Version >= 33) {
+          try {
+            await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+          } catch (e) {}
+        }
         await setAudioModeAsync({
           playsInSilentMode: true,
           interruptionMode: 'doNotMix',
@@ -258,8 +264,8 @@ export const PlayerProvider = ({ children }) => {
             true,
             {
               title: track.title || 'Unknown Title',
-              artist: track.artist || 'HAZE Music',
-              albumTitle: track.album || (flacEnabled ? 'Lossless FLAC Master' : 'Studio Master'),
+              artist: track.artist || 'Monochrome',
+              albumTitle: track.album || (flacEnabled ? 'Lossless FLAC Master' : 'Pure Lossless Audio'),
               artworkUrl: track.coverLarge || track.cover || undefined,
             },
             {

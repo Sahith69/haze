@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MoreHorizontal, Cloud, ShieldCheck, Play, ArrowDownToLine } from 'lucide-react-native';
+import { HardDrive, Cloud, Play } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
+function formatDuration(seconds) {
+  if (!seconds || isNaN(seconds)) return '--:--';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
 export const CloudVaultScreen = () => {
   const { vaultTracks, playTrack, currentTrack, storageUsed, storageTotal, storagePercent, flacEnabled } = usePlayer();
-  const [activeFilter, setActiveFilter] = useState('All');
-
-  const filters = ['All', 'Lossless FLAC', 'Cached'];
   const barWidth = Math.min(100, Math.max(storagePercent || 0, vaultTracks && vaultTracks.length > 0 ? 3 : 0));
 
   return (
@@ -18,113 +21,65 @@ export const CloudVaultScreen = () => {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Screen Title */}
-      <Text style={styles.headerTitle}>Cloud Vault</Text>
+      {/* Title */}
+      <Text style={styles.headerTitle}>Lossless Vault</Text>
 
-      {/* Cloud Storage Card */}
+      {/* Storage Card matching Monochrome theme */}
       <View style={styles.storageCard}>
         <View style={styles.storageHeaderRow}>
           <View style={styles.storageLeft}>
-            <Cloud size={22} color="#F59E0B" />
-            <Text style={styles.storageTitle}>Lossless Archive</Text>
+            <HardDrive size={18} color="#FFFFFF" />
+            <Text style={styles.storageTitle}>Telegram Cloud Storage</Text>
           </View>
-          <View style={styles.syncBadge}>
-            <ShieldCheck size={14} color="#10B981" />
-            <Text style={styles.syncBadgeText}>Telegram Sync</Text>
-          </View>
+          <Text style={styles.storageStatus}>SYNCED</Text>
         </View>
 
         <View style={styles.storageStatsRow}>
           <Text style={styles.storageValue}>{storageUsed}</Text>
-          <Text style={styles.storageTotal}>of {storageTotal} Cloudflare/TG used</Text>
+          <Text style={styles.storageTotal}>of {storageTotal} used</Text>
         </View>
 
-        {/* Dynamic Multi-Color Progress Bar */}
         <View style={styles.storageBarBg}>
-          <LinearGradient
-            colors={['#8B5CF6', '#EC4899', '#F59E0B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.storageBarFill, { width: `${barWidth}%` }]}
-          />
+          <View style={[styles.storageBarFill, { width: `${barWidth}%` }]} />
         </View>
-        <Text style={styles.storageSubtitle}>Every song you play is automatically preserved in Lossless FLAC Master format.</Text>
+        <Text style={styles.storageSubtitle}>Every streamed song is automatically mirrored in full Lossless FLAC format.</Text>
       </View>
 
-      {/* Filter Pills */}
-      <View style={styles.filterRow}>
-        {filters.map((filter) => {
-          const isActive = activeFilter === filter;
-          return (
-            <TouchableOpacity
-              key={filter}
-              activeOpacity={0.8}
-              style={[
-                styles.filterPill,
-                isActive ? styles.filterPillActive : styles.filterPillInactive,
-              ]}
-              onPress={() => setActiveFilter(filter)}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  isActive ? styles.filterTextActive : styles.filterTextInactive,
-                ]}
-              >
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      {/* Vault Tracks Header */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Archived Tracks ({vaultTracks.length})</Text>
       </View>
 
       {/* Vault Track List */}
       <View style={styles.trackList}>
         {vaultTracks.length === 0 && (
           <View style={styles.emptyContainer}>
-            <Cloud size={40} color="rgba(255, 255, 255, 0.25)" />
+            <Cloud size={36} color="#444444" />
             <Text style={styles.emptyTitle}>Vault is ready</Text>
             <Text style={styles.emptySubtitle}>
-              Play any track from Home or Search to instantly stream and mirror to your Lossless FLAC Vault.
+              Play any song to stream and mirror directly to your Telegram Lossless FLAC Vault.
             </Text>
           </View>
         )}
 
-        {vaultTracks.map((track) => {
-          const isPlayingThis = currentTrack?.id === track.id;
+        {vaultTracks.map((track, idx) => {
+          const isThisPlaying = currentTrack?.id === track.id;
           return (
             <TouchableOpacity
-              key={track.id}
+              key={`${track.id}-${idx}`}
               activeOpacity={0.7}
-              style={[styles.trackRow, isPlayingThis && styles.trackRowActive]}
+              style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
               onPress={() => playTrack(track)}
             >
-              <View style={styles.artContainer}>
-                {track.cover ? (
-                  <Image source={{ uri: track.cover }} style={styles.trackArt} />
-                ) : (
-                  <LinearGradient
-                    colors={track.gradient || ['#8B5CF6', '#EC4899']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.trackArt}
-                  />
-                )}
-                {isPlayingThis && (
-                  <View style={styles.playingOverlay}>
-                    <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
-                  </View>
-                )}
-              </View>
-
-              {/* Title, Badge & Artist */}
-              <View style={styles.trackInfo}>
-                <View style={styles.titleRow}>
+              <Text style={styles.trackIndex}>{idx + 1}</Text>
+              <Image
+                source={{ uri: track.cover || 'https://via.placeholder.com/44' }}
+                style={styles.trackCover}
+              />
+              <View style={styles.trackDetails}>
+                <View style={styles.trackTitleRow}>
                   <Text
-                    style={[
-                      styles.trackTitle,
-                      isPlayingThis && { color: '#EC4899' },
-                    ]}
+                    style={[styles.trackTitle, isThisPlaying && styles.trackTitlePlaying]}
                     numberOfLines={1}
                   >
                     {track.title}
@@ -137,17 +92,14 @@ export const CloudVaultScreen = () => {
                   {track.artist}
                 </Text>
               </View>
-
-              {/* Action Button */}
-              <TouchableOpacity style={styles.actionBtn}>
-                <MoreHorizontal size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
+              <Text style={styles.trackDuration}>
+                {formatDuration(track.duration || 215)}
+              </Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* Extra bottom padding for MiniPlayer & BottomNav */}
       <View style={{ height: 160 }} />
     </ScrollView>
   );
@@ -156,24 +108,26 @@ export const CloudVaultScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   contentContainer: {
     paddingTop: 54,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -0.5,
     color: '#FFFFFF',
+    letterSpacing: -0.4,
     marginBottom: 16,
   },
   storageCard: {
-    padding: 18,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#0A0A0A',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: '#1E1E1E',
+    marginBottom: 20,
   },
   storageHeaderRow: {
     flexDirection: 'row',
@@ -186,179 +140,150 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   storageTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  syncBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  syncBadgeText: {
-    fontSize: 10,
+  storageStatus: {
+    fontSize: 9,
     fontWeight: '700',
-    color: '#10B981',
+    color: '#34D399',
+    fontFamily: 'monospace',
+    letterSpacing: 0.5,
   },
   storageStatsRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 8,
-    marginTop: 14,
+    gap: 6,
+    marginTop: 12,
   },
   storageValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.4,
+    fontFamily: 'monospace',
   },
   storageTotal: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 12,
+    color: '#8E8E93',
   },
   storageBarBg: {
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    marginTop: 12,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#1E1E1E',
+    marginTop: 10,
     overflow: 'hidden',
   },
   storageBarFill: {
-    height: 7,
-    borderRadius: 3.5,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
   },
   storageSubtitle: {
     fontSize: 11,
-    color: colors.textSecondary,
+    color: '#666666',
     marginTop: 10,
     lineHeight: 16,
   },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 20,
-    marginBottom: 8,
+  sectionHeader: {
+    marginBottom: 10,
   },
-  filterPill: {
-    height: 34,
-    borderRadius: 17,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterPillActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  filterPillInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-  },
-  filterText: {
-    fontSize: 13,
-  },
-  filterTextActive: {
+  sectionTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: '#08080C',
-  },
-  filterTextInactive: {
-    fontWeight: '600',
     color: '#FFFFFF',
   },
   trackList: {
-    marginTop: 12,
+    backgroundColor: '#080808',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+    overflow: 'hidden',
   },
   trackRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    marginBottom: 4,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#121212',
   },
-  trackRowActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  trackRowPlaying: {
+    backgroundColor: '#121212',
   },
-  artContainer: {
-    position: 'relative',
-    width: 48,
-    height: 48,
+  trackIndex: {
+    width: 22,
+    fontSize: 12,
+    color: '#666666',
+    fontFamily: 'monospace',
+    textAlign: 'center',
   },
-  trackArt: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+  trackCover: {
+    width: 40,
+    height: 40,
+    borderRadius: 5,
+    backgroundColor: '#171717',
+    marginLeft: 8,
   },
-  playingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trackInfo: {
+  trackDetails: {
     flex: 1,
-    marginLeft: 14,
-    justifyContent: 'center',
+    marginLeft: 12,
+    paddingRight: 8,
   },
-  titleRow: {
+  trackTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   trackTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     color: '#FFFFFF',
-    letterSpacing: -0.2,
     flexShrink: 1,
   },
+  trackTitlePlaying: {
+    color: '#34D399',
+    fontWeight: '700',
+  },
   flacBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
+    backgroundColor: '#171717',
     borderWidth: 0.5,
-    borderColor: 'rgba(245, 158, 11, 0.4)',
+    borderColor: '#262626',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
   },
   flacBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#F59E0B',
-    letterSpacing: 0.5,
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#A3A3A3',
+    fontFamily: 'monospace',
   },
   trackArtist: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: '#8E8E93',
     marginTop: 2,
   },
-  actionBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+  trackDuration: {
+    fontSize: 11,
+    color: '#666666',
+    fontFamily: 'monospace',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 44,
+    paddingVertical: 36,
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 8,
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   emptySubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 12,
+    color: '#8E8E93',
     textAlign: 'center',
     lineHeight: 18,
   },

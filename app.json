@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "Haze",
+    "name": "Monochrome",
     "slug": "monochrome-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "android": {
-      "package": "com.haze.music",
+      "package": "com.monochrome.music",
       "permissions": [
         "INTERNET",
         "WAKE_LOCK",

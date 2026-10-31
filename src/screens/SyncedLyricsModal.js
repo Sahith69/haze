@@ -36,9 +36,9 @@ export const SyncedLyricsModal = () => {
 
   return (
     <View style={styles.modalOverlay}>
-      {/* Deep Indigo/Violet Gradient matching 03_Synced_Lyrics */}
+      {/* Monochrome Pure Dark Background */}
       <LinearGradient
-        colors={['#5B3FD1', '#2A1B6B', '#0B0B0F']}
+        colors={['#0F0F0F', '#000000', '#000000']}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}

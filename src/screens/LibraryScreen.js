@@ -1,20 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Plus, MoreHorizontal, ChevronRight } from 'lucide-react-native';
+import { Plus, ChevronRight, ListMusic } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 export const LibraryScreen = () => {
   const { playTrack, currentTrack, currentUser } = usePlayer();
-  const [activeFilter, setActiveFilter] = useState('Playlists');
-
-  const filters = ['Playlists', 'Liked Masters', 'Artists', 'Albums'];
 
   const playlists = [
     {
       id: 'p-1',
-      title: 'Liked Masters',
+      title: 'Liked Songs',
       count: '142 tracks · Lossless FLAC',
       cover: 'https://c.saavncdn.com/372/b7f9937fefd686876e90be4a96c9a6e9_500x500.jpg',
       track: INITIAL_TRACKS[0],
@@ -40,13 +36,6 @@ export const LibraryScreen = () => {
       cover: 'https://c.saavncdn.com/645/Die-With-A-Smile-English-2024-20240816043202-500x500.jpg',
       track: INITIAL_TRACKS[4],
     },
-    {
-      id: 'p-5',
-      title: 'Thriller & Classics',
-      count: '29 tracks · Remastered',
-      cover: 'https://c.saavncdn.com/295/2742a0391b87aa58b7ba3eefaf57fcf0_500x500.jpg',
-      track: INITIAL_TRACKS[3],
-    },
   ];
 
   return (
@@ -58,42 +47,15 @@ export const LibraryScreen = () => {
       <View style={styles.topRow}>
         <View>
           <Text style={styles.headerTitle}>{currentUser.name}'s Library</Text>
-          <Text style={styles.headerSubtitle}>{currentUser.avatar} {currentUser.badge}</Text>
+          <Text style={styles.headerSubtitle}>MONOCHROME COLLECTION</Text>
         </View>
         <TouchableOpacity style={styles.newPlaylistBtn}>
-          <Plus size={16} color="#FFFFFF" strokeWidth={2.5} />
-          <Text style={styles.newPlaylistText}>New Playlist</Text>
+          <Plus size={14} color="#000000" strokeWidth={3} />
+          <Text style={styles.newPlaylistText}>New</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Filter Pills */}
-      <View style={styles.filterRow}>
-        {filters.map((filter) => {
-          const isActive = activeFilter === filter;
-          return (
-            <TouchableOpacity
-              key={filter}
-              activeOpacity={0.8}
-              style={[
-                styles.filterPill,
-                isActive ? styles.filterPillActive : styles.filterPillInactive,
-              ]}
-              onPress={() => setActiveFilter(filter)}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  isActive ? styles.filterTextActive : styles.filterTextInactive,
-                ]}
-              >
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Playlists List */}
+      {/* Playlists List matching Monochrome layout */}
       <View style={styles.playlistList}>
         {playlists.map((playlist) => (
           <TouchableOpacity
@@ -111,12 +73,11 @@ export const LibraryScreen = () => {
                 {playlist.count}
               </Text>
             </View>
-            <ChevronRight size={18} color={colors.textDim} />
+            <ChevronRight size={16} color="#444444" />
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Extra bottom padding */}
       <View style={{ height: 160 }} />
     </ScrollView>
   );
@@ -125,108 +86,86 @@ export const LibraryScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   contentContainer: {
     paddingTop: 54,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A1A1A',
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: -0.5,
     color: '#FFFFFF',
+    letterSpacing: -0.4,
   },
   headerSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#F59E0B',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#737373',
+    fontFamily: 'monospace',
     marginTop: 2,
+    letterSpacing: 1,
   },
   newPlaylistBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 20,
-    gap: 6,
+    borderRadius: 16,
+    gap: 4,
   },
   newPlaylistText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  filterPill: {
-    height: 34,
-    borderRadius: 17,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterPillActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  filterPillInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-  },
-  filterText: {
-    fontSize: 13,
-  },
-  filterTextActive: {
-    fontWeight: '700',
-    color: '#08080C',
-  },
-  filterTextInactive: {
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#000000',
   },
   playlistList: {
-    marginTop: 6,
+    backgroundColor: '#080808',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+    overflow: 'hidden',
   },
   playlistCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    marginBottom: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#121212',
   },
   playlistArt: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    backgroundColor: '#171717',
     borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: '#262626',
   },
   playlistInfo: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: 12,
     justifyContent: 'center',
   },
   playlistTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   playlistCount: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 3,
+    fontSize: 11,
+    color: '#8E8E93',
+    marginTop: 2,
   },
 });

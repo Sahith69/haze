@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Home, Search, Cloud, Library } from 'lucide-react-native';
+import { Home, Search, HardDrive, Library } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
@@ -10,7 +10,7 @@ export const BottomNavBar = () => {
   const tabs = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'search', label: 'Search', icon: Search },
-    { id: 'vault', label: 'Vault', icon: Cloud },
+    { id: 'vault', label: 'Vault', icon: HardDrive },
     { id: 'library', label: 'Library', icon: Library },
   ];
 
@@ -24,16 +24,14 @@ export const BottomNavBar = () => {
           <TouchableOpacity
             key={tab.id}
             activeOpacity={0.7}
-            style={[styles.tabButton, isActive && styles.tabButtonActive]}
+            style={styles.tabButton}
             onPress={() => setActiveTab(tab.id)}
           >
-            <View style={[styles.iconWrapper, isActive && styles.iconWrapperActive]}>
-              <IconComponent
-                size={21}
-                color={isActive ? '#FFFFFF' : colors.textDim}
-                strokeWidth={isActive ? 2.2 : 1.8}
-              />
-            </View>
+            <IconComponent
+              size={20}
+              color={isActive ? '#FFFFFF' : '#666666'}
+              strokeWidth={isActive ? 2.4 : 1.8}
+            />
             <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
               {tab.label}
             </Text>
@@ -50,12 +48,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 82,
+    height: 80,
     paddingTop: 8,
     paddingHorizontal: 16,
-    backgroundColor: colors.navBg,
+    backgroundColor: '#000000',
     borderTopWidth: 1,
-    borderTopColor: colors.glassBorder,
+    borderTopColor: '#1A1A1A',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'flex-start',
@@ -65,27 +63,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-  },
-  tabButtonActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  iconWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 32,
-    height: 28,
-  },
-  iconWrapperActive: {
-    transform: [{ scale: 1.05 }],
+    paddingHorizontal: 14,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
-    color: colors.textDim,
-    marginTop: 2,
-    letterSpacing: 0.2,
+    color: '#666666',
+    marginTop: 4,
+    letterSpacing: 0.3,
   },
   tabLabelActive: {
     color: '#FFFFFF',

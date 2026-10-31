@@ -1,12 +1,21 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Play, Pause } from 'lucide-react-native';
+import { Play, Pause, Heart } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 export const MiniPlayer = () => {
-  const { currentTrack, isPlaying, position, duration, togglePlayPause, setActiveModal, isLoadingAudio, flacEnabled } = usePlayer();
+  const {
+    currentTrack,
+    isPlaying,
+    position,
+    duration,
+    togglePlayPause,
+    setActiveModal,
+    isLoadingAudio,
+    flacEnabled,
+    toggleLike,
+  } = usePlayer();
 
   if (!currentTrack) return null;
 
@@ -14,36 +23,27 @@ export const MiniPlayer = () => {
 
   return (
     <TouchableOpacity
-      activeOpacity={0.92}
+      activeOpacity={0.95}
       style={styles.container}
       onPress={() => setActiveModal('now_playing')}
     >
-      {/* Frosted Glass Base Layer */}
-      <View style={styles.glassBackground} />
-
-      {/* 46px Album Artwork Thumbnail */}
+      {/* 48px Album Artwork Thumbnail */}
       <View style={styles.artWrapper}>
-        {currentTrack.cover ? (
-          <Image source={{ uri: currentTrack.cover }} style={styles.albumArt} />
-        ) : (
-          <LinearGradient
-            colors={currentTrack.gradient || ['#8B5CF6', '#EC4899']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.albumArt}
-          />
-        )}
+        <Image
+          source={{ uri: currentTrack.cover || 'https://via.placeholder.com/60' }}
+          style={styles.albumArt}
+        />
       </View>
 
-      {/* Track Info & Quality Pill */}
+      {/* Track Info & Monospace FLAC Badge */}
       <View style={styles.infoContainer}>
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>
             {currentTrack.title}
           </Text>
-          <View style={[styles.qualityBadge, flacEnabled && styles.qualityBadgeFlac]}>
-            <Text style={[styles.qualityBadgeText, flacEnabled && styles.qualityBadgeTextFlac]}>
-              {flacEnabled ? 'FLAC' : '320k'}
+          <View style={styles.qualityBadge}>
+            <Text style={styles.qualityBadgeText}>
+              {flacEnabled ? 'FLAC' : 'HQ'}
             </Text>
           </View>
         </View>
@@ -52,9 +52,25 @@ export const MiniPlayer = () => {
         </Text>
       </View>
 
-      {/* Play/Pause / Loading Button */}
+      {/* Like Heart Button */}
       <TouchableOpacity
         activeOpacity={0.7}
+        style={styles.heartButton}
+        onPress={(e) => {
+          e.stopPropagation?.();
+          toggleLike(currentTrack.id);
+        }}
+      >
+        <Heart
+          size={18}
+          color={currentTrack.isLiked ? colors.heartRed : colors.textDim}
+          fill={currentTrack.isLiked ? colors.heartRed : 'none'}
+        />
+      </TouchableOpacity>
+
+      {/* Play/Pause Button - Pure Monochrome: White circle with black icon */}
+      <TouchableOpacity
+        activeOpacity={0.8}
         style={styles.playButton}
         onPress={(e) => {
           e.stopPropagation?.();
@@ -62,22 +78,17 @@ export const MiniPlayer = () => {
         }}
       >
         {isLoadingAudio ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <ActivityIndicator size="small" color="#000000" />
         ) : isPlaying ? (
-          <Pause size={20} color="#FFFFFF" fill="#FFFFFF" />
+          <Pause size={18} color="#000000" fill="#000000" />
         ) : (
-          <Play size={20} color="#FFFFFF" fill="#FFFFFF" style={{ marginLeft: 2 }} />
+          <Play size={18} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
         )}
       </TouchableOpacity>
 
-      {/* Glowing Bottom Progress Bar */}
+      {/* Top 2px Progress Bar */}
       <View style={styles.progressBarBg}>
-        <LinearGradient
-          colors={['#8B5CF6', '#EC4899']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-        />
+        <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
       </View>
     </TouchableOpacity>
   );
@@ -86,34 +97,30 @@ export const MiniPlayer = () => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 92,
-    height: 62,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    left: 0,
+    right: 0,
+    bottom: 80,
+    height: 64,
+    backgroundColor: '#080808',
+    borderTopWidth: 1,
+    borderTopColor: '#1F1F1F',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 8,
-    paddingRight: 10,
-    overflow: 'hidden',
+    paddingHorizontal: 16,
     zIndex: 90,
   },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(18, 18, 26, 0.94)',
-  },
   artWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 6,
     overflow: 'hidden',
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#222222',
   },
   albumArt: {
-    width: 46,
-    height: 46,
-    borderRadius: 10,
+    width: '100%',
+    height: '100%',
   },
   infoContainer: {
     flex: 1,
@@ -127,8 +134,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   title: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#FFFFFF',
     flexShrink: 1,
     letterSpacing: -0.2,
@@ -136,35 +143,32 @@ const styles = StyleSheet.create({
   qualityBadge: {
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 4,
-    backgroundColor: 'rgba(6, 182, 212, 0.2)',
+    borderRadius: 3,
+    backgroundColor: '#1E1E1E',
     borderWidth: 0.5,
-    borderColor: 'rgba(6, 182, 212, 0.4)',
-  },
-  qualityBadgeFlac: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderColor: 'rgba(245, 158, 11, 0.5)',
+    borderColor: '#333333',
   },
   qualityBadgeText: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#06B6D4',
+    color: '#E5E5E5',
     letterSpacing: 0.5,
-  },
-  qualityBadgeTextFlac: {
-    color: '#F59E0B',
+    fontFamily: 'monospace',
   },
   artist: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: '#8E8E93',
     marginTop: 2,
-    letterSpacing: -0.1,
+  },
+  heartButton: {
+    padding: 8,
+    marginRight: 4,
   },
   playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -172,11 +176,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    height: 2.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    top: 0,
+    height: 2,
+    backgroundColor: '#1A1A1A',
   },
   progressBarFill: {
-    height: 2.5,
+    height: 2,
+    backgroundColor: '#FFFFFF',
   },
 });

@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Search, Link, MoreHorizontal, ArrowRight, X, Play } from 'lucide-react-native';
+import { Search, Link, MoreHorizontal, ArrowRight, X, Music } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { searchTracks } from '../services/api';
 import { colors } from '../theme/colors';
+
+function formatDuration(seconds) {
+  if (!seconds || isNaN(seconds)) return '--:--';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
 
 export const SearchScreen = () => {
   const { playTrack, currentTrack, flacEnabled } = usePlayer();
@@ -12,12 +18,9 @@ export const SearchScreen = () => {
   const [searchResults, setSearchResults] = useState(INITIAL_TRACKS);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('Tracks');
   const [spotifyUrl, setSpotifyUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
-
-  const filters = ['Tracks', 'Artists', 'Albums', 'Playlists'];
 
   const executeSearch = useCallback(async (text) => {
     const trimmed = text.trim();
@@ -32,21 +35,7 @@ export const SearchScreen = () => {
     setHasSearched(true);
     try {
       const results = await searchTracks(trimmed);
-      if (results && results.length > 0) {
-        const mapped = results.map((t, idx) => ({
-          ...t,
-          gradient: [
-            ['#8B5CF6', '#EC4899'],
-            ['#F59E0B', '#EF4444'],
-            ['#06B6D4', '#3B82F6'],
-            ['#10B981', '#06B6D4'],
-            ['#6366F1', '#A855F7'],
-          ][idx % 5],
-        }));
-        setSearchResults(mapped);
-      } else {
-        setSearchResults([]);
-      }
+      setSearchResults(results || []);
     } catch (e) {
       setSearchResults([]);
     } finally {
@@ -54,7 +43,6 @@ export const SearchScreen = () => {
     }
   }, []);
 
-  // Debounced search on typing
   useEffect(() => {
     if (!query.trim()) {
       setSearchResults(INITIAL_TRACKS);
@@ -83,7 +71,7 @@ export const SearchScreen = () => {
     setImportMessage('Fetching playlist tracks from Spotify...');
     setTimeout(() => {
       setIsImporting(false);
-      setImportMessage('Successfully matched 24 tracks in Studio Master quality!');
+      setImportMessage('Successfully matched 24 tracks in Lossless quality!');
       setTimeout(() => setImportMessage(''), 3500);
     }, 1500);
   };
@@ -95,15 +83,13 @@ export const SearchScreen = () => {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.headerTitle}>Search</Text>
-
-      {/* Glass Search Input */}
+      {/* Monochrome Search Header matching Header.jsx */}
       <View style={styles.searchBar}>
-        <Search size={20} color={colors.textSecondary} />
+        <Search size={16} color="#666666" />
         <TextInput
           style={styles.searchInput}
-          placeholder="Songs, artists, podcasts..."
-          placeholderTextColor={colors.textDim}
+          placeholder="Search songs, artists, albums..."
+          placeholderTextColor="#666666"
           value={query}
           onChangeText={setQuery}
           returnKeyType="search"
@@ -112,121 +98,28 @@ export const SearchScreen = () => {
           autoCorrect={false}
         />
         {isSearching ? (
-          <ActivityIndicator size="small" color="#EC4899" />
+          <ActivityIndicator size="small" color="#FFFFFF" />
         ) : query.length > 0 ? (
           <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <X size={18} color={colors.textSecondary} />
+            <X size={16} color="#888888" />
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {/* Filter Pills */}
-      <View style={styles.filterRow}>
-        {filters.map((filter) => {
-          const isActive = activeFilter === filter;
-          return (
-            <TouchableOpacity
-              key={filter}
-              activeOpacity={0.8}
-              style={[
-                styles.filterPill,
-                isActive ? styles.filterPillActive : styles.filterPillInactive,
-              ]}
-              onPress={() => setActiveFilter(filter)}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  isActive ? styles.filterTextActive : styles.filterTextInactive,
-                ]}
-              >
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Search Results List */}
-      <View style={styles.trackList}>
-        {!isSearching && hasSearched && searchResults.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No tracks found</Text>
-            <Text style={styles.emptySubtitle}>Try searching with different song titles or artists</Text>
-          </View>
-        )}
-
-        {searchResults.map((track) => {
-          const isPlayingThis = currentTrack?.id === track.id;
-          return (
-            <TouchableOpacity
-              key={track.id}
-              activeOpacity={0.7}
-              style={[styles.trackRow, isPlayingThis && styles.trackRowActive]}
-              onPress={() => playTrack(track)}
-            >
-              <View style={styles.artContainer}>
-                {track.cover ? (
-                  <Image source={{ uri: track.cover }} style={styles.trackArt} />
-                ) : (
-                  <LinearGradient
-                    colors={track.gradient || ['#8B5CF6', '#EC4899']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.trackArt}
-                  />
-                )}
-                {isPlayingThis && (
-                  <View style={styles.playingArtBadge}>
-                    <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.trackInfo}>
-                <Text
-                  style={[
-                    styles.trackTitle,
-                    isPlayingThis && { color: '#EC4899' },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {track.title}
-                </Text>
-                <View style={styles.trackSubRow}>
-                  <Text style={styles.trackArtist} numberOfLines={1}>
-                    {track.artist}
-                  </Text>
-                  <View style={styles.trackQualityPill}>
-                    <Text style={styles.trackQualityText}>
-                      {flacEnabled ? 'FLAC' : '320k'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <TouchableOpacity style={styles.actionBtn}>
-                <MoreHorizontal size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Spotify & Apple Music Import Card */}
+      {/* Spotify Import Card matching Sidebar.jsx */}
       <View style={styles.importCard}>
         <View style={styles.importHeader}>
-          <Link size={18} color="#F59E0B" />
-          <Text style={styles.importTitle}>Import playlist from link</Text>
+          <Link size={16} color="#22C55E" />
+          <Text style={styles.importTitle}>Import Spotify Playlist</Text>
         </View>
         <Text style={styles.importDesc}>
-          Paste any Spotify or Apple Music playlist link to instantly match and stream tracks in Studio Master quality.
+          Paste any Spotify playlist link to match and stream tracks in pure Lossless FLAC format.
         </Text>
         <View style={styles.importInputRow}>
           <TextInput
             style={styles.importInput}
             placeholder="https://open.spotify.com/playlist/..."
-            placeholderTextColor="rgba(255, 255, 255, 0.35)"
+            placeholderTextColor="#555555"
             value={spotifyUrl}
             onChangeText={setSpotifyUrl}
           />
@@ -236,9 +129,9 @@ export const SearchScreen = () => {
             onPress={handleSpotifyImport}
           >
             {isImporting ? (
-              <ActivityIndicator size="small" color="#08080C" />
+              <ActivityIndicator size="small" color="#000000" />
             ) : (
-              <ArrowRight size={18} color="#08080C" />
+              <ArrowRight size={16} color="#000000" />
             )}
           </TouchableOpacity>
         </View>
@@ -247,7 +140,62 @@ export const SearchScreen = () => {
         ) : null}
       </View>
 
-      {/* Extra bottom padding */}
+      {/* Results Header */}
+      <View style={styles.resultsHeader}>
+        <Text style={styles.resultsTitle}>
+          {hasSearched ? `Search Results for "${query}"` : 'Top Songs'}
+        </Text>
+      </View>
+
+      {/* Track List matching TrackList.jsx */}
+      <View style={styles.trackList}>
+        {!isSearching && hasSearched && searchResults.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>No tracks found</Text>
+            <Text style={styles.emptySubtitle}>Try searching with different song titles or artists</Text>
+          </View>
+        )}
+
+        {searchResults.map((track, idx) => {
+          const isThisPlaying = currentTrack?.id === track.id;
+          return (
+            <TouchableOpacity
+              key={`${track.id}-${idx}`}
+              activeOpacity={0.7}
+              style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
+              onPress={() => playTrack(track)}
+            >
+              <Text style={styles.trackIndex}>{idx + 1}</Text>
+              <Image
+                source={{ uri: track.cover || 'https://via.placeholder.com/44' }}
+                style={styles.trackCover}
+              />
+              <View style={styles.trackDetails}>
+                <View style={styles.trackTitleRow}>
+                  <Text
+                    style={[styles.trackTitle, isThisPlaying && styles.trackTitlePlaying]}
+                    numberOfLines={1}
+                  >
+                    {track.title}
+                  </Text>
+                  <View style={styles.flacBadge}>
+                    <Text style={styles.flacBadgeText}>
+                      {flacEnabled ? 'FLAC' : 'HQ'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.trackArtist} numberOfLines={1}>
+                  {track.artist}
+                </Text>
+              </View>
+              <Text style={styles.trackDuration}>
+                {formatDuration(track.duration || 215)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <View style={{ height: 160 }} />
     </ScrollView>
   );
@@ -256,208 +204,180 @@ export const SearchScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   contentContainer: {
     paddingTop: 54,
-    paddingHorizontal: 18,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    color: '#FFFFFF',
-    marginBottom: 16,
+    paddingHorizontal: 16,
   },
   searchBar: {
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#121212',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: '#222222',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 10,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
     height: '100%',
     color: '#FFFFFF',
-    fontSize: 15,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  filterPill: {
-    height: 34,
-    borderRadius: 17,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterPillActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  filterPillInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-  },
-  filterText: {
-    fontSize: 13,
-  },
-  filterTextActive: {
-    fontWeight: '700',
-    color: '#08080C',
-  },
-  filterTextInactive: {
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  trackList: {
-    marginTop: 12,
-  },
-  emptyContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  trackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    marginBottom: 4,
-  },
-  trackRowActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  artContainer: {
-    position: 'relative',
-    width: 52,
-    height: 52,
-  },
-  trackArt: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  playingArtBadge: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trackInfo: {
-    flex: 1,
-    marginLeft: 14,
-    justifyContent: 'center',
-  },
-  trackTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-  },
-  trackSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 3,
-  },
-  trackArtist: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    flexShrink: 1,
-  },
-  trackQualityPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  trackQualityText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#06B6D4',
-    letterSpacing: 0.5,
-  },
-  actionBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 14,
   },
   importCard: {
-    marginTop: 24,
-    padding: 18,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#0A0A0A',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: '#1E1E1E',
+    marginBottom: 20,
   },
   importHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   importTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   importDesc: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 14,
+    fontSize: 11,
+    color: '#8E8E93',
+    lineHeight: 16,
+    marginBottom: 10,
   },
   importInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   importInput: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#141414',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: '#242424',
     paddingHorizontal: 12,
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
   },
   importButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#F59E0B',
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   importFeedback: {
+    fontSize: 11,
+    color: '#22C55E',
+    marginTop: 8,
+  },
+  resultsHeader: {
+    marginBottom: 10,
+  },
+  resultsTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  trackList: {
+    backgroundColor: '#080808',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+    overflow: 'hidden',
+  },
+  trackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#121212',
+  },
+  trackRowPlaying: {
+    backgroundColor: '#121212',
+  },
+  trackIndex: {
+    width: 22,
     fontSize: 12,
+    color: '#666666',
+    fontFamily: 'monospace',
+    textAlign: 'center',
+  },
+  trackCover: {
+    width: 40,
+    height: 40,
+    borderRadius: 5,
+    backgroundColor: '#171717',
+    marginLeft: 8,
+  },
+  trackDetails: {
+    flex: 1,
+    marginLeft: 12,
+    paddingRight: 8,
+  },
+  trackTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  trackTitle: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#10B981',
-    marginTop: 10,
+    color: '#FFFFFF',
+    flexShrink: 1,
+  },
+  trackTitlePlaying: {
+    color: '#34D399',
+    fontWeight: '700',
+  },
+  flacBadge: {
+    backgroundColor: '#171717',
+    borderWidth: 0.5,
+    borderColor: '#262626',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  flacBadgeText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#A3A3A3',
+    fontFamily: 'monospace',
+  },
+  trackArtist: {
+    fontSize: 11,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  trackDuration: {
+    fontSize: 11,
+    color: '#666666',
+    fontFamily: 'monospace',
+  },
+  emptyContainer: {
+    paddingVertical: 36,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 4,
   },
 });
