@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronDown, SkipBack, Play, Pause, SkipForward } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
@@ -51,12 +51,16 @@ export const SyncedLyricsModal = () => {
             <ChevronDown size={26} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <LinearGradient
-            colors={currentTrack.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.trackArt}
-          />
+          {currentTrack.cover ? (
+            <Image source={{ uri: currentTrack.cover }} style={styles.trackArt} />
+          ) : (
+            <LinearGradient
+              colors={currentTrack.gradient || ['#8B5CF6', '#EC4899']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.trackArt}
+            />
+          )}
 
           <View style={styles.trackMeta}>
             <Text style={styles.trackTitle} numberOfLines={1}>

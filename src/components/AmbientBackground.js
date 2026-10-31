@@ -8,19 +8,36 @@ const { width, height } = Dimensions.get('window');
 export const AmbientBackground = ({ children }) => {
   return (
     <View style={styles.container}>
-      {/* Top Violet Orb */}
-      <View style={styles.violetOrb} />
-      {/* Mid Pink Orb */}
-      <View style={styles.pinkOrb} />
-      {/* Bottom Blue Orb */}
-      <View style={styles.blueOrb} />
-
-      {/* Subtle Top Ambient Gradient */}
+      {/* Top Left Violet Nebula */}
       <LinearGradient
-        colors={['rgba(124, 92, 255, 0.30)', 'rgba(124, 92, 255, 0.08)', 'transparent']}
-        style={styles.topGradient}
-        start={{ x: 0.3, y: 0 }}
-        end={{ x: 0.7, y: 1 }}
+        colors={['rgba(139, 92, 246, 0.22)', 'rgba(139, 92, 246, 0.05)', 'transparent']}
+        style={styles.topLeftGlow}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.8, y: 0.8 }}
+      />
+
+      {/* Top Right Pink Glow */}
+      <LinearGradient
+        colors={['rgba(236, 72, 153, 0.18)', 'rgba(236, 72, 153, 0.04)', 'transparent']}
+        style={styles.topRightGlow}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.2, y: 0.8 }}
+      />
+
+      {/* Mid Subtle Cyan Accent Glow */}
+      <LinearGradient
+        colors={['rgba(6, 182, 212, 0.12)', 'rgba(59, 130, 246, 0.03)', 'transparent']}
+        style={styles.midCyanGlow}
+        start={{ x: 0.5, y: 0.3 }}
+        end={{ x: 0.8, y: 1 }}
+      />
+
+      {/* Bottom Floating Glow */}
+      <LinearGradient
+        colors={['rgba(124, 92, 255, 0.15)', 'transparent']}
+        style={styles.bottomGlow}
+        start={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0 }}
       />
 
       {children}
@@ -35,57 +52,35 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  violetOrb: {
+  topLeftGlow: {
     position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: '#7C5CFF',
-    opacity: 0.35,
-    left: -80,
-    top: 100,
-    // Note: React Native shadow creates a diffused glow
-    shadowColor: '#7C5CFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 80,
-    elevation: 20,
+    top: -50,
+    left: -50,
+    width: width * 0.9,
+    height: 380,
+    borderRadius: 190,
   },
-  pinkOrb: {
+  topRightGlow: {
     position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: '#FF5C9E',
-    opacity: 0.28,
-    right: -90,
-    top: 380,
-    shadowColor: '#FF5C9E',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 70,
-    elevation: 20,
+    top: 60,
+    right: -60,
+    width: width * 0.85,
+    height: 340,
+    borderRadius: 170,
   },
-  blueOrb: {
+  midCyanGlow: {
     position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: '#2A6BFF',
-    opacity: 0.25,
-    left: 40,
-    bottom: -60,
-    shadowColor: '#2A6BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 60,
-    elevation: 20,
+    top: height * 0.45,
+    left: -40,
+    width: width * 0.75,
+    height: 280,
+    borderRadius: 140,
   },
-  topGradient: {
+  bottomGlow: {
     position: 'absolute',
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    height: 320,
+    height: 180,
   },
 });

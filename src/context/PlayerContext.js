@@ -155,9 +155,11 @@ export const PlayerProvider = ({ children }) => {
         await setAudioModeAsync({
           playsInSilentMode: true,
           interruptionMode: 'doNotMix',
+          shouldPlayInBackground: true,
+          shouldRouteThroughEarpiece: false,
         });
       } catch (e) {
-        console.warn('Audio mode setup:', e);
+        console.warn('[Player] Audio mode setup error:', e);
       }
     }
     setupAudio();
@@ -202,10 +204,10 @@ export const PlayerProvider = ({ children }) => {
     loadInitialData();
   }, []);
 
-  // Play a track and resolve actual audio stream with expo-audio
+  // Play a track and resolve actual audio stream with expo-audio & background lock screen controls
   const playTrack = async (track) => {
     if (!track) return;
-    const resolvedQuality = flacEnabled ? '1,411 kbps · Lossless FLAC' : '48 kHz · Studio Master';
+    const resolvedQuality = flacEnabled ? '1,411 kbps · Lossless FLAC' : '320 kbps · Studio Master';
     const enrichedTrack = {
       ...track,
       qualityLabel: resolvedQuality,
@@ -230,14 +232,67 @@ export const PlayerProvider = ({ children }) => {
       }
 
       console.log(`[Player] Resolving audio stream for: "${track.title}" by ${track.artist} (${resolvedQuality})`);
-      const streamUrl = await resolveAudioStream(track, { flac: flacEnabled });
+      const streamResult = await resolveAudioStream(track, { flac: flacEnabled });
+      const streamUrl = typeof streamResult === 'string' ? streamResult : streamResult?.streamUrl;
+      const fallbackUrl = typeof streamResult === 'object' ? streamResult?.fallbackUrl : null;
       console.log(`[Player] Resolved stream URL:`, streamUrl);
 
       if (streamUrl) {
-        const player = createAudioPlayer({ uri: streamUrl }, { updateInterval: 500 });
+        const sourceConfig = {
+          uri: streamUrl,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+          },
+          name: track.title,
+        };
+
+        const player = createAudioPlayer(sourceConfig, {
+          updateInterval: 250,
+          keepAudioSessionActive: true,
+        });
         soundRef.current = player;
 
+        // Native Android Lock Screen & Notification media controls
+        try {
+          player.setActiveForLockScreen(
+            true,
+            {
+              title: track.title || 'Unknown Title',
+              artist: track.artist || 'HAZE Music',
+              albumTitle: track.album || (flacEnabled ? 'Lossless FLAC Master' : 'Studio Master'),
+              artworkUrl: track.coverLarge || track.cover || undefined,
+            },
+            {
+              showNextTrack: true,
+              showPreviousTrack: true,
+              showSeekForward: true,
+              showSeekBackward: true,
+              seekForwardIntervalSeconds: 10,
+              seekBackwardIntervalSeconds: 10,
+            }
+          );
+        } catch (lockErr) {
+          console.warn('[Player] setActiveForLockScreen warning:', lockErr.message);
+        }
+
         player.addListener('playbackStatusUpdate', (status) => {
+          if (status.error) {
+            console.warn('[Player] Audio status error:', status.error);
+            if (fallbackUrl && fallbackUrl !== streamUrl) {
+              try {
+                player.replace({
+                  uri: fallbackUrl,
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                  },
+                });
+                player.play();
+              } catch (e) {}
+            }
+          }
+          if (status.isLoaded) {
+            setIsLoadingAudio(false);
+          }
           if (status.playing !== undefined) {
             setIsPlaying(status.playing);
           }

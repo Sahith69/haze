@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronDown, Shuffle, Trash2, GripVertical, MoreHorizontal } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
@@ -43,12 +43,16 @@ export const QueueModal = () => {
           <Text style={styles.sectionHeader}>NOW PLAYING</Text>
           {currentTrack && (
             <View style={styles.nowPlayingCard}>
-              <LinearGradient
-                colors={currentTrack.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.cardArt}
-              />
+              {currentTrack.cover ? (
+                <Image source={{ uri: currentTrack.cover }} style={styles.cardArt} />
+              ) : (
+                <LinearGradient
+                  colors={currentTrack.gradient || ['#8B5CF6', '#EC4899']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.cardArt}
+                />
+              )}
               <View style={styles.cardInfo}>
                 <View style={styles.titleRow}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
@@ -77,12 +81,16 @@ export const QueueModal = () => {
                 style={styles.trackRow}
                 onPress={() => playTrack(track)}
               >
-                <LinearGradient
-                  colors={track.gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.trackArt}
-                />
+                {track.cover ? (
+                  <Image source={{ uri: track.cover }} style={styles.trackArt} />
+                ) : (
+                  <LinearGradient
+                    colors={track.gradient || ['#8B5CF6', '#EC4899']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.trackArt}
+                  />
+                )}
                 <View style={styles.trackInfo}>
                   <Text style={styles.trackTitle} numberOfLines={1}>
                     {track.title}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronDown,
@@ -11,16 +11,19 @@ import {
   Pause,
   SkipForward,
   Repeat,
+  Sparkles,
+  Zap,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export const NowPlayingModal = () => {
   const {
     currentTrack,
     isPlaying,
+    isLoadingAudio,
     position,
     duration,
     togglePlayPause,
@@ -52,7 +55,7 @@ export const NowPlayingModal = () => {
   };
 
   const [visualizerHeights, setVisualizerHeights] = useState([
-    12, 22, 30, 18, 34, 26, 14, 28, 20, 32, 16, 24, 10, 30, 22,
+    10, 18, 28, 14, 32, 22, 12, 26, 18, 30, 14, 22, 8, 28, 18, 24, 12, 20
   ]);
 
   // Animate visualizer bars when playing
@@ -61,9 +64,9 @@ export const NowPlayingModal = () => {
     if (isPlaying) {
       interval = setInterval(() => {
         setVisualizerHeights(prev =>
-          prev.map(() => Math.floor(Math.random() * 26) + 8)
+          prev.map(() => Math.floor(Math.random() * 26) + 6)
         );
-      }, 150);
+      }, 140);
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -79,50 +82,56 @@ export const NowPlayingModal = () => {
   };
 
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
+  const artSize = Math.min(width - 56, 340);
 
   return (
     <View style={styles.modalOverlay}>
-      {/* Background Atmosphere Radial Gradient */}
+      {/* Background Dynamic Atmospheric Gradient */}
       <LinearGradient
-        colors={['rgba(255, 92, 158, 0.40)', 'rgba(124, 92, 255, 0.20)', 'rgba(11, 11, 15, 0.95)']}
+        colors={['rgba(139, 92, 246, 0.40)', 'rgba(236, 72, 153, 0.20)', '#08080C']}
         style={StyleSheet.absoluteFillObject}
-        start={{ x: 0.5, y: 0.15 }}
-        end={{ x: 0.5, y: 0.85 }}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 0.75 }}
       />
 
       <View style={styles.content}>
         {/* Top Header Bar */}
         <View style={styles.headerBar}>
           <TouchableOpacity style={styles.iconBtn} onPress={closeModal}>
-            <ChevronDown size={26} color="#FFFFFF" />
+            <ChevronDown size={28} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Playing from Trending</Text>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerSuper}>PLAYING FROM</Text>
+            <Text style={styles.headerTitle}>Trending Masters</Text>
+          </View>
           <TouchableOpacity style={styles.iconBtn}>
             <MoreHorizontal size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* 342px Glowing Artwork */}
-        <View style={styles.artShadowContainer}>
-          {currentTrack.coverLarge || currentTrack.cover ? (
-            <Image
-              source={{ uri: currentTrack.coverLarge || currentTrack.cover }}
-              style={styles.albumArt}
-              resizeMode="cover"
-            />
-          ) : (
-            <LinearGradient
-              colors={currentTrack.gradient || ['#7C5CFF', '#FF5C9E']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.albumArt}
-            />
-          )}
+        {/* Centered Large Album Artwork */}
+        <View style={styles.artContainer}>
+          <View style={[styles.artWrapper, { width: artSize, height: artSize }]}>
+            {currentTrack.coverLarge || currentTrack.cover ? (
+              <Image
+                source={{ uri: currentTrack.coverLarge || currentTrack.cover }}
+                style={styles.albumArt}
+                resizeMode="cover"
+              />
+            ) : (
+              <LinearGradient
+                colors={currentTrack.gradient || ['#8B5CF6', '#EC4899']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.albumArt}
+              />
+            )}
+          </View>
         </View>
 
         {/* Track Title, Artist & Like Button */}
         <View style={styles.metaRow}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={styles.trackTitle} numberOfLines={1}>
               {currentTrack.title}
             </Text>
@@ -135,35 +144,35 @@ export const NowPlayingModal = () => {
             onPress={() => toggleLike(currentTrack.id)}
           >
             <Heart
-              size={28}
-              color={currentTrack.isLiked ? colors.accentPink : '#FFFFFF'}
-              fill={currentTrack.isLiked ? colors.accentPink : 'none'}
+              size={26}
+              color={currentTrack.isLiked ? '#EC4899' : '#FFFFFF'}
+              fill={currentTrack.isLiked ? '#EC4899' : 'none'}
             />
           </TouchableOpacity>
         </View>
 
-        {/* HI-RES / FLAC Golden Badge with User Profile Handling */}
+        {/* Audiophile Status Badge */}
         <View style={styles.badgeRow}>
           <TouchableOpacity
             activeOpacity={0.8}
             style={[
               styles.hiResBadge,
-              flacEnabled && styles.hiResBadgeActive,
+              flacEnabled && styles.hiResBadgeFlac,
             ]}
             onPress={() => {
               if (currentUser.id === 'kritika') {
                 toggleFlac();
-                setVaultFeedback(flacEnabled ? 'Switched to Studio 48kHz' : '⚡ Lossless FLAC Enabled!');
+                setVaultFeedback(flacEnabled ? 'Switched to Studio Master' : '⚡ Lossless FLAC Enabled!');
                 setTimeout(() => setVaultFeedback(''), 2500);
               } else {
                 saveToVault(currentTrack);
-                setVaultFeedback('Saved to Lossless Vault!');
+                setVaultFeedback('Saved to Lossless FLAC Vault!');
                 setTimeout(() => setVaultFeedback(''), 2500);
               }
             }}
           >
-            <Text style={[styles.hiResText, flacEnabled && styles.hiResTextActive]}>
-              {flacEnabled ? '⚡ LOSSLESS FLAC' : '✨ STUDIO 48kHz'}
+            <Text style={[styles.hiResText, flacEnabled && styles.hiResTextFlac]}>
+              {flacEnabled ? '⚡ LOSSLESS FLAC MASTER' : '✨ STUDIO MASTER 320k'}
             </Text>
           </TouchableOpacity>
 
@@ -176,7 +185,7 @@ export const NowPlayingModal = () => {
               ]}
               onPress={() => {
                 toggleFlac();
-                setVaultFeedback(flacEnabled ? 'Switched to Studio 48kHz' : '⚡ Lossless FLAC Enabled!');
+                setVaultFeedback(flacEnabled ? 'Switched to Studio Master' : '⚡ Lossless FLAC Enabled!');
                 setTimeout(() => setVaultFeedback(''), 2500);
               }}
             >
@@ -186,12 +195,12 @@ export const NowPlayingModal = () => {
             </TouchableOpacity>
           )}
 
-          <Text style={styles.qualityLabel}>
-            {vaultFeedback || (flacEnabled ? '1,411 kbps · Lossless FLAC' : '48 kHz · Studio Master')}
+          <Text style={styles.qualityLabel} numberOfLines={1}>
+            {vaultFeedback || (flacEnabled ? '1,411 kbps · 24-bit' : '320 kbps · 48 kHz')}
           </Text>
         </View>
 
-        {/* Scrubber Progress Bar with Tap-to-Seek */}
+        {/* Scrubber Progress Bar */}
         <TouchableOpacity
           activeOpacity={1}
           style={styles.scrubberContainer}
@@ -199,7 +208,12 @@ export const NowPlayingModal = () => {
           onPress={handleSeek}
         >
           <View style={styles.scrubberTrack}>
-            <View style={[styles.scrubberFill, { width: `${progressPercent}%` }]} />
+            <LinearGradient
+              colors={['#8B5CF6', '#EC4899']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.scrubberFill, { width: `${progressPercent}%` }]}
+            />
             <View style={[styles.scrubberThumb, { left: `${progressPercent}%` }]} />
           </View>
           <View style={styles.timeRow}>
@@ -216,7 +230,7 @@ export const NowPlayingModal = () => {
           >
             <Shuffle
               size={22}
-              color={isShuffle ? colors.accentPink : '#FFFFFF'}
+              color={isShuffle ? '#EC4899' : 'rgba(255, 255, 255, 0.7)'}
             />
           </TouchableOpacity>
 
@@ -225,14 +239,16 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            activeOpacity={0.8}
+            activeOpacity={0.85}
             style={styles.playPauseBtn}
             onPress={togglePlayPause}
           >
-            {isPlaying ? (
-              <Pause size={30} color={colors.bg} fill={colors.bg} />
+            {isLoadingAudio ? (
+              <ActivityIndicator size="small" color="#08080C" />
+            ) : isPlaying ? (
+              <Pause size={30} color="#08080C" fill="#08080C" />
             ) : (
-              <Play size={30} color={colors.bg} fill={colors.bg} />
+              <Play size={30} color="#08080C" fill="#08080C" style={{ marginLeft: 3 }} />
             )}
           </TouchableOpacity>
 
@@ -246,12 +262,12 @@ export const NowPlayingModal = () => {
           >
             <Repeat
               size={22}
-              color={isRepeat ? colors.accentPink : '#FFFFFF'}
+              color={isRepeat ? '#EC4899' : 'rgba(255, 255, 255, 0.7)'}
             />
           </TouchableOpacity>
         </View>
 
-        {/* 15-Bar Live Audio Visualizer */}
+        {/* 18-Bar Live Audio Visualizer */}
         <View style={styles.visualizerRow}>
           {visualizerHeights.map((h, idx) => (
             <View key={idx} style={[styles.visualizerBar, { height: h }]} />
@@ -276,15 +292,7 @@ export const NowPlayingModal = () => {
             style={styles.actionPill}
             onPress={() => setActiveModal('equalizer')}
           >
-            <Text style={styles.actionPillText}>EQ</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionPill}
-            onPress={() => {
-              setVisualizerHeights(prev => prev.map(v => (v > 20 ? 10 : 34)));
-            }}
-          >
-            <Text style={styles.actionPillText}>Visual</Text>
+            <Text style={styles.actionPillText}>Equalizer</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -296,24 +304,36 @@ const styles = StyleSheet.create({
   modalOverlay: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: colors.bg,
+    backgroundColor: '#08080C',
     zIndex: 100,
   },
   content: {
     flex: 1,
-    paddingTop: 52,
+    paddingTop: 48,
     paddingHorizontal: 24,
+    justifyContent: 'space-between',
+    paddingBottom: 28,
   },
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
+    height: 48,
+  },
+  headerCenter: {
+    alignItems: 'center',
+  },
+  headerSuper: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textDim,
+    letterSpacing: 1.2,
   },
   headerTitle: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSub,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 2,
   },
   iconBtn: {
     width: 44,
@@ -321,36 +341,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  artShadowContainer: {
+  artContainer: {
     alignItems: 'center',
-    marginTop: 14,
-    shadowColor: '#7C5CFF',
-    shadowOffset: { width: 0, height: 25 },
-    shadowOpacity: 0.55,
-    shadowRadius: 35,
-    elevation: 25,
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  artWrapper: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   albumArt: {
-    width: width > 400 ? 342 : width - 48,
-    height: width > 400 ? 342 : width - 48,
-    borderRadius: 24,
+    width: '100%',
+    height: '100%',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 26,
   },
   trackTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: -0.3,
-    color: colors.text,
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
   },
   trackArtist: {
-    fontSize: 16,
-    color: colors.textSub,
-    marginTop: 2,
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginTop: 3,
   },
   likeBtn: {
     width: 44,
@@ -365,65 +385,65 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   hiResBadge: {
-    backgroundColor: colors.gold,
-    paddingHorizontal: 7,
+    backgroundColor: 'rgba(6, 182, 212, 0.16)',
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.gold,
+    borderColor: 'rgba(6, 182, 212, 0.4)',
   },
-  hiResBadgeActive: {
-    backgroundColor: 'rgba(245, 185, 66, 0.22)',
-    borderColor: '#F5B942',
+  hiResBadgeFlac: {
+    backgroundColor: 'rgba(245, 158, 11, 0.16)',
+    borderColor: 'rgba(245, 158, 11, 0.45)',
   },
   hiResText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
-    color: colors.goldDark,
+    color: '#06B6D4',
     letterSpacing: 0.6,
   },
-  hiResTextActive: {
-    color: '#F5B942',
+  hiResTextFlac: {
+    color: '#F59E0B',
   },
   flacPill: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
     borderWidth: 1,
   },
   flacPillActive: {
-    backgroundColor: 'rgba(245, 185, 66, 0.2)',
-    borderColor: '#F5B942',
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderColor: '#F59E0B',
   },
   flacPillInactive: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   flacPillText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: 'rgba(255, 255, 255, 0.7)',
   },
   flacPillTextActive: {
-    color: '#F5B942',
+    color: '#F59E0B',
   },
   qualityLabel: {
-    fontSize: 12,
-    color: colors.textSub,
+    fontSize: 11,
+    color: colors.textSecondary,
+    flex: 1,
   },
   scrubberContainer: {
-    marginTop: 20,
+    marginTop: 14,
   },
   scrubberTrack: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     position: 'relative',
   },
   scrubberFill: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#FFFFFF',
   },
   scrubberThumb: {
     position: 'absolute',
@@ -441,18 +461,19 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 12,
-    color: colors.textSub,
+    color: colors.textDim,
+    fontWeight: '500',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 4,
   },
   playPauseBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -461,27 +482,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    gap: 5,
-    height: 34,
-    marginTop: 14,
+    gap: 4,
+    height: 32,
+    marginVertical: 4,
   },
   visualizerBar: {
-    width: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    width: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   actionPillsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
+    justifyContent: 'center',
+    gap: 12,
   },
   actionPill: {
-    height: 40,
-    paddingHorizontal: 18,
-    borderRadius: 20,
-    backgroundColor: colors.glassBgActive,
+    height: 36,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },

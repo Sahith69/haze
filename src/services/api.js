@@ -50,15 +50,14 @@ export async function resolveAudioStream(track, options = {}) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     
-    // On native mobile (Android/iOS), connect directly to CDN streamUrl for fastest latency
-    if (Platform.OS !== 'web' && data.streamUrl) {
-      return data.streamUrl;
-    }
-    // On Web, use CORS-supported proxy if available
-    if (data.proxyUrl) {
-      return `${API_BASE_URL}${data.proxyUrl}`;
-    }
-    return data.streamUrl || null;
+    const primaryUrl = data.streamUrl || (data.proxyUrl ? `${API_BASE_URL}${data.proxyUrl}` : null);
+    const fallbackUrl = data.proxyUrl ? `${API_BASE_URL}${data.proxyUrl}` : data.streamUrl;
+
+    return {
+      streamUrl: primaryUrl,
+      fallbackUrl: fallbackUrl,
+      quality: data.quality || (options.flac ? '1,411 kbps · FLAC Master' : '320 kbps · Studio Master'),
+    };
   } catch (err) {
     console.warn('[API] resolveAudioStream error:', err.message);
     return null;
