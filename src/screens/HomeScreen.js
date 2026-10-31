@@ -13,10 +13,34 @@ export const HomeScreen = () => {
   const trendingTracks = queue && queue.length > 0 ? queue : INITIAL_TRACKS;
 
   const jumpBackInItems = [
-    { id: 'jb-1', title: 'Liked Songs', gradient: ['#F5B942', '#C2410C'] },
-    { id: 'jb-2', title: 'Late Night Mix', gradient: ['#3B3B5C', '#8B7CFF'] },
-    { id: 'jb-3', title: 'Road Trip', gradient: ['#0EA5E9', '#8B5CF6'] },
-    { id: 'jb-4', title: 'Focus Flow', gradient: ['#7C5CFF', '#FF5C9E'] },
+    {
+      id: 'jb-1',
+      title: 'Liked Songs',
+      cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80',
+      gradient: ['#F5B942', '#C2410C'],
+      track: INITIAL_TRACKS[0],
+    },
+    {
+      id: 'jb-2',
+      title: 'Late Night Mix',
+      cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&q=80',
+      gradient: ['#3B3B5C', '#8B7CFF'],
+      track: INITIAL_TRACKS[2],
+    },
+    {
+      id: 'jb-3',
+      title: 'Road Trip',
+      cover: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=500&q=80',
+      gradient: ['#0EA5E9', '#8B5CF6'],
+      track: INITIAL_TRACKS[1],
+    },
+    {
+      id: 'jb-4',
+      title: 'Focus Flow',
+      cover: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=500&q=80',
+      gradient: ['#7C5CFF', '#FF5C9E'],
+      track: INITIAL_TRACKS[4],
+    },
   ];
 
   return (
@@ -186,14 +210,18 @@ export const HomeScreen = () => {
             key={item.id}
             activeOpacity={0.8}
             style={styles.jumpBackCard}
-            onPress={() => playTrack(INITIAL_TRACKS[0])}
+            onPress={() => playTrack(item.track || INITIAL_TRACKS[0])}
           >
-            <LinearGradient
-              colors={item.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.jumpBackArt}
-            />
+            {item.cover ? (
+              <Image source={{ uri: item.cover }} style={styles.jumpBackArt} />
+            ) : (
+              <LinearGradient
+                colors={item.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.jumpBackArt}
+              />
+            )}
             <Text style={styles.jumpBackTitle} numberOfLines={1}>
               {item.title}
             </Text>

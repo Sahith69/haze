@@ -12,61 +12,66 @@ const PlayerContext = createContext();
 
 export const INITIAL_TRACKS = [
   {
-    id: 'track-1',
-    title: 'Midnight Drive',
-    artist: 'Nova Lane',
-    album: 'Neon Horizon',
-    duration: 216,
+    id: 'init-1',
+    title: 'Starboy',
+    artist: 'The Weeknd',
+    album: 'Starboy',
+    cover: 'https://c.saavncdn.com/372/b7f9937fefd686876e90be4a96c9a6e9_500x500.jpg',
+    duration: 230,
     isHiRes: true,
-    qualityLabel: '48 kHz · Cloud Vault',
+    qualityLabel: '1,411 kbps · FLAC Master',
     gradient: ['#7C5CFF', '#FF5C9E'],
     isLiked: true,
     inVault: true,
   },
   {
-    id: 'track-2',
-    title: 'Glass Hours',
-    artist: 'Kite & Ember',
-    album: 'Reflections',
-    duration: 194,
+    id: 'init-2',
+    title: 'Shape of You',
+    artist: 'Ed Sheeran',
+    album: '÷ (Divide)',
+    cover: 'https://c.saavncdn.com/286/2929d11a5d44a3592ced0383fa6f1977_500x500.jpg',
+    duration: 233,
     isHiRes: true,
-    qualityLabel: '48 kHz · Cloud Vault',
+    qualityLabel: '1,411 kbps · FLAC Master',
     gradient: ['#FF9A3C', '#FF3C6E'],
-    isLiked: false,
+    isLiked: true,
     inVault: true,
   },
   {
-    id: 'track-3',
-    title: 'Low Tide',
-    artist: 'Sora Vale',
-    album: 'Deep Water',
-    duration: 242,
+    id: 'init-3',
+    title: 'Blinding Lights',
+    artist: 'The Weeknd',
+    album: 'After Hours',
+    cover: 'https://c.saavncdn.com/820/Blinding-Lights-English-2020-20200912094411-500x500.jpg',
+    duration: 200,
     isHiRes: true,
-    qualityLabel: '48 kHz · Cloud Vault',
+    qualityLabel: '1,411 kbps · FLAC Master',
     gradient: ['#18C8A8', '#2A6BFF'],
     isLiked: true,
     inVault: true,
   },
   {
-    id: 'track-4',
-    title: 'Golden Static',
-    artist: 'The Hollows',
-    album: 'Signal Lost',
-    duration: 188,
+    id: 'init-4',
+    title: 'Thriller',
+    artist: 'Michael Jackson',
+    album: 'Thriller',
+    cover: 'https://c.saavncdn.com/295/2742a0391b87aa58b7ba3eefaf57fcf0_500x500.jpg',
+    duration: 357,
     isHiRes: true,
-    qualityLabel: '48 kHz · Cloud Vault',
+    qualityLabel: '1,411 kbps · FLAC Master',
     gradient: ['#F5B942', '#C2410C'],
     isLiked: false,
     inVault: true,
   },
   {
-    id: 'track-5',
-    title: 'Paper Planes',
-    artist: 'Iris Moon',
-    album: 'Skylines',
-    duration: 205,
+    id: 'init-5',
+    title: 'Die With A Smile',
+    artist: 'Lady Gaga & Bruno Mars',
+    album: 'Die With A Smile',
+    cover: 'https://c.saavncdn.com/645/Die-With-A-Smile-English-2024-20240816043202-500x500.jpg',
+    duration: 251,
     isHiRes: true,
-    qualityLabel: '48 kHz · Cloud Vault',
+    qualityLabel: '1,411 kbps · FLAC Master',
     gradient: ['#3B3B5C', '#8B7CFF'],
     isLiked: false,
     inVault: true,
@@ -114,9 +119,10 @@ export const PlayerProvider = ({ children }) => {
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(216);
   const [queue, setQueue] = useState(INITIAL_TRACKS);
-  const [vaultTracks, setVaultTracks] = useState(INITIAL_TRACKS);
-  const [storageUsed, setStorageUsed] = useState('1.4 GB');
+  const [vaultTracks, setVaultTracks] = useState([]);
+  const [storageUsed, setStorageUsed] = useState('0 MB');
   const [storageTotal, setStorageTotal] = useState('10 GB');
+  const [storagePercent, setStoragePercent] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
   const [activeModal, setActiveModal] = useState(null);
   const [isShuffle, setIsShuffle] = useState(false);
@@ -160,25 +166,37 @@ export const PlayerProvider = ({ children }) => {
   // Fetch initial Vault and Trending data from backend
   useEffect(() => {
     async function loadInitialData() {
-      const vaultData = await fetchVaultList();
-      if (vaultData.tracks && vaultData.tracks.length > 0) {
-        setVaultTracks(vaultData.tracks);
-        setStorageUsed(vaultData.storageUsed || '1.4 GB');
+      try {
+        const vaultData = await fetchVaultList();
+        if (vaultData) {
+          if (Array.isArray(vaultData.tracks)) {
+            setVaultTracks(vaultData.tracks);
+          }
+          if (vaultData.storageUsed) setStorageUsed(vaultData.storageUsed);
+          if (vaultData.storageTotal) setStorageTotal(vaultData.storageTotal);
+          if (typeof vaultData.storagePercent === 'number') setStoragePercent(vaultData.storagePercent);
+        }
+      } catch (e) {
+        console.warn('Error loading vault list:', e.message);
       }
 
-      const trending = await fetchTrending();
-      if (trending && trending.length > 0) {
-        const mapped = trending.map((t, idx) => ({
-          ...t,
-          gradient: [
-            ['#7C5CFF', '#FF5C9E'],
-            ['#FF9A3C', '#FF3C6E'],
-            ['#18C8A8', '#2A6BFF'],
-            ['#F5B942', '#C2410C'],
-            ['#3B3B5C', '#8B7CFF'],
-          ][idx % 5],
-        }));
-        setQueue(mapped);
+      try {
+        const trending = await fetchTrending();
+        if (trending && trending.length > 0) {
+          const mapped = trending.map((t, idx) => ({
+            ...t,
+            gradient: [
+              ['#7C5CFF', '#FF5C9E'],
+              ['#FF9A3C', '#FF3C6E'],
+              ['#18C8A8', '#2A6BFF'],
+              ['#F5B942', '#C2410C'],
+              ['#3B3B5C', '#8B7CFF'],
+            ][idx % 5],
+          }));
+          setQueue(mapped);
+        }
+      } catch (e) {
+        console.warn('Error loading trending:', e.message);
       }
     }
     loadInitialData();
@@ -348,6 +366,7 @@ export const PlayerProvider = ({ children }) => {
         vaultTracks,
         storageUsed,
         storageTotal,
+        storagePercent,
         activeTab,
         activeModal,
         isShuffle,

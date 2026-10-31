@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Plus, MoreHorizontal, Heart, ListMusic } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
@@ -12,11 +12,46 @@ export const LibraryScreen = () => {
   const filters = ['Playlists', 'Liked', 'Artists', 'Albums'];
 
   const playlists = [
-    { id: 'p-1', title: 'Liked Songs', count: '142 songs', gradient: ['#F5B942', '#C2410C'] },
-    { id: 'p-2', title: 'Late Night Mix', count: '38 songs', gradient: ['#3B3B5C', '#8B7CFF'] },
-    { id: 'p-3', title: 'Road Trip', count: '65 songs', gradient: ['#0EA5E9', '#8B5CF6'] },
-    { id: 'p-4', title: 'Focus Flow', count: '52 songs', gradient: ['#7C5CFF', '#FF5C9E'] },
-    { id: 'p-5', title: 'Synthwave & Cyberpunk', count: '29 songs', gradient: ['#FF9A3C', '#FF3C6E'] },
+    {
+      id: 'p-1',
+      title: 'Liked Songs',
+      count: '142 songs',
+      cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80',
+      gradient: ['#F5B942', '#C2410C'],
+      track: INITIAL_TRACKS[0],
+    },
+    {
+      id: 'p-2',
+      title: 'Late Night Mix',
+      count: '38 songs',
+      cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&q=80',
+      gradient: ['#3B3B5C', '#8B7CFF'],
+      track: INITIAL_TRACKS[2],
+    },
+    {
+      id: 'p-3',
+      title: 'Road Trip',
+      count: '65 songs',
+      cover: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=500&q=80',
+      gradient: ['#0EA5E9', '#8B5CF6'],
+      track: INITIAL_TRACKS[1],
+    },
+    {
+      id: 'p-4',
+      title: 'Focus Flow',
+      count: '52 songs',
+      cover: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=500&q=80',
+      gradient: ['#7C5CFF', '#FF5C9E'],
+      track: INITIAL_TRACKS[4],
+    },
+    {
+      id: 'p-5',
+      title: 'Synthwave & Cyberpunk',
+      count: '29 songs',
+      cover: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=500&q=80',
+      gradient: ['#FF9A3C', '#FF3C6E'],
+      track: INITIAL_TRACKS[3],
+    },
   ];
 
   return (
@@ -70,14 +105,18 @@ export const LibraryScreen = () => {
             key={pl.id}
             activeOpacity={0.7}
             style={styles.playlistRow}
-            onPress={() => playTrack(INITIAL_TRACKS[0])}
+            onPress={() => playTrack(pl.track || INITIAL_TRACKS[0])}
           >
-            <LinearGradient
-              colors={pl.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.playlistArt}
-            />
+            {pl.cover ? (
+              <Image source={{ uri: pl.cover }} style={styles.playlistArt} />
+            ) : (
+              <LinearGradient
+                colors={pl.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.playlistArt}
+              />
+            )}
             <View style={styles.playlistInfo}>
               <Text style={styles.playlistTitle} numberOfLines={1}>
                 {pl.title}

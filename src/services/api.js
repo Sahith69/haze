@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { API_BASE_URL } from '../config';
 
 /**
@@ -6,7 +7,7 @@ import { API_BASE_URL } from '../config';
 export async function searchTracks(query) {
   if (!query || !query.trim()) return [];
   try {
-    const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
+    const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query.trim())}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.tracks || [];
@@ -48,7 +49,12 @@ export async function resolveAudioStream(track, options = {}) {
     const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    // Use the CORS-enabled, range-supported proxy stream
+    
+    // On native mobile (Android/iOS), connect directly to CDN streamUrl for fastest latency
+    if (Platform.OS !== 'web' && data.streamUrl) {
+      return data.streamUrl;
+    }
+    // On Web, use CORS-supported proxy if available
     if (data.proxyUrl) {
       return `${API_BASE_URL}${data.proxyUrl}`;
     }
@@ -81,7 +87,7 @@ export async function fetchLyrics(track) {
 }
 
 /**
- * Fetch list of saved Hi-Res tracks in Cloud Vault (Cloudflare R2)
+ * Fetch list of saved Hi-Res tracks in Cloud Vault (Cloudflare R2 / Telegram)
  */
 export async function fetchVaultList() {
   try {
@@ -90,7 +96,7 @@ export async function fetchVaultList() {
     return await res.json();
   } catch (err) {
     console.warn('[API] fetchVaultList error:', err.message);
-    return { tracks: [], storageUsed: '1.4 GB', storageTotal: '10 GB' };
+    return { tracks: [], storageUsed: '0 MB', storageTotal: '10 GB', storagePercent: 0 };
   }
 }
 

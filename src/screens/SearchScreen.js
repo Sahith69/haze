@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, Link, MoreHorizontal, ArrowRight } from 'lucide-react-native';
+import { Search, Link, MoreHorizontal, ArrowRight, X } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { searchTracks } from '../services/api';
 import { colors } from '../theme/colors';
@@ -11,6 +11,7 @@ export const SearchScreen = () => {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState(INITIAL_TRACKS);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [activeFilter, setActiveFilter] = useState('Tracks');
   const [spotifyUrl, setSpotifyUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -18,17 +19,19 @@ export const SearchScreen = () => {
 
   const filters = ['Tracks', 'Artists', 'Albums', 'Playlists'];
 
-  // Real API search with debounce
-  useEffect(() => {
-    if (!query.trim()) {
+  const executeSearch = useCallback(async (text) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
       setSearchResults(INITIAL_TRACKS);
+      setHasSearched(false);
       setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
-    const timer = setTimeout(async () => {
-      const results = await searchTracks(query);
+    setHasSearched(true);
+    try {
+      const results = await searchTracks(trimmed);
       if (results && results.length > 0) {
         const mapped = results.map((t, idx) => ({
           ...t,
@@ -41,12 +44,38 @@ export const SearchScreen = () => {
           ][idx % 5],
         }));
         setSearchResults(mapped);
+      } else {
+        setSearchResults([]);
       }
+    } catch (e) {
+      setSearchResults([]);
+    } finally {
       setIsSearching(false);
-    }, 350);
+    }
+  }, []);
+
+  // Debounced search on typing
+  useEffect(() => {
+    if (!query.trim()) {
+      setSearchResults(INITIAL_TRACKS);
+      setHasSearched(false);
+      setIsSearching(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      executeSearch(query);
+    }, 300);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, executeSearch]);
+
+  const clearSearch = () => {
+    setQuery('');
+    setSearchResults(INITIAL_TRACKS);
+    setHasSearched(false);
+    setIsSearching(false);
+  };
 
   const handleSpotifyImport = () => {
     if (!spotifyUrl.trim()) return;
@@ -64,6 +93,7 @@ export const SearchScreen = () => {
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.headerTitle}>Search</Text>
 
@@ -76,7 +106,16 @@ export const SearchScreen = () => {
           placeholderTextColor={colors.textSecondary}
           value={query}
           onChangeText={setQuery}
+          returnKeyType="search"
+          onSubmitEditing={() => executeSearch(query)}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
+        {query.length > 0 && (
+          <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <X size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Filter Pills */}
@@ -109,8 +148,19 @@ export const SearchScreen = () => {
       {/* Search Results List */}
       <View style={styles.trackList}>
         {isSearching && (
-          <ActivityIndicator color={colors.accentPink} style={{ marginVertical: 12 }} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.accentPink} size="small" />
+            <Text style={styles.loadingText}>Searching catalog...</Text>
+          </View>
         )}
+
+        {!isSearching && hasSearched && searchResults.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>No tracks found</Text>
+            <Text style={styles.emptySubtitle}>Try searching by song title, artist, or album</Text>
+          </View>
+        )}
+
         {searchResults.map((track) => {
           const isPlayingThis = currentTrack?.id === track.id;
           return (
@@ -148,6 +198,10 @@ export const SearchScreen = () => {
               <TouchableOpacity style={styles.actionBtn}>
                 <MoreHorizontal size={20} color={colors.textSecondary} />
               </TouchableOpacity>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
             </TouchableOpacity>
           );
         })}
@@ -338,5 +392,31 @@ const styles = StyleSheet.create({
     color: colors.gold,
     marginTop: 8,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 18,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 6,
   },
 });

@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MoreHorizontal, HardDriveDownload, CloudCheck } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 export const CloudVaultScreen = () => {
-  const { vaultTracks, playTrack, currentTrack, storageUsed, storageTotal } = usePlayer();
+  const { vaultTracks, playTrack, currentTrack, storageUsed, storageTotal, storagePercent } = usePlayer();
   const [activeFilter, setActiveFilter] = useState('All');
 
   const filters = ['All', 'Hi-Res', 'On phone'];
+  const barWidth = Math.min(100, Math.max(storagePercent || 0, vaultTracks && vaultTracks.length > 0 ? 2 : 0));
 
   return (
     <ScrollView
@@ -20,16 +21,16 @@ export const CloudVaultScreen = () => {
       {/* Screen Title */}
       <Text style={styles.headerTitle}>Cloud Vault</Text>
 
-      {/* Cloudflare R2 Storage Card */}
+      {/* Cloudflare R2 / Telegram Storage Card */}
       <View style={styles.storageCard}>
         <View style={styles.storageHeader}>
           <Text style={styles.storageValue}>{storageUsed}</Text>
           <Text style={styles.storageTotal}>of {storageTotal} used</Text>
         </View>
 
-        {/* Progress Bar */}
+        {/* Dynamic Progress Bar */}
         <View style={styles.storageBarBg}>
-          <View style={[styles.storageBarFill, { width: '14%' }]} />
+          <View style={[styles.storageBarFill, { width: `${barWidth}%` }]} />
         </View>
         <Text style={styles.storageSubtitle}>Telegram Cloud Vault · Lossless FLAC Master</Text>
       </View>
@@ -63,6 +64,13 @@ export const CloudVaultScreen = () => {
 
       {/* Vault Track List */}
       <View style={styles.trackList}>
+        {vaultTracks.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>Vault is ready</Text>
+            <Text style={styles.emptySubtitle}>Play any song to stream and archive directly in your Lossless FLAC Vault.</Text>
+          </View>
+        )}
+
         {vaultTracks.map((track) => {
           const isPlayingThis = currentTrack?.id === track.id;
           return (
@@ -72,13 +80,16 @@ export const CloudVaultScreen = () => {
               style={styles.trackRow}
               onPress={() => playTrack(track)}
             >
-              {/* 48px Artwork */}
-              <LinearGradient
-                colors={track.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.trackArt}
-              />
+              {track.cover ? (
+                <Image source={{ uri: track.cover }} style={styles.trackArt} />
+              ) : (
+                <LinearGradient
+                  colors={track.gradient || ['#7C5CFF', '#FF5C9E']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.trackArt}
+                />
+              )}
 
               {/* Title, Badge & Artist */}
               <View style={styles.trackInfo}>
@@ -252,5 +263,23 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
   },
 });
