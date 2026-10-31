@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
@@ -72,12 +72,16 @@ export const HomeScreen = () => {
             style={styles.trendingCard}
             onPress={() => playTrack(track)}
           >
-            <LinearGradient
-              colors={track.gradient || ['#7C5CFF', '#FF5C9E']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.cardCover}
-            />
+            {track.cover ? (
+              <Image source={{ uri: track.cover }} style={styles.cardCover} />
+            ) : (
+              <LinearGradient
+                colors={track.gradient || ['#7C5CFF', '#FF5C9E']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cardCover}
+              />
+            )}
             <Text style={styles.cardTitle} numberOfLines={1}>
               {track.title}
             </Text>

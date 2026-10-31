@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Search, Link, MoreHorizontal, ArrowRight } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
@@ -120,12 +120,17 @@ export const SearchScreen = () => {
               style={styles.trackRow}
               onPress={() => playTrack(track)}
             >
-              <LinearGradient
-                colors={track.gradient || ['#7C5CFF', '#FF5C9E']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.trackArt}
-              />
+              {track.cover ? (
+                <Image source={{ uri: track.cover }} style={styles.trackArt} />
+              ) : (
+                <LinearGradient
+                  colors={track.gradient || ['#7C5CFF', '#FF5C9E']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.trackArt}
+                />
+              )}
+
               <View style={styles.trackInfo}>
                 <Text
                   style={[

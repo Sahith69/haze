@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Pause } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
@@ -19,12 +19,16 @@ export const MiniPlayer = () => {
       onPress={() => setActiveModal('now_playing')}
     >
       {/* 42px Album Artwork Thumbnail */}
-      <LinearGradient
-        colors={currentTrack.gradient || ['#7C5CFF', '#FF5C9E']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.albumArt}
-      />
+      {currentTrack.cover ? (
+        <Image source={{ uri: currentTrack.cover }} style={styles.albumArt} />
+      ) : (
+        <LinearGradient
+          colors={currentTrack.gradient || ['#7C5CFF', '#FF5C9E']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.albumArt}
+        />
+      )}
 
       {/* Track Info */}
       <View style={styles.infoContainer}>

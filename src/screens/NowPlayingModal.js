@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronDown,
@@ -38,6 +38,15 @@ export const NowPlayingModal = () => {
   } = usePlayer();
 
   const [vaultFeedback, setVaultFeedback] = useState('');
+  const [scrubberWidth, setScrubberWidth] = useState(width - 48);
+
+  const handleSeek = (e) => {
+    if (!duration || scrubberWidth <= 0) return;
+    const clickX = e.nativeEvent.locationX;
+    const ratio = Math.max(0, Math.min(clickX / scrubberWidth, 1));
+    const targetSeconds = Math.round(ratio * duration);
+    seekTo(targetSeconds);
+  };
 
   const [visualizerHeights, setVisualizerHeights] = useState([
     12, 22, 30, 18, 34, 26, 14, 28, 20, 32, 16, 24, 10, 30, 22,
@@ -92,12 +101,20 @@ export const NowPlayingModal = () => {
 
         {/* 342px Glowing Artwork */}
         <View style={styles.artShadowContainer}>
-          <LinearGradient
-            colors={currentTrack.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.albumArt}
-          />
+          {currentTrack.coverLarge || currentTrack.cover ? (
+            <Image
+              source={{ uri: currentTrack.coverLarge || currentTrack.cover }}
+              style={styles.albumArt}
+              resizeMode="cover"
+            />
+          ) : (
+            <LinearGradient
+              colors={currentTrack.gradient || ['#7C5CFF', '#FF5C9E']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.albumArt}
+            />
+          )}
         </View>
 
         {/* Track Title, Artist & Like Button */}
@@ -140,8 +157,13 @@ export const NowPlayingModal = () => {
           </Text>
         </View>
 
-        {/* Scrubber Progress Bar */}
-        <View style={styles.scrubberContainer}>
+        {/* Scrubber Progress Bar with Tap-to-Seek */}
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.scrubberContainer}
+          onLayout={(e) => setScrubberWidth(e.nativeEvent.layout.width)}
+          onPress={handleSeek}
+        >
           <View style={styles.scrubberTrack}>
             <View style={[styles.scrubberFill, { width: `${progressPercent}%` }]} />
             <View style={[styles.scrubberThumb, { left: `${progressPercent}%` }]} />
@@ -150,7 +172,7 @@ export const NowPlayingModal = () => {
             <Text style={styles.timeText}>{formatTime(position)}</Text>
             <Text style={styles.timeText}>{formatTime(duration)}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Playback Controls */}
         <View style={styles.controlsRow}>
