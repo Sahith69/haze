@@ -31,7 +31,7 @@ export const CloudVaultScreen = () => {
         <View style={styles.storageBarBg}>
           <View style={[styles.storageBarFill, { width: '14%' }]} />
         </View>
-        <Text style={styles.storageSubtitle}>Cloudflare R2 Lossless Storage · Zero Egress</Text>
+        <Text style={styles.storageSubtitle}>Telegram Cloud Vault · Lossless FLAC Master</Text>
       </View>
 
       {/* Filter Pills */}

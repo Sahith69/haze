@@ -40,6 +40,8 @@ export async function resolveAudioStream(track) {
       id: track.id || '',
       title: track.title || '',
       artist: track.artist || '',
+      album: track.album || '',
+      cover: track.coverLarge || track.cover || '',
       duration: String(track.duration || ''),
     });
     const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`);
