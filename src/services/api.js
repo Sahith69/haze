@@ -34,7 +34,7 @@ export async function fetchTrending() {
 /**
  * Resolve direct high-fidelity audio stream URL
  */
-export async function resolveAudioStream(track) {
+export async function resolveAudioStream(track, options = {}) {
   try {
     const params = new URLSearchParams({
       id: track.id || '',
@@ -43,6 +43,7 @@ export async function resolveAudioStream(track) {
       album: track.album || '',
       cover: track.coverLarge || track.cover || '',
       duration: String(track.duration || ''),
+      quality: options.flac ? 'flac' : 'studio',
     });
     const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

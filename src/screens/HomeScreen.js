@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 export const HomeScreen = () => {
-  const { playTrack, currentTrack, queue } = usePlayer();
+  const { playTrack, currentTrack, queue, currentUser, switchUser, flacEnabled, USERS } = usePlayer();
   const [activeFilter, setActiveFilter] = useState('All');
+  const [showUserModal, setShowUserModal] = useState(false);
 
   const filters = ['All', 'Trending', 'Charts', 'Genres'];
   const trendingTracks = queue && queue.length > 0 ? queue : INITIAL_TRACKS;
@@ -24,14 +25,93 @@ export const HomeScreen = () => {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Brand & Greeting Header */}
+      {/* Brand & Profile Header */}
       <View style={styles.brandRow}>
-        <Text style={styles.brandTitle}>HAZE</Text>
-        <View style={styles.brandBadge}>
-          <Text style={styles.brandBadgeText}>HI-RES</Text>
+        <View style={styles.brandLeft}>
+          <Text style={styles.brandTitle}>HAZE</Text>
+          <View style={styles.brandBadge}>
+            <Text style={styles.brandBadgeText}>{flacEnabled ? 'FLAC' : 'HI-RES'}</Text>
+          </View>
         </View>
+
+        {/* Profile Switcher Pill */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.profilePill}
+          onPress={() => setShowUserModal(true)}
+        >
+          <LinearGradient
+            colors={currentUser.colors}
+            style={styles.profileAvatar}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.profileAvatarText}>{currentUser.avatar}</Text>
+          </LinearGradient>
+          <Text style={styles.profileName}>{currentUser.name}</Text>
+          <Text style={styles.profileArrow}>▾</Text>
+        </TouchableOpacity>
       </View>
-      <Text style={styles.greeting}>Hello Name!!</Text>
+
+      <Text style={styles.greeting}>Hello {currentUser.name}! {currentUser.avatar}</Text>
+      <Text style={styles.qualitySubtext}>
+        {flacEnabled ? '⚡ Lossless FLAC Master (1,411 kbps)' : '✨ Studio Mode · Tap badge in player for FLAC'}
+      </Text>
+
+      {/* User Switcher Modal */}
+      <Modal
+        visible={showUserModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowUserModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowUserModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Profile</Text>
+            <Text style={styles.modalSubtitle}>Switch listening experience instantly</Text>
+
+            {Object.values(USERS).map((user) => {
+              const isSelected = currentUser.id === user.id;
+              return (
+                <TouchableOpacity
+                  key={user.id}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.userCard,
+                    isSelected && styles.userCardSelected,
+                  ]}
+                  onPress={() => {
+                    switchUser(user.id);
+                    setShowUserModal(false);
+                  }}
+                >
+                  <LinearGradient
+                    colors={user.colors}
+                    style={styles.userCardAvatar}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.userCardAvatarText}>{user.avatar}</Text>
+                  </LinearGradient>
+                  <View style={styles.userCardInfo}>
+                    <View style={styles.userCardNameRow}>
+                      <Text style={styles.userCardName}>{user.name}</Text>
+                      <View style={[styles.userBadgePill, isSelected && styles.userBadgePillActive]}>
+                        <Text style={styles.userBadgeText}>{user.badge}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.userCardDesc}>{user.description}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Filter Pills */}
       <ScrollView
@@ -138,8 +218,13 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     marginBottom: 4,
+  },
+  brandLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   brandTitle: {
     fontSize: 16,
@@ -161,11 +246,133 @@ const styles = StyleSheet.create({
     color: colors.gold,
     letterSpacing: 0.5,
   },
+  profilePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    gap: 6,
+  },
+  profileAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarText: {
+    fontSize: 11,
+  },
+  profileName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  profileArrow: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginLeft: 2,
+  },
   greeting: {
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
     color: colors.text,
+  },
+  qualitySubtext: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.gold,
+    marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    width: '100%',
+    backgroundColor: '#12121A',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 12,
+    gap: 14,
+  },
+  userCardSelected: {
+    borderColor: colors.gold,
+    backgroundColor: 'rgba(245, 185, 66, 0.1)',
+  },
+  userCardAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userCardAvatarText: {
+    fontSize: 22,
+  },
+  userCardInfo: {
+    flex: 1,
+  },
+  userCardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  userCardName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  userBadgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  userBadgePillActive: {
+    backgroundColor: 'rgba(245, 185, 66, 0.25)',
+  },
+  userBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.gold,
+  },
+  userCardDesc: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   filterRow: {
     flexDirection: 'row',

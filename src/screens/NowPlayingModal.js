@@ -35,6 +35,9 @@ export const NowPlayingModal = () => {
     setIsRepeat,
     setActiveModal,
     closeModal,
+    currentUser,
+    flacEnabled,
+    toggleFlac,
   } = usePlayer();
 
   const [vaultFeedback, setVaultFeedback] = useState('');
@@ -139,21 +142,52 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
         </View>
 
-        {/* HI-RES Golden Badge & Specs (Interactive Cloud Vault Tap) */}
+        {/* HI-RES / FLAC Golden Badge with User Profile Handling */}
         <View style={styles.badgeRow}>
           <TouchableOpacity
             activeOpacity={0.8}
-            style={styles.hiResBadge}
+            style={[
+              styles.hiResBadge,
+              flacEnabled && styles.hiResBadgeActive,
+            ]}
             onPress={() => {
-              saveToVault(currentTrack);
-              setVaultFeedback('Saved to Cloud Vault!');
-              setTimeout(() => setVaultFeedback(''), 2500);
+              if (currentUser.id === 'kritika') {
+                toggleFlac();
+                setVaultFeedback(flacEnabled ? 'Switched to Studio 48kHz' : '⚡ Lossless FLAC Enabled!');
+                setTimeout(() => setVaultFeedback(''), 2500);
+              } else {
+                saveToVault(currentTrack);
+                setVaultFeedback('Saved to Lossless Vault!');
+                setTimeout(() => setVaultFeedback(''), 2500);
+              }
             }}
           >
-            <Text style={styles.hiResText}>⚡ HI-RES</Text>
+            <Text style={[styles.hiResText, flacEnabled && styles.hiResTextActive]}>
+              {flacEnabled ? '⚡ LOSSLESS FLAC' : '✨ STUDIO 48kHz'}
+            </Text>
           </TouchableOpacity>
+
+          {currentUser.id === 'kritika' && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={[
+                styles.flacPill,
+                flacEnabled ? styles.flacPillActive : styles.flacPillInactive,
+              ]}
+              onPress={() => {
+                toggleFlac();
+                setVaultFeedback(flacEnabled ? 'Switched to Studio 48kHz' : '⚡ Lossless FLAC Enabled!');
+                setTimeout(() => setVaultFeedback(''), 2500);
+              }}
+            >
+              <Text style={[styles.flacPillText, flacEnabled && styles.flacPillTextActive]}>
+                {flacEnabled ? 'FLAC ON' : 'Tap for FLAC ⚡'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <Text style={styles.qualityLabel}>
-            {vaultFeedback || currentTrack.qualityLabel}
+            {vaultFeedback || (flacEnabled ? '1,411 kbps · Lossless FLAC' : '48 kHz · Studio Master')}
           </Text>
         </View>
 
@@ -335,12 +369,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  hiResBadgeActive: {
+    backgroundColor: 'rgba(245, 185, 66, 0.22)',
+    borderColor: '#F5B942',
   },
   hiResText: {
     fontSize: 10,
     fontWeight: '800',
     color: colors.goldDark,
     letterSpacing: 0.6,
+  },
+  hiResTextActive: {
+    color: '#F5B942',
+  },
+  flacPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  flacPillActive: {
+    backgroundColor: 'rgba(245, 185, 66, 0.2)',
+    borderColor: '#F5B942',
+  },
+  flacPillInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  flacPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  flacPillTextActive: {
+    color: '#F5B942',
   },
   qualityLabel: {
     fontSize: 12,

@@ -6,7 +6,7 @@ import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 export const LibraryScreen = () => {
-  const { playTrack, currentTrack } = usePlayer();
+  const { playTrack, currentTrack, currentUser } = usePlayer();
   const [activeFilter, setActiveFilter] = useState('Playlists');
 
   const filters = ['Playlists', 'Liked', 'Artists', 'Albums'];
@@ -26,7 +26,10 @@ export const LibraryScreen = () => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.topRow}>
-        <Text style={styles.headerTitle}>Library</Text>
+        <View>
+          <Text style={styles.headerTitle}>{currentUser.name}'s Library</Text>
+          <Text style={styles.headerSubtitle}>{currentUser.avatar} {currentUser.badge}</Text>
+        </View>
         <TouchableOpacity style={styles.newPlaylistBtn}>
           <Plus size={18} color="#FFFFFF" />
           <Text style={styles.newPlaylistText}>New playlist</Text>
@@ -114,6 +117,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
     color: colors.text,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.gold,
+    marginTop: 2,
   },
   newPlaylistBtn: {
     flexDirection: 'row',

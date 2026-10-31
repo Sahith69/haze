@@ -73,7 +73,42 @@ export const INITIAL_TRACKS = [
   },
 ];
 
+export const USERS = {
+  sahith: {
+    id: 'sahith',
+    name: 'Sahith',
+    avatar: '⚡',
+    badge: '⚡ FLAC Master',
+    colors: ['#F5B942', '#7C5CFF'],
+    defaultFlac: true,
+    description: 'Always Lossless FLAC · 1,411 kbps Master',
+  },
+  kritika: {
+    id: 'kritika',
+    name: 'Kritika',
+    avatar: '✨',
+    badge: '✨ Hi-Fi Studio',
+    colors: ['#FF5C9E', '#9B51E0'],
+    defaultFlac: false,
+    description: 'Hi-Fi Studio · Tap badge anytime for FLAC',
+  },
+};
+
 export const PlayerProvider = ({ children }) => {
+  // 2-User Profiles: Sahith (FLAC by default) & Kritika (Studio / FLAC on demand)
+  const [currentUser, setCurrentUser] = useState(USERS.sahith);
+  const [flacEnabled, setFlacEnabled] = useState(true);
+
+  const switchUser = (userId) => {
+    const user = USERS[userId] || USERS.sahith;
+    setCurrentUser(user);
+    setFlacEnabled(user.defaultFlac);
+  };
+
+  const toggleFlac = () => {
+    setFlacEnabled(prev => !prev);
+  };
+
   const [currentTrack, setCurrentTrack] = useState(INITIAL_TRACKS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
@@ -154,7 +189,13 @@ export const PlayerProvider = ({ children }) => {
   // Play a track and resolve actual audio stream
   const playTrack = async (track) => {
     if (!track) return;
-    setCurrentTrack(track);
+    const resolvedQuality = flacEnabled ? '1,411 kbps · Lossless FLAC' : '48 kHz · Studio Master';
+    const enrichedTrack = {
+      ...track,
+      qualityLabel: resolvedQuality,
+      isHiRes: true,
+    };
+    setCurrentTrack(enrichedTrack);
     setIsPlaying(true);
     setPosition(0);
     setDuration(track.duration || 216);
@@ -171,8 +212,8 @@ export const PlayerProvider = ({ children }) => {
         soundRef.current = null;
       }
 
-      console.log(`[Player] Resolving audio stream for: "${track.title}" by ${track.artist}`);
-      const streamUrl = await resolveAudioStream(track);
+      console.log(`[Player] Resolving audio stream for: "${track.title}" by ${track.artist} (${resolvedQuality})`);
+      const streamUrl = await resolveAudioStream(track, { flac: flacEnabled });
       console.log(`[Player] Resolved stream URL:`, streamUrl);
 
       if (streamUrl) {
@@ -298,6 +339,11 @@ export const PlayerProvider = ({ children }) => {
   return (
     <PlayerContext.Provider
       value={{
+        currentUser,
+        flacEnabled,
+        switchUser,
+        toggleFlac,
+        USERS,
         currentTrack,
         isPlaying,
         isLoadingAudio,
