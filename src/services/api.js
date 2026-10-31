@@ -50,8 +50,14 @@ export async function resolveAudioStream(track, options = {}) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     
-    const primaryUrl = data.streamUrl || (data.proxyUrl ? `${API_BASE_URL}${data.proxyUrl}` : null);
-    const fallbackUrl = data.proxyUrl ? `${API_BASE_URL}${data.proxyUrl}` : data.streamUrl;
+    const normalizeUrl = (u) => {
+      if (!u) return null;
+      if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('file://')) return u;
+      return `${API_BASE_URL}${u.startsWith('/') ? '' : '/'}${u}`;
+    };
+
+    const primaryUrl = normalizeUrl(data.streamUrl) || normalizeUrl(data.proxyUrl);
+    const fallbackUrl = normalizeUrl(data.proxyUrl) || normalizeUrl(data.streamUrl);
 
     return {
       streamUrl: primaryUrl,
