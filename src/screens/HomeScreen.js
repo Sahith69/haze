@@ -24,7 +24,13 @@ export const HomeScreen = () => {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Greeting Header */}
+      {/* Brand & Greeting Header */}
+      <View style={styles.brandRow}>
+        <Text style={styles.brandTitle}>HAZE</Text>
+        <View style={styles.brandBadge}>
+          <Text style={styles.brandBadgeText}>HI-RES</Text>
+        </View>
+      </View>
       <Text style={styles.greeting}>Hello Name!!</Text>
 
       {/* Filter Pills */}
@@ -126,8 +132,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingTop: 60,
+    paddingTop: 56,
     paddingHorizontal: 20,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  brandTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 3,
+    color: colors.accentPink,
+  },
+  brandBadge: {
+    backgroundColor: 'rgba(245, 185, 66, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 185, 66, 0.4)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  brandBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.gold,
+    letterSpacing: 0.5,
   },
   greeting: {
     fontSize: 28,
