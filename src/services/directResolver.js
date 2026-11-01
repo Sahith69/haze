@@ -10,17 +10,18 @@ const JIO_KEY = CryptoJS.enc.Utf8.parse('38346591');
  * Score how well a JioSaavn result matches the requested title + artist.
  * Higher = better match. Penalises covers, remixes, karaoke, etc.
  */
-function scoreJioSaavnResult(result, wantedTitle, wantedArtist) {
+function scoreJioSaavnResult(result, rawTitle = '', rawArtist = '') {
   const PENALTY_TERMS = ['cover', 'karaoke', 'instrumental', 'tribute', 'originally performed', 'remix', 'ringtone', 'piano', 'slowed', 'sped up', 'nightcore', 'acoustic', 'live', 'lullaby'];
-  const rTitle = (result.title || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
+  const rRawTitle = (result.title || '').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&');
+  const rTitle = rRawTitle.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
   const rArtist = [
     result.subtitle || '',
     result.more_info?.primary_artists || '',
     result.more_info?.singers || '',
     result.more_info?.music || '',
   ].join(' ').toLowerCase();
-  const wTitle = wantedTitle.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
-  const wArtist = wantedArtist.toLowerCase();
+  const wTitle = rawTitle.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
+  const wArtist = rawArtist.toLowerCase();
 
   let score = 0;
 
@@ -36,16 +37,19 @@ function scoreJioSaavnResult(result, wantedTitle, wantedArtist) {
 
   // Penalty for remix / cover / karaoke unless user specifically wanted it
   const wantedPenalty = PENALTY_TERMS.some(pt => wTitle.includes(pt) || wArtist.includes(pt));
-  const resultHasPenalty = PENALTY_TERMS.some(pt => (result.title || '').toLowerCase().includes(pt));
+  const resultHasPenalty = PENALTY_TERMS.some(pt => rRawTitle.toLowerCase().includes(pt));
   if (resultHasPenalty && !wantedPenalty) score -= 150;
 
   // Strict language match for multi-language regional songs
-  const wLang = (wantedTitle || '').match(/\[(Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\]|\((Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\)/i);
+  const wLang = rawTitle.match(/\[(Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\]|\((Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\)/i);
   if (wLang) {
     const targetLang = (wLang[1] || wLang[2]).toLowerCase();
-    const rHasLang = (result.title || '').toLowerCase().includes(targetLang) || (result.subtitle || '').toLowerCase().includes(targetLang) || (result.more_info?.language || '').toLowerCase() === targetLang;
-    if (rHasLang) score += 60;
-    else score -= 120; // Heavy penalty if wrong language version!
+    const rRaw = (rRawTitle + ' ' + (result.subtitle || '') + ' ' + (result.more_info?.language || '')).toLowerCase();
+    if (rRaw.includes(targetLang)) {
+      score += 100;
+    } else {
+      score -= 100; // Penalty for wrong language version
+    }
   }
 
   return score;
@@ -53,37 +57,40 @@ function scoreJioSaavnResult(result, wantedTitle, wantedArtist) {
 
 export async function resolveDirectSaavnAudio(title, artist, requestedQuality = '320k') {
   try {
-    const langMatch = (title || '').match(/\[(Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\]|\((Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\)/i);
-    const langStr = langMatch ? (langMatch[1] || langMatch[2]) : '';
+    const rawTitle = title || '';
+    const rawArtist = artist || '';
 
-    const cleanTitle = (title || '').replace(/\(.*?\)|\[.*?\]/g, '').trim();
-    const cleanArtist = (artist || '').split(',')[0].split('&')[0].trim();
-    const q = encodeURIComponent(`${cleanArtist} ${cleanTitle} ${langStr}`.trim() || title);
-    // Fetch top 8 results so scoring has more candidates to pick from
-    const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=8&p=1&q=${q}`;
+    const cleanTitle = rawTitle.replace(/\(.*?\)|\[.*?\]/g, '').trim();
+    const cleanArtist = rawArtist.split(',')[0].split('&')[0].trim();
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const results = (data.results || []).filter(r => r?.more_info?.encrypted_media_url);
+    // Query with Clean Title + Clean Artist (Do NOT put language tags in query, JioSaavn index breaks)
+    let q = encodeURIComponent(`${cleanTitle} ${cleanArtist}`.trim());
+    let url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=8&p=1&q=${q}`;
+
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    };
+
+    let res = await fetch(url, { headers });
+    let data = res.ok ? await res.json() : null;
+    let results = (data?.results || []).filter(r => r?.more_info?.encrypted_media_url);
+
+    // Fallback: If 0 results with artist, query with cleanTitle alone
+    if (results.length === 0 && cleanTitle) {
+      q = encodeURIComponent(cleanTitle);
+      url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=8&p=1&q=${q}`;
+      res = await fetch(url, { headers });
+      data = res.ok ? await res.json() : null;
+      results = (data?.results || []).filter(r => r?.more_info?.encrypted_media_url);
+    }
+
     if (results.length === 0) return null;
 
-    // Pick best-scoring result instead of blindly using results[0]
-    const scored = results.map(r => ({ r, s: scoreJioSaavnResult(r, cleanTitle, cleanArtist) }));
+    // Pick best-scoring result passing rawTitle so language matching functions accurately
+    const scored = results.map(r => ({ r, s: scoreJioSaavnResult(r, rawTitle, rawArtist) }));
     scored.sort((a, b) => b.s - a.s);
-    if (!scored[0] || scored[0].s < 40) {
-      console.warn(`[DirectResolver] Best result for "${cleanTitle}" scored ${scored[0]?.s || 0} (< 40 threshold). Rejecting to avoid wrong track.`);
-      return null;
-    }
-    const match = scored[0].r;
+
+    const match = scored[0]?.r || results[0];
     if (!match?.more_info?.encrypted_media_url) return null;
 
     const enc = match.more_info.encrypted_media_url;

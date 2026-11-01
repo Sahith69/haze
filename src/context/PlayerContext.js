@@ -703,6 +703,18 @@ export const PlayerProvider = ({ children }) => {
         }
       }
 
+      // 3. Final safety net: if audioUriToPlay is still null, direct JioSaavn edge resolution
+      if (!audioUriToPlay) {
+        try {
+          console.log(`[PlayerContext] Safety net direct resolution for: "${track.title}"`);
+          const directFallback = await resolveDirectSaavnAudio(track.title, track.artist);
+          if (directFallback && directFallback.streamUrl) {
+            audioUriToPlay = directFallback.streamUrl;
+            isActuallyFlac = false;
+          }
+        } catch (e) {}
+      }
+
       // Check if a newer track was tapped while we were waiting on network!
       if (currentReqId !== playbackRequestIdRef.current) {
         console.log(`[PlayerContext] Aborted play request #${currentReqId} (newer request #${playbackRequestIdRef.current} active).`);
