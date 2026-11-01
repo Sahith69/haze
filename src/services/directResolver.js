@@ -6,12 +6,43 @@ const JIO_KEY = CryptoJS.enc.Utf8.parse('38346591');
  * Direct JioSaavn 320kbps Akamai CDN stream resolver
  * Bypasses backend failures, cloud blocks, and 500 errors
  */
+/**
+ * Score how well a JioSaavn result matches the requested title + artist.
+ * Higher = better match. Penalises covers, remixes, karaoke, etc.
+ */
+function scoreJioSaavnResult(result, wantedTitle, wantedArtist) {
+  const PENALTY_TERMS = ['cover', 'karaoke', 'instrumental', 'tribute', 'originally performed', 'remix', 'ringtone', 'piano', 'slowed', 'sped up', 'nightcore', 'acoustic', 'live'];
+  const rTitle = (result.title || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
+  const rArtist = ((result.subtitle || '') + ' ' + (result.more_info?.primary_artists || '')).toLowerCase();
+  const wTitle = wantedTitle.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
+  const wArtist = wantedArtist.toLowerCase();
+
+  let score = 0;
+
+  // Title match
+  if (rTitle === wTitle) score += 60;
+  else if (rTitle.includes(wTitle) || wTitle.includes(rTitle)) score += 30;
+
+  // Artist match — at least one name token must appear
+  const wArtistTokens = wArtist.split(/[\s,&]+/).filter(t => t.length > 2);
+  const artistHit = wArtistTokens.some(tok => rArtist.includes(tok));
+  if (artistHit) score += 40;
+
+  // Penalty for remix / cover / karaoke unless user specifically wanted it
+  const wantedPenalty = PENALTY_TERMS.some(pt => wTitle.includes(pt) || wArtist.includes(pt));
+  const resultHasPenalty = PENALTY_TERMS.some(pt => (result.title || '').toLowerCase().includes(pt));
+  if (resultHasPenalty && !wantedPenalty) score -= 80;
+
+  return score;
+}
+
 export async function resolveDirectSaavnAudio(title, artist, requestedQuality = '320k') {
   try {
     const cleanTitle = (title || '').replace(/\(.*?\)|\[.*?\]/g, '').trim();
     const cleanArtist = (artist || '').split(',')[0].split('&')[0].trim();
     const q = encodeURIComponent(`${cleanArtist} ${cleanTitle}`.trim() || title);
-    const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=5&p=1&q=${q}`;
+    // Fetch top 8 results so scoring has more candidates to pick from
+    const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=8&p=1&q=${q}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
@@ -24,7 +55,13 @@ export async function resolveDirectSaavnAudio(title, artist, requestedQuality = 
     clearTimeout(timeout);
     if (!res.ok) return null;
     const data = await res.json();
-    const match = (data.results || [])[0];
+    const results = (data.results || []).filter(r => r?.more_info?.encrypted_media_url);
+    if (results.length === 0) return null;
+
+    // Pick best-scoring result instead of blindly using results[0]
+    const scored = results.map(r => ({ r, s: scoreJioSaavnResult(r, cleanTitle, cleanArtist) }));
+    scored.sort((a, b) => b.s - a.s);
+    const match = scored[0].r;
     if (!match?.more_info?.encrypted_media_url) return null;
 
     const enc = match.more_info.encrypted_media_url;

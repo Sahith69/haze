@@ -205,21 +205,28 @@ export async function fetchTrending() {
  * Resolve direct high-fidelity audio stream URL with zero-failure client-side fallback
  */
 export async function resolveAudioStream(track, options = {}) {
-  // If user requested studio/standard quality, resolve directly from high-speed Akamai CDN!
-  if (options.quality && options.quality !== '1411k') {
+  const isFlacRequested = options.quality === '1411k';
+
+  // Pre-resolve direct 320k Akamai stream concurrently on client residential IP (ultra fast <300ms)
+  const directSaavnPromise = resolveDirectSaavnAudio(
+    track.title,
+    track.artist,
+    options.quality && options.quality !== '1411k' ? options.quality : '320k'
+  );
+
+  // If user requested studio/standard quality (not FLAC), use direct high-speed CDN immediately!
+  if (!isFlacRequested) {
     try {
-      const direct = await resolveDirectSaavnAudio(track.title, track.artist);
+      const direct = await directSaavnPromise;
       if (direct && direct.streamUrl) {
         return direct;
       }
     } catch (e) {}
   }
 
-  // Pre-resolve direct Saavn CDN stream concurrently so fallback is instant
-  const directSaavnPromise = resolveDirectSaavnAudio(track.title, track.artist);
-
+  // If FLAC is requested, check backend Telegram Vault, but race with a tight 1.8s timeout
+  // so the player never freezes or hangs on backend cloud IP blocks
   try {
-    const qualityParam = options.quality === '1411k' ? 'flac' : 'studio';
     const params = new URLSearchParams({
       id: track.id || '',
       title: track.title || '',
@@ -227,11 +234,11 @@ export async function resolveAudioStream(track, options = {}) {
       album: track.album || '',
       cover: track.coverLarge || track.cover || '',
       duration: String(track.duration || ''),
-      quality: qualityParam,
+      quality: 'flac',
     });
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
+    const timeout = setTimeout(() => controller.abort(), 1800);
     const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`, { signal: controller.signal });
     clearTimeout(timeout);
 
@@ -244,30 +251,51 @@ export async function resolveAudioStream(track, options = {}) {
       };
 
       const primaryUrl = normalizeUrl(data.streamUrl) || normalizeUrl(data.proxyUrl);
+      const isActualFlac = !!(primaryUrl && primaryUrl.includes('/api/tg-stream/'));
       const saavnFallback = await directSaavnPromise;
       const fallbackUrl = saavnFallback?.streamUrl || normalizeUrl(data.proxyUrl) || normalizeUrl(data.fallbackUrl);
 
-      return {
-        streamUrl: primaryUrl,
-        fallbackUrl: fallbackUrl,
-        quality: data.quality || (data.isFlac ? '1,411 kbps · FLAC Master' : '320 kbps · Studio Master'),
-        isFlac: !!data.isFlac,
-        flacUnavailable: !!data.flacUnavailable,
-      };
+      if (primaryUrl) {
+        return {
+          streamUrl: primaryUrl,
+          fallbackUrl: fallbackUrl,
+          quality: data.quality || (isActualFlac ? '1,411 kbps · FLAC Master' : '320 kbps · Studio Master'),
+          isFlac: isActualFlac,
+          flacUnavailable: !isActualFlac && isFlacRequested,
+        };
+      }
     }
   } catch (err) {
-    console.warn('[API] resolveAudioStream backend warning, using direct CDN resolver:', err.message);
+    // Backend timeout or 500 error — seamlessly fall through to direct CDN
   }
 
-  // Fallback: direct high-speed 320k Akamai stream
-  const fallbackDirect = await directSaavnPromise;
-  if (fallbackDirect && fallbackDirect.streamUrl) {
-    return {
-      ...fallbackDirect,
-      isFlac: false,
-      flacUnavailable: options.quality === '1411k',
-    };
-  }
+  // Instant fallback: direct high-speed Akamai stream
+  try {
+    const fallbackDirect = await directSaavnPromise;
+    if (fallbackDirect && fallbackDirect.streamUrl) {
+      return {
+        ...fallbackDirect,
+        isFlac: false,
+        flacUnavailable: isFlacRequested,
+      };
+    }
+  } catch (e) {}
+
+  // Final emergency fallback: try searching JioSaavn with clean query without brackets
+  try {
+    const fallbackClean = await resolveDirectSaavnAudio(
+      (track.title || '').replace(/\(.*?\)|\[.*?\]/g, '').trim(),
+      (track.artist || '').split(/[,&]/)[0].trim(),
+      '320k'
+    );
+    if (fallbackClean && fallbackClean.streamUrl) {
+      return {
+        ...fallbackClean,
+        isFlac: false,
+        flacUnavailable: isFlacRequested,
+      };
+    }
+  } catch (e) {}
 
   return null;
 }

@@ -144,11 +144,14 @@ export const SearchScreen = () => {
       addSearchHistory(track.title);
     }
 
-    // Filter search results to only unique distinct track titles (drops remixes, acoustic, slowed duplicates)
+    // Filter search results: exclude any duplicate or variant titles of the active song
     const cleanBase = (t) => (t || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/feat\..*|ft\..*/gi, '').replace(/[^a-z0-9]/g, ' ').trim();
+    const activeNorm = cleanBase(track.title);
     const uniqueResults = [];
-    const seen = new Set();
+    const seen = new Set([activeNorm]);
+
     for (const item of (searchResults || [])) {
+      if (item.id === track.id) continue;
       const norm = cleanBase(item.title);
       if (!seen.has(norm)) {
         seen.add(norm);
@@ -156,18 +159,21 @@ export const SearchScreen = () => {
       }
     }
 
-    if (uniqueResults.length <= 2) {
-      // User tapped a specific song: play it and immediately seed complementary artist radio behind it!
-      playTrack(track, [track]);
-      fetchRadioTracks(track.artist, track.genre, track.title).then((radioTracks) => {
-        if (radioTracks && radioTracks.length > 0) {
-          setQueue([track, ...radioTracks]);
-        }
-      });
-    } else {
-      // Broad artist or multi-song search: play with duplicate-free results
-      playTrack(track, uniqueResults);
-    }
+    // Play clicked track immediately with distinct search candidates as instant queue
+    const initialQueue = [track, ...uniqueResults.slice(0, 5)];
+    playTrack(track, initialQueue);
+
+    // Concurrently fetch rich artist & vibe radio and append to queue so it never runs dry
+    fetchRadioTracks(track.artist, track.genre, track.title).then((radioTracks) => {
+      if (radioTracks && radioTracks.length > 0) {
+        const freshRadio = radioTracks.filter(r => !seen.has(cleanBase(r.title)));
+        setQueue((prev) => {
+          const prevIds = new Set(prev.map(p => p.id));
+          const toAppend = freshRadio.filter(r => !prevIds.has(r.id));
+          return [...prev, ...toAppend];
+        });
+      }
+    }).catch(() => {});
   };
 
   const handleRecentPress = (term) => {

@@ -586,11 +586,41 @@ export const PlayerProvider = ({ children }) => {
         soundRef.current = player;
         updateLockScreenControls(player, track, effectiveQuality);
 
+        let hasAttemptedRecovery = false;
+
         player.addListener('playbackStatusUpdate', async (status) => {
           if (currentReqId !== playbackRequestIdRef.current) return;
 
+          // 1. Handle remote lock screen / notification next and previous actions
+          if (status.playbackAction === 'nextTrack') {
+            console.log('[PlayerContext] Remote nextTrack action received');
+            nextTrack();
+            return;
+          }
+          if (status.playbackAction === 'previousTrack') {
+            console.log('[PlayerContext] Remote previousTrack action received');
+            previousTrack();
+            return;
+          }
+
           if (status.error) {
             console.warn('[PlayerContext] Audio status error:', status.error);
+
+            // Loop breaker: if recovery was already attempted for this song, do NOT loop or oscillate
+            if (hasAttemptedRecovery) {
+              console.warn('[PlayerContext] Audio error persisted. Skipping unplayable stream without stutter.');
+              setIsPlaying(false);
+              setToastMessage({
+                type: 'info',
+                text: `⚠️ Stream failed for "${track.title}" · Skipping to next...`,
+              });
+              setTimeout(() => {
+                if (currentReqId === playbackRequestIdRef.current) nextTrack();
+              }, 800);
+              return;
+            }
+            hasAttemptedRecovery = true;
+
             // 1. Direct Saavn Akamai CDN instant recovery
             try {
               console.log('[PlayerContext] Direct Saavn recovery for:', track.title);
@@ -643,6 +673,17 @@ export const PlayerProvider = ({ children }) => {
                 return;
               } catch (e) {}
             }
+
+            // Both recovery paths failed: skip unplayable track
+            setIsPlaying(false);
+            setToastMessage({
+              type: 'info',
+              text: `⚠️ Unable to stream "${track.title}" · Skipping to next...`,
+            });
+            setTimeout(() => {
+              if (currentReqId === playbackRequestIdRef.current) nextTrack();
+            }, 800);
+            return;
           }
 
           if (status.isLoaded) {
@@ -696,7 +737,22 @@ export const PlayerProvider = ({ children }) => {
             if (status.currentTime > 5 || (status.duration && status.duration > 10)) {
               handleTrackFinish();
             } else {
-              // Stream dropped or finished prematurely (< 5s), recover immediately with direct 320k Saavn stream!
+              // Premature finish loop breaker
+              if (hasAttemptedRecovery) {
+                console.warn('[PlayerContext] Premature finish repeated. Skipping unplayable stream.');
+                setIsPlaying(false);
+                setToastMessage({
+                  type: 'info',
+                  text: `⚠️ Stream ended prematurely for "${track.title}" · Skipping...`,
+                });
+                setTimeout(() => {
+                  if (currentReqId === playbackRequestIdRef.current) nextTrack();
+                }, 800);
+                return;
+              }
+              hasAttemptedRecovery = true;
+
+              // Stream dropped or finished prematurely (< 5s), recover once with direct 320k Saavn stream
               try {
                 console.log('[PlayerContext] Premature finish detected (< 5s). Auto-recovering with direct Saavn stream...');
                 resolveDirectSaavnAudio(track.title, track.artist).then((directRes) => {
@@ -721,6 +777,12 @@ export const PlayerProvider = ({ children }) => {
                       text: '⚡ Switched to 320 kbps Studio Master',
                     });
                     updateLockScreenControls(player, track, '320 kbps · Studio Master');
+                  } else {
+                    // Direct recovery also unavailable: skip to next
+                    setIsPlaying(false);
+                    setTimeout(() => {
+                      if (currentReqId === playbackRequestIdRef.current) nextTrack();
+                    }, 800);
                   }
                 });
               } catch (e) {}
@@ -730,6 +792,20 @@ export const PlayerProvider = ({ children }) => {
 
         player.play();
         setIsPlaying(true);
+      } else {
+        // Stream URL could not be resolved from any strategy
+        console.warn(`[PlayerContext] Failed to resolve audio stream for "${track.title}"`);
+        setIsPlaying(false);
+        setIsLoadingAudio(false);
+        setToastMessage({
+          type: 'info',
+          text: `⚠️ Could not stream "${track.title}" · Skipping to next...`,
+        });
+        setTimeout(() => {
+          if (currentReqId === playbackRequestIdRef.current) {
+            nextTrack();
+          }
+        }, 900);
       }
     } catch (err) {
       console.warn('[PlayerContext] Audio playback error:', err.message);
@@ -902,21 +978,16 @@ export const PlayerProvider = ({ children }) => {
   }, [queue, currentTrack, likedTracks]);
 
   const nextTrack = async () => {
-    if (isShuffle) {
-      const smartNext = await getSmartNextTrack();
-      if (smartNext) {
-        playTrack(smartNext);
-        return;
-      }
-    }
-
-    const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
+    const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
     if (currentIndex >= 0 && currentIndex + 1 < queue.length) {
       playTrack(queue[currentIndex + 1]);
-    } else {
-      // Find similar vibe rather than jumping to trend #0
-      const smartNext = await getSmartNextTrack();
-      if (smartNext) playTrack(smartNext);
+      return;
+    }
+
+    // Queue exhausted: dynamically discover and autoplay complementary artist vibes
+    const smartNext = await getSmartNextTrack();
+    if (smartNext && smartNext.id !== currentTrack?.id) {
+      playTrack(smartNext);
     }
   };
 

@@ -1,0 +1,64 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+@@ -68,6 +68,18 @@ class AudioPlayer(
+   override var lockScreenOptions: AudioLockScreenOptions? = null
+   override var mediaSession: MediaSession = buildBasicMediaSession(context, ref) { requestPlay() }
+   override val serviceConnection = AudioPlaybackServiceConnection(WeakReference(this), appContext)
++  override val supportsNextTrack: Boolean
++    get() = lockScreenOptions?.showNextTrack == true
++  override val supportsPreviousTrack: Boolean
++    get() = lockScreenOptions?.showPreviousTrack == true
++
++  override fun nextTrack() {
++    sendStatusUpdate(mapOf("playbackAction" to "nextTrack"))
++  }
++
++  override fun previousTrack() {
++    sendStatusUpdate(mapOf("playbackAction" to "previousTrack"))
++  }
+ 
+   override val isLive: Boolean
+     get() = ref.isCurrentMediaItemLive
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+@@ -419,6 +419,38 @@ class AudioControlsService : MediaSessionService() {
+         seekTo((currentPosition - backwardMs).coerceAtLeast(0))
+       }
+ 
++      override fun seekToNext() {
++        if (playable.supportsNextTrack) {
++          playable.nextTrack()
++        } else {
++          super.seekToNext()
++        }
++      }
++
++      override fun seekToNextMediaItem() {
++        if (playable.supportsNextTrack) {
++          playable.nextTrack()
++        } else {
++          super.seekToNextMediaItem()
++        }
++      }
++
++      override fun seekToPrevious() {
++        if (playable.supportsPreviousTrack) {
++          playable.previousTrack()
++        } else {
++          super.seekToPrevious()
++        }
++      }
++
++      override fun seekToPreviousMediaItem() {
++        if (playable.supportsPreviousTrack) {
++          playable.previousTrack()
++        } else {
++          super.seekToPreviousMediaItem()
++        }
++      }
++
+       override fun getAvailableCommands(): Player.Commands {
+         val commands = super.getAvailableCommands().buildUpon()
+         if (isLive) {
