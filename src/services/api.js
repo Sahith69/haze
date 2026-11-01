@@ -265,12 +265,12 @@ export async function resolveAudioStream(track, options = {}) {
       }
 
       // If backend returned a 320k stream or indicated flacUnavailable
-      const streamToUse = primaryUrl || saavnFallback?.streamUrl;
+      const streamToUse = saavnFallback?.streamUrl || primaryUrl;
       if (streamToUse) {
         return {
           streamUrl: streamToUse,
           fallbackUrl: fallbackUrl || streamToUse,
-          quality: data.quality || '320 kbps · Studio Master',
+          quality: '320 kbps · Studio Master',
           isFlac: false,
           flacUnavailable: isFlacRequested,
         };

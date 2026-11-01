@@ -493,6 +493,9 @@ export const PlayerProvider = ({ children }) => {
     if (Platform.OS === 'android') {
       try {
         requestNotificationPermissionsAsync().catch(() => {});
+        if (Platform.Version >= 33) {
+          PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS).catch(() => {});
+        }
       } catch (e) {}
     }
 

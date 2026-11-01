@@ -248,9 +248,10 @@ export const NowPlayingModal = () => {
     if (isDownloaded) {
       return currentTrack.isFlac ? '⚡ FLAC OFFLINE' : '✨ 320k OFFLINE';
     }
+    if (streamingQuality === '1411k') {
+      return currentTrack?.isFlac ? '⚡ FLAC MASTER' : '✨ STUDIO 320k';
+    }
     switch (streamingQuality) {
-      case '1411k':
-        return '⚡ FLAC MASTER';
       case '320k':
         return '✨ STUDIO 320k';
       case '256k':
@@ -258,7 +259,7 @@ export const NowPlayingModal = () => {
       case '128k':
         return 'SAVER 128k';
       default:
-        return '⚡ FLAC MASTER';
+        return currentTrack?.isFlac ? '⚡ FLAC MASTER' : '✨ STUDIO 320k';
     }
   };
 
@@ -266,9 +267,12 @@ export const NowPlayingModal = () => {
     if (isDownloaded) {
       return 'Saved to Local Device Storage';
     }
+    if (streamingQuality === '1411k') {
+      return currentTrack?.isFlac
+        ? '1,411 kbps · 16-bit / 44.1 kHz FLAC'
+        : '320 kbps Studio Master · Lossless Fallback';
+    }
     switch (streamingQuality) {
-      case '1411k':
-        return '1,411 kbps · 16-bit / 44.1 kHz FLAC';
       case '320k':
         return '320 kbps Studio Master Audio';
       case '256k':
@@ -276,7 +280,9 @@ export const NowPlayingModal = () => {
       case '128k':
         return '128 kbps Data Saver Audio';
       default:
-        return '1,411 kbps · Bit-Perfect FLAC';
+        return currentTrack?.isFlac
+          ? '1,411 kbps · Bit-Perfect FLAC'
+          : '320 kbps Studio Master Audio';
     }
   };
 

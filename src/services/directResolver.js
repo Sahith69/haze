@@ -11,27 +11,33 @@ const JIO_KEY = CryptoJS.enc.Utf8.parse('38346591');
  * Higher = better match. Penalises covers, remixes, karaoke, etc.
  */
 function scoreJioSaavnResult(result, wantedTitle, wantedArtist) {
-  const PENALTY_TERMS = ['cover', 'karaoke', 'instrumental', 'tribute', 'originally performed', 'remix', 'ringtone', 'piano', 'slowed', 'sped up', 'nightcore', 'acoustic', 'live'];
+  const PENALTY_TERMS = ['cover', 'karaoke', 'instrumental', 'tribute', 'originally performed', 'remix', 'ringtone', 'piano', 'slowed', 'sped up', 'nightcore', 'acoustic', 'live', 'lullaby'];
   const rTitle = (result.title || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
-  const rArtist = ((result.subtitle || '') + ' ' + (result.more_info?.primary_artists || '')).toLowerCase();
+  const rArtist = [
+    result.subtitle || '',
+    result.more_info?.primary_artists || '',
+    result.more_info?.singers || '',
+    result.more_info?.music || '',
+  ].join(' ').toLowerCase();
   const wTitle = wantedTitle.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
   const wArtist = wantedArtist.toLowerCase();
 
   let score = 0;
 
   // Title match
-  if (rTitle === wTitle) score += 60;
+  if (rTitle === wTitle) score += 80;
   else if (rTitle.includes(wTitle) || wTitle.includes(rTitle)) score += 30;
 
   // Artist match — at least one name token must appear
   const wArtistTokens = wArtist.split(/[\s,&]+/).filter(t => t.length > 2);
-  const artistHit = wArtistTokens.some(tok => rArtist.includes(tok));
-  if (artistHit) score += 40;
+  if (wArtistTokens.length > 0 && wArtistTokens.some(tok => rArtist.includes(tok))) {
+    score += 50;
+  }
 
   // Penalty for remix / cover / karaoke unless user specifically wanted it
   const wantedPenalty = PENALTY_TERMS.some(pt => wTitle.includes(pt) || wArtist.includes(pt));
   const resultHasPenalty = PENALTY_TERMS.some(pt => (result.title || '').toLowerCase().includes(pt));
-  if (resultHasPenalty && !wantedPenalty) score -= 80;
+  if (resultHasPenalty && !wantedPenalty) score -= 150;
 
   return score;
 }
