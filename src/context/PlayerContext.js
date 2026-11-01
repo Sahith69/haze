@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { Platform, PermissionsAndroid } from 'react-native';
 import { setAudioModeAsync, createAudioPlayer } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   fetchTrending,
   resolveAudioStream,
@@ -101,7 +101,12 @@ export const USERS = {
   },
 };
 
-const OFFLINE_DIR = (FileSystem.documentDirectory || '') + 'haze_offline/';
+const getOfflineDir = () => {
+  const base = FileSystem?.documentDirectory || FileSystem?.cacheDirectory || '';
+  if (!base) return 'file:///data/user/0/com.monochrome.music/files/haze_offline/';
+  return base.endsWith('/') ? `${base}haze_offline/` : `${base}/haze_offline/`;
+};
+const OFFLINE_DIR = getOfflineDir();
 
 export const PlayerProvider = ({ children }) => {
   // Active User Profile
@@ -291,7 +296,7 @@ export const PlayerProvider = ({ children }) => {
         }
         await setAudioModeAsync({
           playsInSilentMode: true,
-          interruptionMode: 'doNotMixPersistent',
+          interruptionMode: 'duckOthers',
           shouldPlayInBackground: true,
           shouldRouteThroughEarpiece: false,
         });
@@ -567,6 +572,24 @@ export const PlayerProvider = ({ children }) => {
             // Guard against premature finish triggers when stream fails to load
             if (status.currentTime > 5 || (status.duration && status.duration > 10)) {
               handleTrackFinish();
+            } else {
+              // Stream dropped or finished prematurely (< 5s), recover immediately with direct 320k Saavn stream!
+              try {
+                console.log('[PlayerContext] Premature finish detected (< 5s). Auto-recovering with direct 320k stream...');
+                resolveAudioStream(track, { quality: '320k' }).then((directRes) => {
+                  const directUrl = directRes?.streamUrl;
+                  if (directUrl && directUrl !== audioUriToPlay) {
+                    player.replace({
+                      uri: directUrl,
+                      headers: {
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                      },
+                    });
+                    player.play();
+                    setIsPlaying(true);
+                  }
+                });
+              } catch (e) {}
             }
           }
         });
@@ -874,12 +897,24 @@ export const PlayerProvider = ({ children }) => {
         });
       }
 
+      // If primary FLAC stream returned error (e.g. 500), auto-fallback to high-speed 320k stream
+      if (downloadRes.status >= 400) {
+        console.warn(`[Download] Primary download returned HTTP ${downloadRes.status}. Auto-recovering via direct 320k stream...`);
+        const fallbackRes = await resolveAudioStream(target, { quality: '320k' });
+        const fbUrl = fallbackRes?.streamUrl;
+        if (fbUrl && fbUrl !== streamUrl) {
+          downloadRes = await FileSystem.downloadAsync(fbUrl, localAudioPath, {
+            headers: downloadHeaders,
+          });
+        }
+      }
+
       if (downloadRes.status >= 400) {
         throw new Error(`Download HTTP error ${downloadRes.status}`);
       }
 
       const fileInfo = await FileSystem.getInfoAsync(localAudioPath);
-      if (!fileInfo.exists || (fileInfo.size || 0) < 5000) {
+      if (!fileInfo.exists || (fileInfo.size || 0) < 1000) {
         throw new Error('Downloaded audio file is invalid');
       }
 
@@ -1001,6 +1036,7 @@ export const PlayerProvider = ({ children }) => {
         isShuffle,
         isRepeat,
         liveLyrics,
+        setLiveLyrics,
         eqPreset,
         eqBands,
         volumeLeveling,

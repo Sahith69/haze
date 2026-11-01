@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Animated } from 'react-native';
 import { Play, Pause, Heart } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
@@ -17,9 +17,51 @@ export const MiniPlayer = () => {
     toggleLike,
   } = usePlayer();
 
+  // Animated Live Equalizer Bars
+  const bar1 = useRef(new Animated.Value(4)).current;
+  const bar2 = useRef(new Animated.Value(12)).current;
+  const bar3 = useRef(new Animated.Value(7)).current;
+  const playBtnScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isPlaying) {
+      const createLoop = (val, min, max, duration) => {
+        return Animated.loop(
+          Animated.sequence([
+            Animated.timing(val, { toValue: max, duration, useNativeDriver: false }),
+            Animated.timing(val, { toValue: min, duration, useNativeDriver: false }),
+          ])
+        );
+      };
+      const anim1 = createLoop(bar1, 3, 16, 290);
+      const anim2 = createLoop(bar2, 4, 18, 220);
+      const anim3 = createLoop(bar3, 3, 14, 260);
+      anim1.start();
+      anim2.start();
+      anim3.start();
+      return () => {
+        anim1.stop();
+        anim2.stop();
+        anim3.stop();
+      };
+    } else {
+      bar1.setValue(4);
+      bar2.setValue(6);
+      bar3.setValue(4);
+    }
+  }, [isPlaying]);
+
   if (!currentTrack) return null;
 
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
+
+  const handlePlayPress = () => {
+    Animated.sequence([
+      Animated.timing(playBtnScale, { toValue: 0.88, duration: 80, useNativeDriver: true }),
+      Animated.spring(playBtnScale, { toValue: 1, friction: 4, tension: 80, useNativeDriver: true }),
+    ]).start();
+    togglePlayPause();
+  };
 
   return (
     <TouchableOpacity
@@ -27,12 +69,19 @@ export const MiniPlayer = () => {
       style={styles.container}
       onPress={() => setActiveModal('now_playing')}
     >
-      {/* 48px Album Artwork Thumbnail */}
+      {/* 44px Album Artwork Thumbnail with Overlay Visualizer */}
       <View style={styles.artWrapper}>
         <Image
           source={{ uri: currentTrack.cover || 'https://via.placeholder.com/60' }}
           style={styles.albumArt}
         />
+        {isPlaying && (
+          <View style={styles.artOverlayVisualizer}>
+            <Animated.View style={[styles.visualizerBar, { height: bar1 }]} />
+            <Animated.View style={[styles.visualizerBar, { height: bar2 }]} />
+            <Animated.View style={[styles.visualizerBar, { height: bar3 }]} />
+          </View>
+        )}
       </View>
 
       {/* Track Info & Monospace FLAC Badge */}
@@ -41,9 +90,9 @@ export const MiniPlayer = () => {
           <Text style={styles.title} numberOfLines={1}>
             {currentTrack.title}
           </Text>
-          <View style={styles.qualityBadge}>
-            <Text style={styles.qualityBadgeText}>
-              {flacEnabled ? 'FLAC' : 'HQ'}
+          <View style={[styles.qualityBadge, flacEnabled && styles.qualityBadgeFlac]}>
+            <Text style={[styles.qualityBadgeText, flacEnabled && styles.qualityBadgeTextFlac]}>
+              {flacEnabled ? '⚡ FLAC' : 'HQ'}
             </Text>
           </View>
         </View>
@@ -68,22 +117,23 @@ export const MiniPlayer = () => {
         />
       </TouchableOpacity>
 
-      {/* Play/Pause Button - Pure HAZE: White circle with black icon */}
+      {/* Play/Pause Button - Pure HAZE Animated Spring Button */}
       <TouchableOpacity
         activeOpacity={0.8}
-        style={styles.playButton}
         onPress={(e) => {
           e.stopPropagation?.();
-          togglePlayPause();
+          handlePlayPress();
         }}
       >
-        {isLoadingAudio ? (
-          <ActivityIndicator size="small" color="#000000" />
-        ) : isPlaying ? (
-          <Pause size={18} color="#000000" fill="#000000" />
-        ) : (
-          <Play size={18} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
-        )}
+        <Animated.View style={[styles.playButton, { transform: [{ scale: playBtnScale }] }]}>
+          {isLoadingAudio ? (
+            <ActivityIndicator size="small" color="#000000" />
+          ) : isPlaying ? (
+            <Pause size={18} color="#000000" fill="#000000" />
+          ) : (
+            <Play size={18} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
+          )}
+        </Animated.View>
       </TouchableOpacity>
 
       {/* Top 2px Progress Bar */}
@@ -122,6 +172,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  artOverlayVisualizer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 3,
+    paddingBottom: 6,
+  },
+  visualizerBar: {
+    width: 3.5,
+    backgroundColor: '#38BDF8',
+    borderRadius: 2,
+  },
   infoContainer: {
     flex: 1,
     marginLeft: 12,
@@ -148,12 +212,19 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: '#333333',
   },
+  qualityBadgeFlac: {
+    backgroundColor: '#2E2207',
+    borderColor: '#E5A93C',
+  },
   qualityBadgeText: {
     fontSize: 9,
     fontWeight: '700',
     color: '#E5E5E5',
     letterSpacing: 0.5,
     fontFamily: 'monospace',
+  },
+  qualityBadgeTextFlac: {
+    color: '#F5C451',
   },
   artist: {
     fontSize: 11,

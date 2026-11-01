@@ -73,13 +73,19 @@ export async function resolveAudioStream(track, options = {}) {
 
 
 /**
- * Fetch millisecond-synced lyrics
+ * Fetch millisecond-synced lyrics with intelligent clean title & artist fallbacks
  */
 export async function fetchLyrics(track) {
   try {
+    const rawTitle = track.title || '';
+    const rawArtist = track.artist || '';
+    const cleanTitle = rawTitle.replace(/\(.*?\)|\[.*?\]/g, '').trim();
+    const cleanArtist = rawArtist.split(',')[0].split('&')[0].trim();
+
     const params = new URLSearchParams({
-      track: track.title || '',
-      artist: track.artist || '',
+      title: cleanTitle || rawTitle,
+      track: cleanTitle || rawTitle,
+      artist: cleanArtist || rawArtist,
       duration: String(track.duration || ''),
     });
     const res = await fetch(`${API_BASE_URL}/api/lyrics?${params.toString()}`);

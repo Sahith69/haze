@@ -20,6 +20,7 @@ import {
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
+import { fetchLyrics } from '../services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,6 +43,7 @@ export const SyncedLyricsModal = () => {
     seekTo,
     closeModal,
     liveLyrics,
+    setLiveLyrics,
     streamingQuality,
     setShowQualityModal,
   } = usePlayer();
@@ -54,7 +56,11 @@ export const SyncedLyricsModal = () => {
       return liveLyrics.synced;
     }
     if (liveLyrics?.plain && typeof liveLyrics.plain === 'string') {
-      const lines = liveLyrics.plain.split('\n').map(l => l.trim()).filter(Boolean);
+      const trimmed = liveLyrics.plain.trim();
+      if (trimmed.toLowerCase().startsWith('no lyrics') || trimmed.toLowerCase().startsWith('lyrics not found')) {
+        return [];
+      }
+      const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length > 0) {
         const step = Math.max(3, Math.floor((duration || 200) / lines.length));
         return lines.map((text, idx) => ({
@@ -175,11 +181,23 @@ export const SyncedLyricsModal = () => {
           </ScrollView>
         ) : (
           <View style={styles.emptyContainer}>
-            <Music2 size={44} color="#3F3F46" />
+            <Music2 size={44} color="#52525B" />
             <Text style={styles.emptyTitle}>Synchronizing Lyrics...</Text>
             <Text style={styles.emptySubtitle}>
               Matching millisecond timestamps from HAZE master stream.
             </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.retryLyricsBtn}
+              onPress={() => {
+                if (currentTrack) {
+                  fetchLyrics(currentTrack).then(setLiveLyrics);
+                }
+              }}
+            >
+              <Sparkles size={16} color="#000000" />
+              <Text style={styles.retryLyricsText}>Sync Again</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -330,6 +348,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  retryLyricsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  retryLyricsText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '700',
   },
   bottomControls: {
     paddingHorizontal: 24,

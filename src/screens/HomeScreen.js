@@ -212,7 +212,13 @@ export const HomeScreen = () => {
               style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
               onPress={() => playTrack(track, trendingTracks)}
             >
-              <Text style={styles.trackIndex}>{idx + 1}</Text>
+              {isThisPlaying ? (
+                <View style={styles.playingIndexBox}>
+                  <Text style={styles.playingIndexText}>▶</Text>
+                </View>
+              ) : (
+                <Text style={styles.trackIndex}>{idx + 1}</Text>
+              )}
               <Image
                 source={{ uri: track.cover || 'https://via.placeholder.com/44' }}
                 style={styles.trackCover}
@@ -482,6 +488,15 @@ const styles = StyleSheet.create({
     color: '#666666',
     fontFamily: 'monospace',
     textAlign: 'center',
+  },
+  playingIndexBox: {
+    width: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playingIndexText: {
+    fontSize: 11,
+    color: '#34D399',
   },
   trackCover: {
     width: 40,

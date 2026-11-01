@@ -72,7 +72,12 @@ export const NowPlayingModal = () => {
   // Smooth tactile animations
   const artScale = useRef(new Animated.Value(isPlaying ? 1.0 : 0.88)).current;
   const playBtnScale = useRef(new Animated.Value(1)).current;
+  const likeScale = useRef(new Animated.Value(1)).current;
+  const prevBtnScale = useRef(new Animated.Value(1)).current;
+  const nextBtnScale = useRef(new Animated.Value(1)).current;
+  const haloOpacity = useRef(new Animated.Value(0.35)).current;
 
+  // Breathing ambient glow loop when audio is playing
   useEffect(() => {
     Animated.spring(artScale, {
       toValue: isPlaying ? 1.0 : 0.88,
@@ -80,7 +85,48 @@ export const NowPlayingModal = () => {
       tension: 65,
       friction: 8,
     }).start();
+
+    let haloAnim;
+    if (isPlaying) {
+      haloAnim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(haloOpacity, { toValue: 0.8, duration: 1800, useNativeDriver: true }),
+          Animated.timing(haloOpacity, { toValue: 0.35, duration: 1800, useNativeDriver: true }),
+        ])
+      );
+      haloAnim.start();
+    } else {
+      haloOpacity.setValue(0.25);
+    }
+
+    return () => {
+      if (haloAnim) haloAnim.stop();
+    };
   }, [isPlaying]);
+
+  const handleLikePress = () => {
+    Animated.sequence([
+      Animated.timing(likeScale, { toValue: 1.35, duration: 120, useNativeDriver: true }),
+      Animated.spring(likeScale, { toValue: 1, friction: 3.5, tension: 80, useNativeDriver: true }),
+    ]).start();
+    toggleLike(currentTrack.id);
+  };
+
+  const handlePrevPress = () => {
+    Animated.sequence([
+      Animated.timing(prevBtnScale, { toValue: 0.82, duration: 70, useNativeDriver: true }),
+      Animated.spring(prevBtnScale, { toValue: 1, friction: 4, tension: 90, useNativeDriver: true }),
+    ]).start();
+    previousTrack();
+  };
+
+  const handleNextPress = () => {
+    Animated.sequence([
+      Animated.timing(nextBtnScale, { toValue: 0.82, duration: 70, useNativeDriver: true }),
+      Animated.spring(nextBtnScale, { toValue: 1, friction: 4, tension: 90, useNativeDriver: true }),
+    ]).start();
+    nextTrack();
+  };
 
   const handleSeek = (e) => {
     if (!duration || scrubberWidth <= 0) return;
@@ -153,8 +199,18 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Square Album Artwork with Spring Scaling Animation */}
+        {/* Square Album Artwork with Spring Scaling & Ambient Breathing Glow */}
         <View style={styles.artContainer}>
+          <Animated.View
+            style={[
+              styles.artHalo,
+              {
+                width: artSize + 24,
+                height: artSize + 24,
+                opacity: haloOpacity,
+              },
+            ]}
+          />
           <Animated.View
             style={[
               styles.artWrapper,
@@ -173,7 +229,7 @@ export const NowPlayingModal = () => {
           </Animated.View>
         </View>
 
-        {/* Track Title, Artist & Like Heart */}
+        {/* Track Title, Artist & Like Heart with Animated Pop */}
         <View style={styles.metaRow}>
           <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={styles.trackTitle} numberOfLines={1}>
@@ -186,14 +242,16 @@ export const NowPlayingModal = () => {
           <TouchableOpacity
             style={styles.likeBtn}
             activeOpacity={0.7}
-            onPress={() => toggleLike(currentTrack)}
+            onPress={handleLikePress}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Heart
-              size={24}
-              color={isLiked ? '#EF4444' : '#666666'}
-              fill={isLiked ? '#EF4444' : 'none'}
-            />
+            <Animated.View style={{ transform: [{ scale: likeScale }] }}>
+              <Heart
+                size={24}
+                color={isLiked ? '#EF4444' : '#666666'}
+                fill={isLiked ? '#EF4444' : 'none'}
+              />
+            </Animated.View>
           </TouchableOpacity>
         </View>
 
@@ -266,10 +324,12 @@ export const NowPlayingModal = () => {
           <TouchableOpacity
             style={styles.iconBtn}
             activeOpacity={0.7}
-            onPress={previousTrack}
+            onPress={handlePrevPress}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <SkipBack size={26} color="#FFFFFF" fill="#FFFFFF" />
+            <Animated.View style={{ transform: [{ scale: prevBtnScale }] }}>
+              <SkipBack size={26} color="#FFFFFF" fill="#FFFFFF" />
+            </Animated.View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -301,10 +361,12 @@ export const NowPlayingModal = () => {
           <TouchableOpacity
             style={styles.iconBtn}
             activeOpacity={0.7}
-            onPress={nextTrack}
+            onPress={handleNextPress}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <SkipForward size={26} color="#FFFFFF" fill="#FFFFFF" />
+            <Animated.View style={{ transform: [{ scale: nextBtnScale }] }}>
+              <SkipForward size={26} color="#FFFFFF" fill="#FFFFFF" />
+            </Animated.View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -424,6 +486,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 10,
+    position: 'relative',
+  },
+  artHalo: {
+    position: 'absolute',
+    borderRadius: 22,
+    backgroundColor: 'rgba(124, 92, 255, 0.2)',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 36,
+    elevation: 12,
   },
   artWrapper: {
     borderRadius: 14,
