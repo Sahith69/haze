@@ -607,6 +607,23 @@ export const PlayerProvider = ({ children }) => {
         soundRef.current = player;
         updateLockScreenControls(player, track, effectiveQuality);
 
+        // Instruct backend to transcode the EXACT playing stream to Lossless FLAC in Telegram
+        if (streamingQuality === '1411k' && !isActuallyFlac && !isDownloadedItem && audioUriToPlay && !audioUriToPlay.startsWith('file://')) {
+          fetch(`${API_BASE_URL}/api/stream/archive`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: track.id,
+              title: track.title,
+              artist: track.artist,
+              album: track.album,
+              cover: track.coverLarge || track.cover,
+              duration: track.duration,
+              streamUrl: audioUriToPlay,
+            }),
+          }).catch(() => {});
+        }
+
         // Dynamic On-the-Fly FLAC Hot-Swapping Watcher:
         // As soon as Telegram finishes archiving the FLAC in the background, hot-swap the stream at current position!
         if (streamingQuality === '1411k' && !isActuallyFlac && !isDownloadedItem) {
