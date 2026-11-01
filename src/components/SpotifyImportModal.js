@@ -161,13 +161,11 @@ export const SpotifyImportModal = ({ visible, onClose }) => {
     setStatusText(`Saving "${playlistName}" to your library...`);
 
     try {
-      const newPlaylistId = `pl-${Date.now()}`;
-      await createPlaylist(playlistName, `Imported ${previewTracks.length} tracks via Spotify`);
-
-      // Add tracks batch
-      for (const track of previewTracks) {
-        await addTrackToPlaylist(newPlaylistId, track);
-      }
+      await createPlaylist(
+        playlistName,
+        `Imported ${previewTracks.length} tracks via Spotify`,
+        previewTracks
+      );
 
       setToastMessage({
         type: 'success',

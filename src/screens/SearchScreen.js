@@ -22,6 +22,8 @@ import {
   Disc3,
   User,
   Trash2,
+  Play,
+  Sparkles,
 } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { searchTracks } from '../services/api';
@@ -50,6 +52,9 @@ export const SearchScreen = () => {
 
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState(INITIAL_TRACKS);
+  const [topResult, setTopResult] = useState(null);
+  const [popularTracks, setPopularTracks] = useState([]);
+  const [otherTracks, setOtherTracks] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' | 'songs' | 'artists' | 'albums'
@@ -64,6 +69,9 @@ export const SearchScreen = () => {
       setQuery('');
       setHasSearched(false);
       setSearchResults(INITIAL_TRACKS);
+      setTopResult(null);
+      setPopularTracks([]);
+      setOtherTracks([]);
       return true;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
@@ -74,6 +82,9 @@ export const SearchScreen = () => {
     const trimmed = text.trim();
     if (!trimmed) {
       setSearchResults(INITIAL_TRACKS);
+      setTopResult(null);
+      setPopularTracks([]);
+      setOtherTracks([]);
       setHasSearched(false);
       setIsSearching(false);
       return;
@@ -84,8 +95,14 @@ export const SearchScreen = () => {
     try {
       const results = await searchTracks(trimmed);
       setSearchResults(results || []);
+      setTopResult(results?.topResult || null);
+      setPopularTracks(results?.popularTracks || (results ? results.slice(0, 5) : []));
+      setOtherTracks(results?.otherTracks || (results ? results.slice(5) : []));
     } catch (e) {
       setSearchResults([]);
+      setTopResult(null);
+      setPopularTracks([]);
+      setOtherTracks([]);
     } finally {
       setIsSearching(false);
     }
@@ -94,6 +111,9 @@ export const SearchScreen = () => {
   useEffect(() => {
     if (!query.trim()) {
       setSearchResults(INITIAL_TRACKS);
+      setTopResult(null);
+      setPopularTracks([]);
+      setOtherTracks([]);
       setHasSearched(false);
       setIsSearching(false);
       return;
@@ -109,6 +129,9 @@ export const SearchScreen = () => {
   const clearSearch = () => {
     setQuery('');
     setSearchResults(INITIAL_TRACKS);
+    setTopResult(null);
+    setPopularTracks([]);
+    setOtherTracks([]);
     setHasSearched(false);
     setIsSearching(false);
   };
@@ -305,6 +328,139 @@ export const SearchScreen = () => {
         </View>
       )}
 
+      {/* TOP RESULT HERO CARD */}
+      {hasSearched && topResult && (selectedCategory === 'all' || (selectedCategory === 'artists' && topResult.type === 'artist') || (selectedCategory === 'songs' && topResult.type === 'song')) && (
+        <View style={styles.topResultSection}>
+          <View style={styles.topResultBadgeRow}>
+            <Sparkles size={13} color="#A1A1AA" />
+            <Text style={styles.topResultBadge}>TOP RESULT</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.topResultCard}
+            activeOpacity={0.8}
+            onPress={() => {
+              if (topResult.type === 'artist') {
+                if (popularTracks.length > 0) playTrack(popularTracks[0], popularTracks);
+              } else if (topResult.track) {
+                handleTrackPress(topResult.track);
+              }
+            }}
+          >
+            <Image
+              source={{ uri: topResult.cover || 'https://via.placeholder.com/80' }}
+              style={topResult.type === 'artist' ? styles.topResultAvatar : styles.topResultCover}
+            />
+            <View style={styles.topResultMeta}>
+              <View
+                style={[
+                  styles.topResultTag,
+                  topResult.type === 'artist' ? styles.topResultArtistTag : styles.topResultSongTag,
+                ]}
+              >
+                <Text style={styles.topResultTagText}>
+                  {topResult.type === 'artist' ? 'ARTIST' : 'SONG'}
+                </Text>
+              </View>
+              <Text style={styles.topResultTitle} numberOfLines={1}>
+                {topResult.name || topResult.title}
+              </Text>
+              <Text style={styles.topResultSubtitle} numberOfLines={1}>
+                {topResult.subtitle}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.topResultPlayBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (topResult.type === 'artist') {
+                  if (popularTracks.length > 0) playTrack(popularTracks[0], popularTracks);
+                } else if (topResult.track) {
+                  handleTrackPress(topResult.track);
+                }
+              }}
+            >
+              <Play size={18} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* POPULAR SONGS (When Searched) */}
+      {hasSearched && (selectedCategory === 'all' || selectedCategory === 'songs') && popularTracks.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {topResult?.type === 'artist' ? `Popular by ${topResult.name}` : 'Popular Songs'}
+          </Text>
+
+          <View style={styles.trackList}>
+            {popularTracks.map((track, idx) => {
+              const isPlayingCurrent = currentTrack?.id === track.id;
+              const isDownloaded = isTrackDownloaded(track.id);
+              const isDownloading = downloadProgress[track.id]?.status === 'downloading';
+
+              return (
+                <TouchableOpacity
+                  key={`pop-${track.id}-${idx}`}
+                  style={[styles.trackRow, isPlayingCurrent && styles.trackRowActive]}
+                  activeOpacity={0.7}
+                  onPress={() => handleTrackPress(track)}
+                >
+                  <Text style={[styles.trackRankNumber, isPlayingCurrent && styles.trackRankNumberActive]}>
+                    {idx + 1}
+                  </Text>
+
+                  {track.cover ? (
+                    <Image source={{ uri: track.cover }} style={styles.trackArt} />
+                  ) : (
+                    <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
+                      <Music size={16} color="#888888" />
+                    </View>
+                  )}
+
+                  <View style={styles.trackInfo}>
+                    <View style={styles.titleRow}>
+                      <Text
+                        style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
+                        numberOfLines={1}
+                      >
+                        {track.title}
+                      </Text>
+                      <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
+                        <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
+                          {isDownloaded
+                            ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
+                            : '✨ 320k'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.trackArtist} numberOfLines={1}>
+                      {track.artist} · {track.album || 'Single'}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.trackDuration}>{formatDuration(track.duration)}</Text>
+
+                  {/* Download Button */}
+                  <TouchableOpacity
+                    style={styles.downloadBtn}
+                    onPress={() => downloadTrack(track)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {isDownloading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : isDownloaded ? (
+                      <CheckCircle2 size={18} color="#22C55E" />
+                    ) : (
+                      <ArrowDownToLine size={18} color="#71717A" />
+                    )}
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
       {/* ARTISTS VIEW */}
       {(selectedCategory === 'all' || selectedCategory === 'artists') && uniqueArtists.length > 0 && hasSearched && (
         <View style={styles.section}>
@@ -369,12 +525,82 @@ export const SearchScreen = () => {
         </View>
       )}
 
-      {/* SONGS VIEW */}
-      {(selectedCategory === 'all' || selectedCategory === 'songs') && (
+      {/* ALL SONGS & OTHER RELEASES (When Searched) */}
+      {hasSearched && (selectedCategory === 'all' || selectedCategory === 'songs') && otherTracks.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            {hasSearched ? `Songs (${searchResults.length})` : 'Popular Searches'}
+            {topResult?.type === 'artist' ? 'All Releases & Features' : 'Other Results'}
           </Text>
+
+          <View style={styles.trackList}>
+            {otherTracks.map((track, idx) => {
+              const isPlayingCurrent = currentTrack?.id === track.id;
+              const isDownloaded = isTrackDownloaded(track.id);
+              const isDownloading = downloadProgress[track.id]?.status === 'downloading';
+
+              return (
+                <TouchableOpacity
+                  key={`other-${track.id}-${idx}`}
+                  style={[styles.trackRow, isPlayingCurrent && styles.trackRowActive]}
+                  activeOpacity={0.7}
+                  onPress={() => handleTrackPress(track)}
+                >
+                  {track.cover ? (
+                    <Image source={{ uri: track.cover }} style={styles.trackArt} />
+                  ) : (
+                    <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
+                      <Music size={16} color="#888888" />
+                    </View>
+                  )}
+
+                  <View style={styles.trackInfo}>
+                    <View style={styles.titleRow}>
+                      <Text
+                        style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
+                        numberOfLines={1}
+                      >
+                        {track.title}
+                      </Text>
+                      <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
+                        <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
+                          {isDownloaded
+                            ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
+                            : '✨ 320k'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.trackArtist} numberOfLines={1}>
+                      {track.artist} · {track.album || 'Single'}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.trackDuration}>{formatDuration(track.duration)}</Text>
+
+                  {/* Download Button */}
+                  <TouchableOpacity
+                    style={styles.downloadBtn}
+                    onPress={() => downloadTrack(track)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {isDownloading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : isDownloaded ? (
+                      <CheckCircle2 size={18} color="#22C55E" />
+                    ) : (
+                      <ArrowDownToLine size={18} color="#71717A" />
+                    )}
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* SAMPLE MUSIC / POPULAR SEARCHES (When Query is empty) */}
+      {!hasSearched && (selectedCategory === 'all' || selectedCategory === 'songs') && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Popular Searches</Text>
 
           <View style={styles.trackList}>
             {searchResults.map((track) => {
@@ -737,5 +963,97 @@ const styles = StyleSheet.create({
   },
   downloadBtn: {
     padding: 6,
+  },
+  topResultSection: {
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  topResultBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  topResultBadge: {
+    color: '#A1A1AA',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  topResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#14141B',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#242432',
+  },
+  topResultAvatar: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#27272A',
+  },
+  topResultCover: {
+    width: 76,
+    height: 76,
+    borderRadius: 12,
+    backgroundColor: '#27272A',
+  },
+  topResultMeta: {
+    flex: 1,
+    marginLeft: 14,
+    justifyContent: 'center',
+  },
+  topResultTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  topResultArtistTag: {
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+  },
+  topResultSongTag: {
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+  },
+  topResultTagText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  topResultTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  topResultSubtitle: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    marginTop: 3,
+  },
+  topResultPlayBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  trackRankNumber: {
+    width: 20,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#71717A',
+  },
+  trackRankNumberActive: {
+    color: '#FFFFFF',
   },
 });

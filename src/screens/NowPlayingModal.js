@@ -136,9 +136,9 @@ export const NowPlayingModal = () => {
   // Auto-scroll expanded synchronized lyrics as playback progresses
   useEffect(() => {
     if (isLyricsExpanded && activeLineIndex >= 0 && lyricsScrollRef.current) {
-      const estimatedY = activeLineIndex * 52;
+      const estimatedY = activeLineIndex * 72;
       lyricsScrollRef.current.scrollTo({
-        y: Math.max(0, estimatedY - 120),
+        y: Math.max(0, estimatedY - 180),
         animated: true,
       });
     }
@@ -560,7 +560,7 @@ export const NowPlayingModal = () => {
         </TouchableOpacity>
       </View>
 
-      {/* IN-PLACE ANIMATED SLIDE-UP LYRICS SHEET (Spotify-Style) */}
+      {/* IN-PLACE ANIMATED SLIDE-UP FULL-PAGE LYRICS SHEET */}
       <Animated.View
         style={[
           styles.expandedLyricsSheet,
@@ -571,41 +571,45 @@ export const NowPlayingModal = () => {
         pointerEvents={isLyricsExpanded ? 'auto' : 'none'}
       >
         <LinearGradient
-          colors={['#0C0C12', '#060609', '#000000']}
+          colors={['#08080C', '#040407', '#000000']}
           style={StyleSheet.absoluteFillObject}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
         />
 
-        {/* Top Header Bar */}
-        <View style={styles.expandedLyricsHeader}>
-          <TouchableOpacity style={styles.collapsePillBtn} onPress={collapseLyrics}>
-            <ChevronDown size={20} color="#FFFFFF" />
-            <Text style={styles.collapsePillText}>Collapse ↙</Text>
+        {/* Floating Top Controls (Edge-to-Edge overlay) */}
+        <View style={styles.lyricsFloatingHeader}>
+          <TouchableOpacity
+            style={styles.floatingCollapseCircle}
+            onPress={collapseLyrics}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ChevronDown size={24} color="#FFFFFF" strokeWidth={2.5} />
           </TouchableOpacity>
 
-          <View style={styles.expandedHeaderCenter}>
-            <Text style={styles.expandedHeaderTitle} numberOfLines={1}>
+          <View style={styles.floatingHeaderCenter}>
+            <Text style={styles.floatingHeaderTitle} numberOfLines={1}>
               {currentTrack.title}
             </Text>
-            <Text style={styles.expandedHeaderArtist} numberOfLines={1}>
+            <Text style={styles.floatingHeaderArtist} numberOfLines={1}>
               {currentTrack.artist}
             </Text>
           </View>
 
-          <View style={styles.expandedQualityPill}>
-            <Text style={styles.expandedQualityText}>
+          <View style={styles.floatingQualityBadge}>
+            <Text style={styles.floatingQualityText}>
               {streamingQuality === '1411k' ? '⚡ FLAC' : '✨ 320k'}
             </Text>
           </View>
         </View>
 
-        {/* Live Synchronized Lyrics List */}
+        {/* Edge-to-Edge Synchronized Lyrics List */}
         {lyricsList.length > 0 ? (
           <ScrollView
             ref={lyricsScrollRef}
-            style={styles.expandedLyricsScroll}
-            contentContainerStyle={styles.expandedLyricsContent}
+            style={styles.fullPageLyricsScroll}
+            contentContainerStyle={styles.fullPageLyricsContent}
             showsVerticalScrollIndicator={false}
           >
             {lyricsList.map((line, idx) => {
@@ -614,15 +618,15 @@ export const NowPlayingModal = () => {
               return (
                 <TouchableOpacity
                   key={idx}
-                  activeOpacity={0.7}
-                  style={styles.expandedLyricRow}
+                  activeOpacity={0.65}
+                  style={styles.fullPageLyricRow}
                   onPress={() => seekTo(line.time)}
                 >
                   <Text
                     style={[
-                      styles.expandedLyricLine,
-                      isActive && styles.expandedLyricLineActive,
-                      isPast && styles.expandedLyricLinePast,
+                      styles.fullPageLyricLine,
+                      isActive && styles.fullPageLyricLineActive,
+                      isPast && styles.fullPageLyricLinePast,
                     ]}
                   >
                     {line.text}
@@ -632,42 +636,42 @@ export const NowPlayingModal = () => {
             })}
           </ScrollView>
         ) : (
-          <View style={styles.expandedEmptyLyrics}>
-            <Mic2 size={40} color="#444444" />
-            <Text style={styles.expandedEmptyTitle}>Synchronizing Live Lyrics...</Text>
-            <Text style={styles.expandedEmptySubtitle}>
+          <View style={styles.fullPageEmptyLyrics}>
+            <Mic2 size={44} color="#555555" />
+            <Text style={styles.fullPageEmptyTitle}>Synchronizing Live Lyrics...</Text>
+            <Text style={styles.fullPageEmptySubtitle}>
               Matching millisecond timestamps from HAZE master stream.
             </Text>
           </View>
         )}
 
-        {/* Bottom Playback Controls Bar */}
-        <View style={styles.expandedBottomBar}>
-          <TouchableOpacity style={styles.expandedScrubber} onPress={handleSeek}>
-            <View style={styles.expandedScrubberBg}>
-              <View style={[styles.expandedScrubberFill, { width: `${progressPercent}%` }]} />
+        {/* Compact Floating Frosted Bottom Playback Pill */}
+        <View style={styles.floatingBottomControls}>
+          <TouchableOpacity style={styles.floatingScrubber} onPress={handleSeek}>
+            <View style={styles.floatingScrubberBg}>
+              <View style={[styles.floatingScrubberFill, { width: `${progressPercent}%` }]} />
             </View>
-            <View style={styles.expandedTimeRow}>
-              <Text style={styles.expandedTimeText}>{formatTime(position)}</Text>
-              <Text style={styles.expandedTimeText}>{formatTime(duration)}</Text>
+            <View style={styles.floatingTimeRow}>
+              <Text style={styles.floatingTimeText}>{formatTime(position)}</Text>
+              <Text style={styles.floatingTimeText}>{formatTime(duration)}</Text>
             </View>
           </TouchableOpacity>
 
-          <View style={styles.expandedControlsRow}>
-            <TouchableOpacity onPress={handlePrevPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <SkipBack size={26} color="#FFFFFF" fill="#FFFFFF" />
+          <View style={styles.floatingControlsRow}>
+            <TouchableOpacity onPress={handlePrevPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <SkipBack size={24} color="#FFFFFF" fill="#FFFFFF" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.expandedPlayBtn} onPress={togglePlayPause}>
+            <TouchableOpacity style={styles.floatingPlayBtn} onPress={togglePlayPause}>
               {isPlaying ? (
-                <Pause size={26} color="#000000" fill="#000000" />
+                <Pause size={24} color="#000000" fill="#000000" />
               ) : (
-                <Play size={26} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
+                <Play size={24} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleNextPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <SkipForward size={26} color="#FFFFFF" fill="#FFFFFF" />
+            <TouchableOpacity onPress={handleNextPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <SkipForward size={24} color="#FFFFFF" fill="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -931,148 +935,148 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 300,
     backgroundColor: '#07070A',
-    paddingTop: 48,
-    paddingHorizontal: 20,
-    justifyContent: 'space-between',
   },
-  expandedLyricsHeader: {
+  lyricsFloatingHeader: {
+    position: 'absolute',
+    top: 48,
+    left: 20,
+    right: 20,
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    gap: 8,
   },
-  collapsePillBtn: {
-    flexDirection: 'row',
+  floatingCollapseCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    justifyContent: 'center',
   },
-  collapsePillText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  expandedHeaderCenter: {
+  floatingHeaderCenter: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 12,
   },
-  expandedHeaderTitle: {
+  floatingHeaderTitle: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
-  expandedHeaderArtist: {
-    color: '#71717A',
-    fontSize: 11,
+  floatingHeaderArtist: {
+    color: '#A1A1AA',
+    fontSize: 12,
     marginTop: 1,
   },
-  expandedQualityPill: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  floatingQualityBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
-  expandedQualityText: {
+  floatingQualityText: {
     color: '#38BDF8',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
   },
-  expandedLyricsScroll: {
+  fullPageLyricsScroll: {
     flex: 1,
   },
-  expandedLyricsContent: {
-    paddingVertical: 36,
-    paddingHorizontal: 10,
-    gap: 24,
+  fullPageLyricsContent: {
+    paddingTop: 115,
+    paddingBottom: 175,
+    paddingHorizontal: 28,
+    gap: 28,
   },
-  expandedLyricRow: {
-    paddingVertical: 4,
+  fullPageLyricRow: {
+    paddingVertical: 6,
   },
-  expandedLyricLine: {
-    fontSize: 22,
+  fullPageLyricLine: {
+    fontSize: 24,
     fontWeight: '700',
-    color: '#52525B',
-    lineHeight: 32,
-    letterSpacing: -0.3,
+    color: 'rgba(255, 255, 255, 0.35)',
+    lineHeight: 34,
+    letterSpacing: -0.4,
   },
-  expandedLyricLineActive: {
-    fontSize: 26,
+  fullPageLyricLineActive: {
+    fontSize: 30,
     fontWeight: '900',
     color: '#FFFFFF',
-    textShadowColor: 'rgba(255, 255, 255, 0.4)',
+    lineHeight: 40,
+    textShadowColor: 'rgba(255, 255, 255, 0.45)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 14,
+    textShadowRadius: 18,
   },
-  expandedLyricLinePast: {
-    color: '#3F3F46',
+  fullPageLyricLinePast: {
+    color: 'rgba(255, 255, 255, 0.20)',
   },
-  expandedEmptyLyrics: {
+  fullPageEmptyLyrics: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingHorizontal: 24,
+    gap: 12,
+    paddingHorizontal: 32,
   },
-  expandedEmptyTitle: {
-    color: '#D4D4D8',
-    fontSize: 16,
+  fullPageEmptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: '700',
   },
-  expandedEmptySubtitle: {
-    color: '#71717A',
-    fontSize: 12,
+  fullPageEmptySubtitle: {
+    color: '#A1A1AA',
+    fontSize: 13,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
   },
-  expandedBottomBar: {
-    paddingTop: 12,
-    paddingBottom: 32,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(10, 10, 14, 0.95)',
+  floatingBottomControls: {
+    position: 'absolute',
+    bottom: 28,
+    left: 20,
+    right: 20,
+    zIndex: 20,
+    backgroundColor: 'rgba(18, 18, 24, 0.88)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
-  expandedScrubber: {
-    paddingVertical: 6,
+  floatingScrubber: {
+    paddingVertical: 4,
   },
-  expandedScrubberBg: {
+  floatingScrubberBg: {
     height: 4,
     borderRadius: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     overflow: 'hidden',
   },
-  expandedScrubberFill: {
+  floatingScrubberFill: {
     height: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 2,
   },
-  expandedTimeRow: {
+  floatingTimeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 4,
   },
-  expandedTimeText: {
-    color: '#71717A',
+  floatingTimeText: {
+    color: '#A1A1AA',
     fontSize: 11,
     fontFamily: 'monospace',
   },
-  expandedControlsRow: {
+  floatingControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 36,
-    marginTop: 10,
+    marginTop: 6,
   },
-  expandedPlayBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  floatingPlayBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',

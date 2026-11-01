@@ -814,23 +814,31 @@ export const PlayerProvider = ({ children }) => {
   };
 
   // Playlist Management (Isolated per user profile)
-  const createPlaylist = async (name, description = '') => {
-    if (!name || !name.trim()) return;
+  const createPlaylist = async (name, description = '', initialTracks = []) => {
+    if (!name || !name.trim()) return null;
+    const tracksArray = Array.isArray(initialTracks) ? initialTracks : (initialTracks ? [initialTracks] : []);
+    const firstCover = tracksArray.length > 0 && tracksArray[0].cover
+      ? tracksArray[0].cover
+      : 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/3d/9d/d0/3d9dd0a3-e5e6-73d3-f938-e2182b810928/190295851286.jpg/600x600bb.jpg';
+
     const newPlaylist = {
       id: `pl_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       name: name.trim(),
       description: description.trim(),
       createdAt: new Date().toISOString(),
-      cover: 'https://c.saavncdn.com/372/b7f9937fefd686876e90be4a96c9a6e9_500x500.jpg',
-      tracks: [],
+      cover: firstCover,
+      tracks: tracksArray,
     };
 
     const updated = [newPlaylist, ...userPlaylists];
     setUserPlaylists(updated);
     try {
       await AsyncStorage.setItem(`@haze_${currentUser.id}_playlists`, JSON.stringify(updated));
-    } catch (e) {}
+    } catch (e) {
+      console.error('[Playlist] Save error:', e);
+    }
     setToastMessage({ type: 'success', text: `Created playlist "${name}"` });
+    return newPlaylist;
   };
 
   const deletePlaylist = async (playlistId) => {
@@ -843,23 +851,38 @@ export const PlayerProvider = ({ children }) => {
 
   const addTrackToPlaylist = async (playlistId, track) => {
     if (!playlistId || !track) return;
+    let targetName = 'Playlist';
+    let alreadyExists = false;
+
     const updated = userPlaylists.map(pl => {
       if (pl.id === playlistId) {
-        if (pl.tracks.some(t => t.id === track.id)) return pl;
+        targetName = pl.name;
+        if (pl.tracks && pl.tracks.some(t => t.id === track.id)) {
+          alreadyExists = true;
+          return pl;
+        }
+        const existingTracks = pl.tracks || [];
         return {
           ...pl,
-          tracks: [track, ...pl.tracks],
+          tracks: [track, ...existingTracks],
           cover: track.cover || pl.cover,
         };
       }
       return pl;
     });
 
+    if (alreadyExists) {
+      setToastMessage({ type: 'info', text: `Already in "${targetName}"` });
+      return;
+    }
+
     setUserPlaylists(updated);
     try {
       await AsyncStorage.setItem(`@haze_${currentUser.id}_playlists`, JSON.stringify(updated));
-    } catch (e) {}
-    setToastMessage({ type: 'success', text: `Added to playlist` });
+      setToastMessage({ type: 'success', text: `Added to "${targetName}"` });
+    } catch (e) {
+      console.error('[Playlist] Add track error:', e);
+    }
   };
 
   const removeTrackFromPlaylist = async (playlistId, trackId) => {

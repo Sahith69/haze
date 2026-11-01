@@ -11,10 +11,18 @@ export async function searchTracks(query) {
     const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query.trim())}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    return data.tracks || [];
+    const tracks = data.tracks || [];
+    tracks.topResult = data.topResult || null;
+    tracks.popularTracks = data.popularTracks || [];
+    tracks.otherTracks = data.otherTracks || [];
+    return tracks;
   } catch (err) {
     console.warn('[API] searchTracks error:', err.message);
-    return [];
+    const empty = [];
+    empty.topResult = null;
+    empty.popularTracks = [];
+    empty.otherTracks = [];
+    return empty;
   }
 }
 

@@ -56,7 +56,10 @@ export const LibraryScreen = () => {
 
   // Sub-view navigation: null | 'likes' | 'downloads' | 'playlist' | 'artist_detail' | 'album_detail'
   const [activeSubView, setActiveSubView] = useState(null);
-  const [selectedPlaylist, setSelectedPlaylist] = useState(null);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
+  const selectedPlaylist = useMemo(() => {
+    return userPlaylists.find(p => p.id === selectedPlaylistId) || null;
+  }, [userPlaylists, selectedPlaylistId]);
   const [selectedArtist, setSelectedArtist] = useState(null);
   const [selectedAlbum, setSelectedAlbum] = useState(null);
 
@@ -553,7 +556,7 @@ export const LibraryScreen = () => {
                   style={styles.shelfCard}
                   activeOpacity={0.7}
                   onPress={() => {
-                    setSelectedPlaylist(pl);
+                    setSelectedPlaylistId(pl.id);
                     setActiveSubView('playlist');
                   }}
                 >

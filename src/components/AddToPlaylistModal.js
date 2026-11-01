@@ -42,14 +42,7 @@ export const AddToPlaylistModal = () => {
 
   const handleCreateAndAdd = async () => {
     if (!newPlaylistName.trim()) return;
-    const playlistId = `pl-${Date.now()}`;
-    await createPlaylist(newPlaylistName.trim());
-    if (track) {
-      // Add track to the newly created playlist
-      setTimeout(() => {
-        addTrackToPlaylist(playlistId, track);
-      }, 100);
-    }
+    await createPlaylist(newPlaylistName.trim(), '', track ? [track] : []);
     setNewPlaylistName('');
     setIsCreatingInline(false);
     setShowAddToPlaylistModal(false);
