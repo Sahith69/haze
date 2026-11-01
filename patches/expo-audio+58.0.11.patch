@@ -1,14 +1,14 @@
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
-@@ -68,6 +68,18 @@ class AudioPlayer(
+@@ -68,6 +68,18 @@
    override var lockScreenOptions: AudioLockScreenOptions? = null
    override var mediaSession: MediaSession = buildBasicMediaSession(context, ref) { requestPlay() }
    override val serviceConnection = AudioPlaybackServiceConnection(WeakReference(this), appContext)
 +  override val supportsNextTrack: Boolean
-+    get() = lockScreenOptions?.showNextTrack == true
++    get() = lockScreenOptions?.showNextTrack ?: true
 +  override val supportsPreviousTrack: Boolean
-+    get() = lockScreenOptions?.showPreviousTrack == true
++    get() = lockScreenOptions?.showPreviousTrack ?: true
 +
 +  override fun nextTrack() {
 +    sendStatusUpdate(mapOf("playbackAction" to "nextTrack"))
@@ -23,7 +23,241 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/Au
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-@@ -419,6 +419,38 @@ class AudioControlsService : MediaSessionService() {
+@@ -143,14 +143,18 @@
+   private fun createNotificationChannelIfNeeded() {
+     val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+-      if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
+-        notificationManager.createNotificationChannel(
+-          NotificationChannel(
+-            CHANNEL_ID,
+-            CHANNEL_ID,
+-            NotificationManager.IMPORTANCE_LOW
+-          )
+-        )
++      val existingChannel = notificationManager.getNotificationChannel(CHANNEL_ID)
++      if (existingChannel == null) {
++        val channel = NotificationChannel(
++          CHANNEL_ID,
++          "HAZE Playback Controls",
++          NotificationManager.IMPORTANCE_DEFAULT
++        ).apply {
++          description = "Music playback controls for HAZE"
++          setShowBadge(false)
++          lockscreenVisibility = Notification.VISIBILITY_PUBLIC
++        }
++        notificationManager.createNotificationChannel(channel)
+       }
+     }
+   }
+@@ -177,94 +181,61 @@
+ 
+   private fun buildNotification(): Notification? {
+     val session = mediaSession ?: return null
++    val isPlaying = session.player.isPlaying
+ 
+     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+       .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_circular_play)
+-      // If the title is null or empty string android sets the notification to "<AppName> is running..." we want to keep the notification empty so we \u200E to keep the text empty.
+       .setContentTitle(currentMetadata?.title ?: "\u200E")
+       .setContentText(currentMetadata?.artist)
+       .setSubText(currentMetadata?.albumTitle)
+       .setLargeIcon(currentArtwork)
+       .setContentIntent(buildContentIntent())
+       .setAutoCancel(false)
++      .setOngoing(isPlaying)
++      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
++      .setPriority(NotificationCompat.PRIORITY_MAX)
+       .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+ 
+     val style = MediaStyleNotificationHelper.MediaStyle(session)
+ 
+-    // Older Android system UI expects explicit notification actions for transport controls.
+-    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+-      val compactViewIndices = mutableListOf<Int>()
+-      var currentIndex = 0
+-
+-      if (currentOptions?.showPreviousTrack == true && currentPlayable?.supportsPreviousTrack == true) {
+-        builder.addAction(
+-          NotificationCompat.Action(
+-            androidx.media3.session.R.drawable.media3_icon_previous,
+-            "Previous Track",
+-            buildActionPendingIntent(ACTION_PREVIOUS_TRACK)
+-          )
+-        )
+-        compactViewIndices.add(currentIndex)
+-        currentIndex++
+-      } else if (currentOptions?.showSeekBackward == true) {
+-        builder.addAction(
+-          NotificationCompat.Action(
+-            androidx.media3.session.R.drawable.media3_icon_skip_back,
+-            "Seek Backward",
+-            buildActionPendingIntent(ACTION_SEEK_BACKWARD)
+-          )
+-        )
+-        compactViewIndices.add(currentIndex)
+-        currentIndex++
+-      }
+-
+-      builder.addAction(
+-        NotificationCompat.Action(
+-          if (session.player.isPlaying) {
+-            androidx.media3.session.R.drawable.media3_icon_pause
+-          } else {
+-            androidx.media3.session.R.drawable.media3_icon_play
+-          },
+-          if (session.player.isPlaying) {
+-            "Pause"
+-          } else {
+-            "Play"
+-          },
+-          buildActionPendingIntent(
+-            if (session.player.isPlaying) {
+-              ACTION_PAUSE
+-            } else {
+-              ACTION_PLAY
+-            }
+-          )
+-        )
++    // Always attach explicit transport actions across all Android versions
++    val compactViewIndices = mutableListOf<Int>()
++    var currentIndex = 0
++
++    builder.addAction(
++      NotificationCompat.Action(
++        androidx.media3.session.R.drawable.media3_icon_previous,
++        "Previous Track",
++        buildActionPendingIntent(ACTION_PREVIOUS_TRACK)
+       )
+-      compactViewIndices.add(currentIndex)
+-      currentIndex++
++    )
++    compactViewIndices.add(currentIndex)
++    currentIndex++
+ 
+-      if (currentOptions?.showNextTrack == true && currentPlayable?.supportsNextTrack == true) {
+-        builder.addAction(
+-          NotificationCompat.Action(
+-            androidx.media3.session.R.drawable.media3_icon_next,
+-            "Next Track",
+-            buildActionPendingIntent(ACTION_NEXT_TRACK)
+-          )
+-        )
+-        compactViewIndices.add(currentIndex)
+-      } else if (currentOptions?.showSeekForward == true) {
+-        builder.addAction(
+-          NotificationCompat.Action(
+-            androidx.media3.session.R.drawable.media3_icon_skip_forward,
+-            "Seek Forward",
+-            buildActionPendingIntent(ACTION_SEEK_FORWARD)
+-          )
+-        )
+-        compactViewIndices.add(currentIndex)
+-      }
++    builder.addAction(
++      NotificationCompat.Action(
++        if (isPlaying) {
++          androidx.media3.session.R.drawable.media3_icon_pause
++        } else {
++          androidx.media3.session.R.drawable.media3_icon_play
++        },
++        if (isPlaying) "Pause" else "Play",
++        buildActionPendingIntent(if (isPlaying) ACTION_PAUSE else ACTION_PLAY)
++      )
++    )
++    compactViewIndices.add(currentIndex)
++    currentIndex++
+ 
+-      style.setShowActionsInCompactView(*compactViewIndices.toIntArray())
+-    }
++    builder.addAction(
++      NotificationCompat.Action(
++        androidx.media3.session.R.drawable.media3_icon_next,
++        "Next Track",
++        buildActionPendingIntent(ACTION_NEXT_TRACK)
++      )
++    )
++    compactViewIndices.add(currentIndex)
+ 
++    style.setShowActionsInCompactView(*compactViewIndices.toIntArray())
+     builder.setStyle(style)
+     return builder.build()
+   }
+@@ -291,26 +262,16 @@
+ 
+     val playable = currentPlayable
+ 
+-    if (currentOptions?.showPreviousTrack == true && playable?.supportsPreviousTrack == true) {
+-      mediaButtons.add(
+-        CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+-          .setDisplayName("Previous Track")
+-          .setEnabled(true)
+-          .setSessionCommand(SessionCommand(ACTION_PREVIOUS_TRACK, Bundle.EMPTY))
+-          .setSlots(CommandButton.SLOT_BACK)
+-          .build()
+-      )
+-    } else if (currentOptions?.showSeekBackward == true) {
+-      val backwardSeconds = seekIntervalMs(currentOptions?.seekBackwardIntervalSeconds) / 1000.0
+-      mediaButtons.add(
+-        CommandButton.Builder(skipBackIcon(backwardSeconds))
+-          .setDisplayName("Seek Backward")
+-          .setEnabled(true)
+-          .setSessionCommand(SessionCommand(ACTION_SEEK_BACKWARD, Bundle.EMPTY))
+-          .setSlots(CommandButton.SLOT_BACK)
+-          .build()
+-      )
+-    }
++    // Previous Track Button
++    mediaButtons.add(
++      CommandButton.Builder(CommandButton.ICON_PREVIOUS)
++        .setDisplayName("Previous Track")
++        .setEnabled(true)
++        .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
++        .setSessionCommand(SessionCommand(ACTION_PREVIOUS_TRACK, Bundle.EMPTY))
++        .setSlots(CommandButton.SLOT_BACK)
++        .build()
++    )
+ 
+     mediaButtons.add(
+       CommandButton.Builder(
+@@ -333,26 +294,16 @@
+         .build()
+     )
+ 
+-    if (currentOptions?.showNextTrack == true && playable?.supportsNextTrack == true) {
+-      mediaButtons.add(
+-        CommandButton.Builder(CommandButton.ICON_NEXT)
+-          .setDisplayName("Next Track")
+-          .setEnabled(true)
+-          .setSessionCommand(SessionCommand(ACTION_NEXT_TRACK, Bundle.EMPTY))
+-          .setSlots(CommandButton.SLOT_FORWARD)
+-          .build()
+-      )
+-    } else if (currentOptions?.showSeekForward == true) {
+-      val forwardSeconds = seekIntervalMs(currentOptions?.seekForwardIntervalSeconds) / 1000.0
+-      mediaButtons.add(
+-        CommandButton.Builder(skipForwardIcon(forwardSeconds))
+-          .setDisplayName("Seek Forward")
+-          .setEnabled(true)
+-          .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD, Bundle.EMPTY))
+-          .setSlots(CommandButton.SLOT_FORWARD)
+-          .build()
+-      )
+-    }
++    // Next Track Button
++    mediaButtons.add(
++      CommandButton.Builder(CommandButton.ICON_NEXT)
++        .setDisplayName("Next Track")
++        .setEnabled(true)
++        .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
++        .setSessionCommand(SessionCommand(ACTION_NEXT_TRACK, Bundle.EMPTY))
++        .setSlots(CommandButton.SLOT_FORWARD)
++        .build()
++    )
+ 
+     session.setCustomLayout(mediaButtons)
+     session.setMediaButtonPreferences(mediaButtons)
+@@ -419,11 +370,48 @@
          seekTo((currentPosition - backwardMs).coerceAtLeast(0))
        }
  
@@ -62,3 +296,52 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
        override fun getAvailableCommands(): Player.Commands {
          val commands = super.getAvailableCommands().buildUpon()
          if (isLive) {
+           commands.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+         }
++        commands.add(Player.COMMAND_PLAY_PAUSE)
++        commands.add(Player.COMMAND_SEEK_TO_NEXT)
++        commands.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
++        commands.add(Player.COMMAND_SEEK_TO_PREVIOUS)
++        commands.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+         return commands.build()
+       }
+     }
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+@@ -23,29 +23,17 @@
+         .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+         .add(Player.COMMAND_SEEK_FORWARD)
+         .add(Player.COMMAND_SEEK_BACK)
+-        .apply {
+-          if (service.supportsPreviousTrack()) {
+-            add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+-            add(Player.COMMAND_SEEK_TO_PREVIOUS)
+-          }
+-          if (service.supportsNextTrack()) {
+-            add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+-            add(Player.COMMAND_SEEK_TO_NEXT)
+-          }
+-        }
++        .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
++        .add(Player.COMMAND_SEEK_TO_PREVIOUS)
++        .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
++        .add(Player.COMMAND_SEEK_TO_NEXT)
+         .build()
+ 
+       val availableSessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+         .add(SessionCommand(AudioControlsService.ACTION_SEEK_BACKWARD, Bundle.EMPTY))
+         .add(SessionCommand(AudioControlsService.ACTION_SEEK_FORWARD, Bundle.EMPTY))
+-        .apply {
+-          if (service.supportsPreviousTrack()) {
+-            add(SessionCommand(AudioControlsService.ACTION_PREVIOUS_TRACK, Bundle.EMPTY))
+-          }
+-          if (service.supportsNextTrack()) {
+-            add(SessionCommand(AudioControlsService.ACTION_NEXT_TRACK, Bundle.EMPTY))
+-          }
+-        }
++        .add(SessionCommand(AudioControlsService.ACTION_PREVIOUS_TRACK, Bundle.EMPTY))
++        .add(SessionCommand(AudioControlsService.ACTION_NEXT_TRACK, Bundle.EMPTY))
+         .build()
+ 
+       return MediaSession.ConnectionResult.AcceptedResultBuilder(session)

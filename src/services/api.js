@@ -224,8 +224,7 @@ export async function resolveAudioStream(track, options = {}) {
     } catch (e) {}
   }
 
-  // If FLAC is requested, check backend Telegram Vault, but race with a tight 1.8s timeout
-  // so the player never freezes or hangs on backend cloud IP blocks
+  // If FLAC is requested, check backend Telegram Vault (3.5s timeout for network jitter)
   try {
     const params = new URLSearchParams({
       id: track.id || '',
@@ -238,7 +237,7 @@ export async function resolveAudioStream(track, options = {}) {
     });
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1800);
+    const timeout = setTimeout(() => controller.abort(), 3500);
     const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`, { signal: controller.signal });
     clearTimeout(timeout);
 
@@ -255,18 +254,30 @@ export async function resolveAudioStream(track, options = {}) {
       const saavnFallback = await directSaavnPromise;
       const fallbackUrl = saavnFallback?.streamUrl || normalizeUrl(data.proxyUrl) || normalizeUrl(data.fallbackUrl);
 
-      if (primaryUrl) {
+      if (isActualFlac && primaryUrl) {
         return {
           streamUrl: primaryUrl,
           fallbackUrl: fallbackUrl,
-          quality: data.quality || (isActualFlac ? '1,411 kbps · FLAC Master' : '320 kbps · Studio Master'),
-          isFlac: isActualFlac,
-          flacUnavailable: !isActualFlac && isFlacRequested,
+          quality: data.quality || '1,411 kbps · Pure Lossless FLAC Master',
+          isFlac: true,
+          flacUnavailable: false,
+        };
+      }
+
+      // If backend returned a 320k stream or indicated flacUnavailable
+      const streamToUse = primaryUrl || saavnFallback?.streamUrl;
+      if (streamToUse) {
+        return {
+          streamUrl: streamToUse,
+          fallbackUrl: fallbackUrl || streamToUse,
+          quality: data.quality || '320 kbps · Studio Master',
+          isFlac: false,
+          flacUnavailable: isFlacRequested,
         };
       }
     }
   } catch (err) {
-    // Backend timeout or 500 error — seamlessly fall through to direct CDN
+    // Backend timeout or error — seamlessly fall through to direct CDN
   }
 
   // Instant fallback: direct high-speed Akamai stream

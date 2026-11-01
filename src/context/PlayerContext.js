@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Platform, PermissionsAndroid } from 'react-native';
-import { setAudioModeAsync, createAudioPlayer } from 'expo-audio';
+import { setAudioModeAsync, createAudioPlayer, requestNotificationPermissionsAsync } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
@@ -309,17 +309,22 @@ export const PlayerProvider = ({ children }) => {
   useEffect(() => {
     async function setupAudio() {
       try {
-        if (Platform.OS === 'android' && Platform.Version >= 33) {
+        if (Platform.OS === 'android') {
           try {
-            await PermissionsAndroid.request(
-              PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-              {
-                title: 'HAZE Music Playback Notification',
-                message: 'HAZE needs notification access to show track controls on your lock screen and notification panel.',
-                buttonPositive: 'Allow',
-              }
-            );
+            await requestNotificationPermissionsAsync();
           } catch (e) {}
+          if (Platform.Version >= 33) {
+            try {
+              await PermissionsAndroid.request(
+                PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+                {
+                  title: 'HAZE Music Playback Notification',
+                  message: 'HAZE needs notification access to show track controls on your lock screen and notification panel.',
+                  buttonPositive: 'Allow',
+                }
+              );
+            } catch (e) {}
+          }
         }
         await setAudioModeAsync({
           playsInSilentMode: true,
@@ -483,6 +488,13 @@ export const PlayerProvider = ({ children }) => {
     setIsLoadingAudio(true);
 
     recentHistoryRef.current = [track.id, ...recentHistoryRef.current.filter(id => id !== track.id)].slice(0, 20);
+
+    // Ensure notification permission is requested on Android
+    if (Platform.OS === 'android') {
+      try {
+        requestNotificationPermissionsAsync().catch(() => {});
+      } catch (e) {}
+    }
 
     // Fetch synced lyrics concurrently
     fetchLyrics(track).then(setLiveLyrics);
@@ -688,33 +700,6 @@ export const PlayerProvider = ({ children }) => {
 
           if (status.isLoaded) {
             setIsLoadingAudio(false);
-            // Integrity check: If playing FLAC, but duration loaded from stream is cut short by > 8 seconds
-            if (isActuallyFlac && track.duration > 20 && status.duration && (track.duration - status.duration > 8)) {
-              console.warn('[PlayerContext] FLAC stream duration cut short! Auto-switching to 320k Studio Master.');
-              resolveDirectSaavnAudio(track.title, track.artist).then((directRes) => {
-                const directUrl = directRes?.streamUrl;
-                if (directUrl && directUrl !== audioUriToPlay) {
-                  player.replace({
-                    uri: directUrl,
-                    headers: {
-                      'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-                    },
-                  });
-                  player.play();
-                  setIsPlaying(true);
-                  setCurrentTrack(prev => ({
-                    ...prev,
-                    qualityLabel: '320 kbps · Studio Master',
-                    isFlac: false,
-                  }));
-                  setToastMessage({
-                    type: 'info',
-                    text: '⚡ FLAC incomplete · Switched to 320 kbps Studio Master',
-                  });
-                  updateLockScreenControls(player, track, '320 kbps · Studio Master');
-                }
-              }).catch(() => {});
-            }
           }
 
           if (status.isBuffering) {
