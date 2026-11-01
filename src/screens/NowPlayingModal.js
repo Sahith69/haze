@@ -28,6 +28,7 @@ import {
   ArrowDownToLine,
   CheckCircle2,
   ChevronUp,
+  Sparkles,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
@@ -354,39 +355,48 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
         </View>
 
-        {/* HAZE Interactive Quality Badge */}
+        {/* HAZE Interactive Quality Badge & Smart Shuffle Indicator */}
         <View style={styles.badgeRow}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={[
-              styles.flacBadge,
-              streamingQuality === '1411k' && styles.flacBadgeActive,
-            ]}
-            onPress={() => {
-              setQualityModalMode('streaming');
-              setShowQualityModal(true);
-            }}
-          >
-            <Text
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              activeOpacity={0.7}
               style={[
-                styles.flacBadgeText,
-                streamingQuality === '1411k' && { color: colors.gold },
+                styles.flacBadge,
+                streamingQuality === '1411k' && styles.flacBadgeActive,
               ]}
+              onPress={() => {
+                setQualityModalMode('streaming');
+                setShowQualityModal(true);
+              }}
             >
-              {getQualityBadgeText()}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              setQualityModalMode('streaming');
-              setShowQualityModal(true);
-            }}
-          >
-            <Text style={styles.qualityLabel}>
-              {getQualitySubtext()}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.flacBadgeText,
+                  streamingQuality === '1411k' && { color: colors.gold },
+                ]}
+              >
+                {getQualityBadgeText()}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setQualityModalMode('streaming');
+                setShowQualityModal(true);
+              }}
+            >
+              <Text style={styles.qualityLabel}>
+                {getQualitySubtext()}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {isShuffle && (
+            <View style={styles.smartShufflePill}>
+              <Sparkles size={11} color="#22C55E" />
+              <Text style={styles.smartShufflePillText}>Smart Flow</Text>
+            </View>
+          )}
         </View>
 
         {/* Scrubber Progress Bar */}
@@ -414,10 +424,15 @@ export const NowPlayingModal = () => {
             onPress={shuffleQueue}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Shuffle
-              size={20}
-              color={isShuffle ? '#FFFFFF' : '#666666'}
-            />
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <Shuffle
+                size={20}
+                color={isShuffle ? '#22C55E' : '#666666'}
+              />
+              {isShuffle && (
+                <View style={styles.smartShuffleDot} />
+              )}
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -534,11 +549,11 @@ export const NowPlayingModal = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Dedicated Live Synchronized Lyrics Column Card */}
+        {/* Dedicated Live Synchronized Lyrics Column Card - Taps into Apple Music Full Page */}
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.lyricsCard}
-          onPress={expandLyrics}
+          onPress={() => setActiveModal('lyrics')}
         >
           <View style={styles.lyricsCardHeader}>
             <View style={styles.lyricsCardTitleRow}>
@@ -546,7 +561,7 @@ export const NowPlayingModal = () => {
               <Text style={styles.lyricsCardTitle}>LIVE LYRICS</Text>
             </View>
             <View style={styles.lyricsExpandPill}>
-              <Text style={styles.lyricsExpandText}>Expand ↗</Text>
+              <Text style={styles.lyricsExpandText}>Full Page ↗</Text>
             </View>
           </View>
           <Text style={styles.lyricsActiveText} numberOfLines={2}>
@@ -781,8 +796,33 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     marginTop: 6,
+  },
+  smartShufflePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  smartShufflePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#22C55E',
+    letterSpacing: 0.3,
+  },
+  smartShuffleDot: {
+    position: 'absolute',
+    bottom: -6,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#22C55E',
   },
   flacBadge: {
     backgroundColor: '#1C1C1C',

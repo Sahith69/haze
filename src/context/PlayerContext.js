@@ -746,10 +746,12 @@ export const PlayerProvider = ({ children }) => {
   };
 
   /**
-   * VIBE & CONTEXT-AWARE SMART RECOMMENDATION ALGORITHM
-   * 1. Same artist / album context matching first.
-   * 2. User liked library affinity.
-   * 3. Background dynamic similar artist fetch when queue runs low (NEVER random top trends!).
+   * SMART VIBE SHUFFLE & CONTINUITY ALGORITHM
+   * 1. Smooth Genre & Sonic Vibe Matching.
+   * 2. Prevents back-to-back artist repetition (avoids artist fatigue).
+   * 3. Considers duration & tempo pacing.
+   * 4. User Liked Library affinity.
+   * 5. Infinite Vibe Autoplay: When queue is low or finishes, automatically discovers & appends similar vibe tracks!
    */
   const getSmartNextTrack = useCallback(async () => {
     if (!queue || queue.length === 0) return currentTrack;
@@ -757,53 +759,111 @@ export const PlayerProvider = ({ children }) => {
 
     const currentArtist = (currentTrack?.artist || '').toLowerCase().trim();
     const currentAlbum = (currentTrack?.album || '').toLowerCase().trim();
+    const currentGenre = (currentTrack?.genre || '').toLowerCase().trim();
     const recentSet = new Set(recentHistoryRef.current);
-    const likedIds = new Set(likedTracks.map(t => t.id));
+    const likedIds = new Set(likedTracks.map((t) => t.id));
 
     // Candidates in current context (excluding recently played)
-    let candidates = queue.filter(t => t.id !== currentTrack?.id && !recentSet.has(t.id));
+    let candidates = queue.filter((t) => t.id !== currentTrack?.id && !recentSet.has(t.id));
     if (candidates.length === 0) {
-      candidates = queue.filter(t => t.id !== currentTrack?.id);
+      candidates = queue.filter((t) => t.id !== currentTrack?.id);
     }
 
     if (candidates.length > 0) {
-      const scored = candidates.map(t => {
-        let score = 10;
+      const scored = candidates.map((t) => {
+        let score = 20;
         const tArtist = (t.artist || '').toLowerCase().trim();
         const tAlbum = (t.album || '').toLowerCase().trim();
+        const tGenre = (t.genre || '').toLowerCase().trim();
 
-        // Same artist heavy boost
-        if (tArtist && currentArtist && (tArtist.includes(currentArtist) || currentArtist.includes(tArtist))) {
-          score += 60;
+        // 1. Genre / Sonic vibe similarity (strongest vibe continuity)
+        if (tGenre && currentGenre && (tGenre === currentGenre || tGenre.includes(currentGenre) || currentGenre.includes(tGenre))) {
+          score += 55;
         }
-        // Same album boost
+
+        // 2. Artist affinity (boost, but avoids immediate repetition if other artists exist)
+        if (tArtist && currentArtist) {
+          if (tArtist === currentArtist) {
+            const hasOtherArtists = candidates.some((c) => (c.artist || '').toLowerCase().trim() !== currentArtist);
+            score += hasOtherArtists ? 10 : 35;
+          } else if (tArtist.includes(currentArtist) || currentArtist.includes(tArtist)) {
+            score += 25;
+          }
+        }
+
+        // 3. Same album boost
         if (tAlbum && currentAlbum && tAlbum === currentAlbum) {
-          score += 40;
+          score += 15;
         }
-        // User liked affinity
-        if (likedIds.has(t.id)) {
-          score += 25;
-        }
-        // Duration similarity (vibe pace)
-        const diff = Math.abs((t.duration || 210) - (currentTrack?.duration || 210));
-        if (diff < 40) score += 10;
 
-        score += Math.random() * 8;
+        // 4. User liked track affinity (favorite vibe)
+        if (likedIds.has(t.id)) {
+          score += 30;
+        }
+
+        // 5. Pacing / track length similarity (keeps acoustic with acoustic, pop with pop)
+        const diff = Math.abs((t.duration || 210) - (currentTrack?.duration || 210));
+        if (diff < 30) score += 20;
+        else if (diff < 60) score += 10;
+
+        // Controlled entropy so queue feels fresh and lively
+        score += Math.random() * 20;
+
         return { track: t, score };
       });
 
       scored.sort((a, b) => b.score - a.score);
-      return scored[0]?.track;
+      const chosenTrack = scored[0]?.track;
+
+      // When queue candidates are running low (<= 2 tracks left), preload similar vibe tracks in background
+      if (candidates.length <= 2 && currentTrack) {
+        const queryTerm = (currentGenre && currentGenre !== 'unknown' && currentGenre !== 'english')
+          ? `${currentGenre} hits`
+          : `${currentTrack.artist} similar`;
+
+        searchTracks(queryTerm).then((related) => {
+          if (related && Array.isArray(related)) {
+            const fresh = related.filter((r) =>
+              r.id !== currentTrack.id &&
+              !recentSet.has(r.id) &&
+              !queue.some((q) => q.id === r.id)
+            );
+            if (fresh.length > 0) {
+              setQueue((prev) => [...prev, ...fresh.slice(0, 6)]);
+              setToastMessage({
+                type: 'info',
+                text: `✨ Smart Shuffle: Added ${Math.min(fresh.length, 6)} similar tracks to queue`,
+              });
+            }
+          }
+        }).catch(() => {});
+      }
+
+      return chosenTrack;
     }
 
-    // Dynamic similar music fallback from backend
-    if (currentTrack?.artist) {
+    // Dynamic infinite vibe discovery when queue is exhausted
+    if (currentTrack) {
       try {
-        const related = await searchTracks(currentTrack.artist);
-        const validRelated = (related || []).filter(t => t.id !== currentTrack.id && !recentSet.has(t.id));
+        const queryTerm = (currentGenre && currentGenre !== 'unknown' && currentGenre !== 'english')
+          ? `${currentGenre} hits`
+          : `${currentTrack.artist} similar`;
+
+        const related = await searchTracks(queryTerm);
+        const validRelated = (related || []).filter((t) =>
+          t.id !== currentTrack.id &&
+          !recentSet.has(t.id) &&
+          !queue.some((q) => q.id === t.id)
+        );
+
         if (validRelated.length > 0) {
-          setQueue(prev => [...prev, ...validRelated.slice(0, 8)]);
-          return validRelated[0];
+          const toAdd = validRelated.slice(0, 8);
+          setQueue((prev) => [...prev, ...toAdd]);
+          setToastMessage({
+            type: 'info',
+            text: `✨ Smart Shuffle: Autoplaying similar vibe tracks`,
+          });
+          return toAdd[0];
         }
       } catch (e) {}
     }
@@ -1153,7 +1213,16 @@ export const PlayerProvider = ({ children }) => {
   };
 
   const clearQueue = () => setQueue([]);
-  const shuffleQueue = () => setIsShuffle(prev => !prev);
+  const shuffleQueue = () => {
+    setIsShuffle((prev) => {
+      const nextState = !prev;
+      setToastMessage({
+        type: 'info',
+        text: nextState ? '✨ Smart Shuffle On · Playing similar vibes' : 'Shuffle Off',
+      });
+      return nextState;
+    });
+  };
 
   return (
     <PlayerContext.Provider

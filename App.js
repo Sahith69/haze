@@ -157,6 +157,7 @@ const MainNavigator = () => {
 
         {/* Modals & Overlays */}
         {activeModal === 'now_playing' && <NowPlayingModal />}
+        {activeModal === 'lyrics' && <SyncedLyricsModal />}
         {activeModal === 'queue' && <QueueModal />}
         {activeModal === 'equalizer' && <EqualizerModal />}
 
