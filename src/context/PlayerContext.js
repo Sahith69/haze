@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { Platform, PermissionsAndroid } from 'react-native';
+import { Platform, PermissionsAndroid, AppState } from 'react-native';
 import { setAudioModeAsync, createAudioPlayer, requestNotificationPermissionsAsync } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -162,6 +162,7 @@ export const PlayerProvider = ({ children }) => {
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(216);
   const [queue, setQueue] = useState(INITIAL_TRACKS);
+  const [trendingTracks, setTrendingTracks] = useState(INITIAL_TRACKS);
   const [vaultTracks, setVaultTracks] = useState([]);
   const [storageUsed, setStorageUsed] = useState('0 MB');
   const [storageTotal, setStorageTotal] = useState('10 GB');
@@ -189,7 +190,7 @@ export const PlayerProvider = ({ children }) => {
   });
   const [volumeLeveling, setVolumeLeveling] = useState(true);
 
-  // Critical Refs for race-condition & overlap prevention
+  // Critical Refs for race-condition, continuity & overlap prevention
   const soundRef = useRef(null);
   const playbackRequestIdRef = useRef(0);
   const recentHistoryRef = useRef([]);
@@ -199,6 +200,60 @@ export const PlayerProvider = ({ children }) => {
   currentTrackRef.current = currentTrack;
   const nextTrackRef = useRef(null);
   const previousTrackRef = useRef(null);
+  const latestPositionRef = useRef(0);
+  const lastPersistTimestampRef = useRef(0);
+  const hasRestoredSessionRef = useRef(false);
+
+  // Playback session storage keys for instant continuity
+  const SESSION_STORAGE_KEY = '@haze_last_playback_session';
+  const getUserSessionKey = (userId) => `@haze_${userId || 'sahith'}_playback_session`;
+
+  // Persist full playback session to AsyncStorage for instant continuity on reopen
+  const persistPlaybackSession = useCallback(async (overrides = {}) => {
+    try {
+      const trackToSave = overrides.track || currentTrackRef.current;
+      // Never overwrite a saved session with the dummy initial placeholder
+      if (!trackToSave || trackToSave.id === INITIAL_TRACKS[0].id) return;
+
+      const queueToSave = overrides.queue || queueRef.current;
+      const posToSave = typeof overrides.position === 'number'
+        ? overrides.position
+        : latestPositionRef.current;
+      const durToSave = typeof overrides.duration === 'number'
+        ? overrides.duration
+        : (trackToSave.duration || 0);
+
+      const sessionData = {
+        track: trackToSave,
+        queue: Array.isArray(queueToSave) && queueToSave.length > 0 ? queueToSave : [trackToSave],
+        position: Math.max(0, Math.round(posToSave)),
+        duration: Math.max(0, Math.round(durToSave)),
+        userId: currentUser?.id || 'sahith',
+        savedAt: Date.now(),
+      };
+
+      const payload = JSON.stringify(sessionData);
+      await Promise.all([
+        AsyncStorage.setItem(SESSION_STORAGE_KEY, payload),
+        AsyncStorage.setItem(getUserSessionKey(currentUser?.id), payload),
+      ]);
+      lastPersistTimestampRef.current = Date.now();
+    } catch (err) {
+      console.warn('[PlayerContext] Failed to persist playback session:', err.message);
+    }
+  }, [currentUser?.id]);
+
+  // Flush latest playback position to AsyncStorage whenever app is minimized, locked, or backgrounded
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        persistPlaybackSession({ position: latestPositionRef.current });
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, [persistPlaybackSession]);
 
   // Auto-dismiss toast after 3.5s
   useEffect(() => {
@@ -253,9 +308,33 @@ export const PlayerProvider = ({ children }) => {
   // Switch between Sahith and Kritika profiles
   const switchUser = async (userId) => {
     const user = USERS[userId] || USERS.sahith;
+    // Persist current session before switching
+    await persistPlaybackSession({ position: latestPositionRef.current });
     setCurrentUser(user);
     try {
       await AsyncStorage.setItem('@haze_active_user', user.id);
+      // Restore this user's personal last session if present
+      const userSessionStr = await AsyncStorage.getItem(getUserSessionKey(user.id));
+      if (userSessionStr) {
+        const uSession = JSON.parse(userSessionStr);
+        if (uSession && uSession.track && uSession.track.id !== INITIAL_TRACKS[0].id) {
+          if (soundRef.current) {
+            try { soundRef.current.pause(); soundRef.current.remove(); } catch (e) {}
+            soundRef.current = null;
+          }
+          setCurrentTrack(uSession.track);
+          currentTrackRef.current = uSession.track;
+          if (Array.isArray(uSession.queue) && uSession.queue.length > 0) {
+            setQueue(uSession.queue);
+            queueRef.current = uSession.queue;
+          }
+          const restoredPos = uSession.position || 0;
+          setPosition(restoredPos);
+          latestPositionRef.current = restoredPos;
+          setDuration(uSession.duration || uSession.track.duration || 216);
+          setIsPlaying(false);
+        }
+      }
     } catch (e) {}
     await loadUserData(user.id);
     setToastMessage({ type: 'info', text: `Switched profile to ${user.name}` });
@@ -352,6 +431,33 @@ export const PlayerProvider = ({ children }) => {
         }
       } catch (e) {}
 
+      // Restore last playback session for seamless continuity across app reboots
+      try {
+        const savedSessionStr = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+        if (savedSessionStr) {
+          const session = JSON.parse(savedSessionStr);
+          if (session && session.track && session.track.id !== INITIAL_TRACKS[0].id) {
+            console.log(`[PlayerContext] Restored last session: "${session.track.title}" at ${session.position}s`);
+            setCurrentTrack(session.track);
+            currentTrackRef.current = session.track;
+            if (Array.isArray(session.queue) && session.queue.length > 0) {
+              setQueue(session.queue);
+              queueRef.current = session.queue;
+            }
+            if (typeof session.position === 'number') {
+              setPosition(session.position);
+              latestPositionRef.current = session.position;
+            }
+            if (typeof session.duration === 'number' && session.duration > 0) {
+              setDuration(session.duration);
+            }
+            hasRestoredSessionRef.current = true;
+          }
+        }
+      } catch (sessionErr) {
+        console.warn('[PlayerContext] Failed to restore playback session:', sessionErr.message);
+      }
+
       try {
         const savedUserId = await AsyncStorage.getItem('@haze_active_user');
         const activeId = savedUserId && USERS[savedUserId] ? savedUserId : 'sahith';
@@ -392,9 +498,25 @@ export const PlayerProvider = ({ children }) => {
               ['#3B3B5C', '#8B7CFF'],
             ][idx % 5],
           }));
-          // Only initialize initial track if empty
-          if (!currentTrack || currentTrack.id === INITIAL_TRACKS[0].id) {
+          setTrendingTracks(mapped);
+
+          // Check if session was already restored or exists in storage before falling back to trending[0]
+          if (!hasRestoredSessionRef.current) {
+            const rawSession = await AsyncStorage.getItem(SESSION_STORAGE_KEY).catch(() => null);
+            if (rawSession) {
+              try {
+                const parsed = JSON.parse(rawSession);
+                if (parsed && parsed.track && parsed.track.id !== INITIAL_TRACKS[0].id) {
+                  hasRestoredSessionRef.current = true;
+                }
+              } catch (e) {}
+            }
+          }
+
+          // Only initialize initial track if no previous session was restored
+          if (!hasRestoredSessionRef.current && (!currentTrackRef.current || currentTrackRef.current.id === INITIAL_TRACKS[0].id)) {
             setCurrentTrack(mapped[0]);
+            currentTrackRef.current = mapped[0];
           }
         }
       } catch (e) {}
@@ -452,7 +574,7 @@ export const PlayerProvider = ({ children }) => {
   }, []);
 
   // Play track with STRICT OVERLAP PREVENTION and context-aware queue
-  const playTrack = async (track, contextQueue = null) => {
+  const playTrack = async (track, contextQueue = null, resumePositionSec = 0) => {
     if (!track) return;
 
     // Increment request ID to invalidate any prior in-flight audio resolutions
@@ -470,6 +592,7 @@ export const PlayerProvider = ({ children }) => {
     // Set queue to the specific context if passed (e.g. from liked, search, album)
     if (contextQueue && Array.isArray(contextQueue) && contextQueue.length > 0) {
       setQueue(contextQueue);
+      queueRef.current = contextQueue;
     }
 
     const isDownloadedItem = downloadedTracks.find(d => d.id === track.id);
@@ -488,10 +611,21 @@ export const PlayerProvider = ({ children }) => {
     };
 
     setCurrentTrack(enrichedTrack);
+    currentTrackRef.current = enrichedTrack;
     setIsPlaying(true);
-    setPosition(0);
+    const startPos = typeof resumePositionSec === 'number' && resumePositionSec > 0 ? resumePositionSec : 0;
+    setPosition(startPos);
+    latestPositionRef.current = startPos;
     setDuration(track.duration || 216);
     setIsLoadingAudio(true);
+
+    // Save session immediately with new active track
+    persistPlaybackSession({
+      track: enrichedTrack,
+      position: startPos,
+      queue: contextQueue && Array.isArray(contextQueue) ? contextQueue : queueRef.current,
+      duration: track.duration || 216,
+    });
 
     recentHistoryRef.current = [track.id, ...recentHistoryRef.current.filter(id => id !== track.id)].slice(0, 20);
 
@@ -817,7 +951,15 @@ export const PlayerProvider = ({ children }) => {
           }
 
           if (typeof status.currentTime === 'number') {
-            setPosition(Math.round(status.currentTime));
+            const currentSeconds = Math.round(status.currentTime);
+            setPosition(currentSeconds);
+            latestPositionRef.current = currentSeconds;
+
+            // Throttled persistence: save position every 3 seconds while playing
+            const now = Date.now();
+            if (now - lastPersistTimestampRef.current > 3000) {
+              persistPlaybackSession({ position: currentSeconds });
+            }
           }
           if (status.duration) {
             setDuration(Math.round(status.duration));
@@ -881,6 +1023,18 @@ export const PlayerProvider = ({ children }) => {
         });
 
         player.play();
+        if (startPos > 0) {
+          try {
+            player.seekTo(startPos);
+          } catch (e) {}
+          setTimeout(() => {
+            try {
+              if (soundRef.current === player && Math.abs((player.currentTime || 0) - startPos) > 2) {
+                player.seekTo(startPos);
+              }
+            } catch (e) {}
+          }, 200);
+        }
         setIsPlaying(true);
       } else {
         // Stream URL could not be resolved from any strategy
@@ -912,6 +1066,7 @@ export const PlayerProvider = ({ children }) => {
         if (soundRef.current.playing) {
           soundRef.current.pause();
           setIsPlaying(false);
+          persistPlaybackSession({ position: latestPositionRef.current });
         } else {
           soundRef.current.play();
           setIsPlaying(true);
@@ -921,15 +1076,19 @@ export const PlayerProvider = ({ children }) => {
         console.warn('Playback toggle error:', e.message);
       }
     } else if (currentTrack) {
-      playTrack(currentTrack);
+      // Resume playback from the exact position saved
+      playTrack(currentTrack, null, position);
     }
   };
 
   const seekTo = (seconds) => {
+    const targetSec = Math.max(0, Math.round(seconds));
+    latestPositionRef.current = targetSec;
+    setPosition(targetSec);
+    persistPlaybackSession({ position: targetSec });
     if (soundRef.current) {
       try {
-        soundRef.current.seekTo(seconds);
-        setPosition(seconds);
+        soundRef.current.seekTo(targetSec);
       } catch (e) {
         console.warn('Seek error:', e.message);
       }
@@ -1462,6 +1621,8 @@ export const PlayerProvider = ({ children }) => {
         duration,
         queue,
         setQueue,
+        trendingTracks,
+        setTrendingTracks,
         vaultTracks,
         setVaultTracks,
         storageUsed,

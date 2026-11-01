@@ -18,7 +18,8 @@ export const HomeScreen = () => {
     currentTrack,
     isPlaying,
     queue,
-    setQueue,
+    trendingTracks,
+    setTrendingTracks,
     setVaultTracks,
     currentUser,
     switchUser,
@@ -34,7 +35,9 @@ export const HomeScreen = () => {
   const [showUserModal, setShowUserModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const trendingTracks = queue && queue.length > 0 ? queue : INITIAL_TRACKS;
+  const activeTrendingTracks = (trendingTracks && trendingTracks.length > 0)
+    ? trendingTracks
+    : (queue && queue.length > 0 ? queue : INITIAL_TRACKS);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -44,7 +47,7 @@ export const HomeScreen = () => {
         fetchVaultList().catch(() => null),
       ]);
       if (freshTrending && Array.isArray(freshTrending) && freshTrending.length > 0) {
-        setQueue(freshTrending);
+        setTrendingTracks(freshTrending);
       }
       if (vaultData?.tracks && setVaultTracks) {
         setVaultTracks(vaultData.tracks);
@@ -144,7 +147,7 @@ export const HomeScreen = () => {
           <TouchableOpacity
             style={styles.playButton}
             activeOpacity={0.85}
-            onPress={() => playTrack(trendingTracks[0], trendingTracks)}
+            onPress={() => playTrack(activeTrendingTracks[0], activeTrendingTracks)}
           >
             <Play size={14} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
             <Text style={styles.playButtonText}>Play Top Trending</Text>
@@ -217,7 +220,7 @@ export const HomeScreen = () => {
 
       {/* HAZE Track List (exact TrackList design) */}
       <View style={styles.trackList}>
-        {trendingTracks.map((track, idx) => {
+        {activeTrendingTracks.map((track, idx) => {
           const isThisPlaying = currentTrack?.id === track.id;
           const isDownloaded = isTrackDownloaded(track.id);
           const isDownloading = downloadProgress[track.id]?.status === 'downloading';
@@ -227,7 +230,7 @@ export const HomeScreen = () => {
               key={`${track.id}-${idx}`}
               activeOpacity={0.7}
               style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
-              onPress={() => playTrack(track, trendingTracks)}
+              onPress={() => playTrack(track, activeTrendingTracks)}
             >
               {isThisPlaying ? (
                 <View style={styles.playingIndexBox}>
