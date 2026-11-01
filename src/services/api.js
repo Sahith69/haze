@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { API_BASE_URL } from '../config';
+import { resolveDirectSaavnAudio, fetchDirectLyrics } from './directResolver';
 
 /**
  * Search tracks across global catalog
@@ -33,11 +34,24 @@ export async function fetchTrending() {
 }
 
 /**
- * Resolve direct high-fidelity audio stream URL
+ * Resolve direct high-fidelity audio stream URL with zero-failure client-side fallback
  */
 export async function resolveAudioStream(track, options = {}) {
+  // If user requested studio/standard quality, resolve directly from high-speed Akamai CDN!
+  if (options.quality && options.quality !== '1411k') {
+    try {
+      const direct = await resolveDirectSaavnAudio(track.title, track.artist);
+      if (direct && direct.streamUrl) {
+        return direct;
+      }
+    } catch (e) {}
+  }
+
+  // Pre-resolve direct Saavn CDN stream concurrently so fallback is instant
+  const directSaavnPromise = resolveDirectSaavnAudio(track.title, track.artist);
+
   try {
-    const qualityParam = options.quality === '1411k' ? 'flac' : options.quality === '320k' ? 'studio' : options.flac ? 'flac' : 'studio';
+    const qualityParam = options.quality === '1411k' ? 'flac' : 'studio';
     const params = new URLSearchParams({
       id: track.id || '',
       title: track.title || '',
@@ -47,35 +61,56 @@ export async function resolveAudioStream(track, options = {}) {
       duration: String(track.duration || ''),
       quality: qualityParam,
     });
-    const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    
-    const normalizeUrl = (u) => {
-      if (!u) return null;
-      if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('file://')) return u;
-      return `${API_BASE_URL}${u.startsWith('/') ? '' : '/'}${u}`;
-    };
 
-    const primaryUrl = normalizeUrl(data.streamUrl) || normalizeUrl(data.proxyUrl);
-    const fallbackUrl = normalizeUrl(data.proxyUrl) || normalizeUrl(data.streamUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`, { signal: controller.signal });
+    clearTimeout(timeout);
 
-    return {
-      streamUrl: primaryUrl,
-      fallbackUrl: fallbackUrl,
-      quality: data.quality || (options.flac ? '1,411 kbps · FLAC Master' : '320 kbps · Studio Master'),
-    };
+    if (res.ok) {
+      const data = await res.json();
+      const normalizeUrl = (u) => {
+        if (!u) return null;
+        if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('file://')) return u;
+        return `${API_BASE_URL}${u.startsWith('/') ? '' : '/'}${u}`;
+      };
+
+      const primaryUrl = normalizeUrl(data.streamUrl) || normalizeUrl(data.proxyUrl);
+      const saavnFallback = await directSaavnPromise;
+      const fallbackUrl = saavnFallback?.streamUrl || normalizeUrl(data.proxyUrl) || normalizeUrl(data.fallbackUrl);
+
+      return {
+        streamUrl: primaryUrl,
+        fallbackUrl: fallbackUrl,
+        quality: data.quality || (options.quality === '1411k' ? '1,411 kbps · FLAC Master' : '320 kbps · Studio Master'),
+      };
+    }
   } catch (err) {
-    console.warn('[API] resolveAudioStream error:', err.message);
-    return null;
+    console.warn('[API] resolveAudioStream backend warning, using direct CDN resolver:', err.message);
   }
-}
 
+  // Fallback: direct high-speed 320k Akamai stream
+  const fallbackDirect = await directSaavnPromise;
+  if (fallbackDirect && fallbackDirect.streamUrl) {
+    return fallbackDirect;
+  }
+
+  return null;
+}
 
 /**
  * Fetch millisecond-synced lyrics with intelligent clean title & artist fallbacks
  */
 export async function fetchLyrics(track) {
+  // 1. First try direct LRCLIB for instant millisecond synced lyrics
+  try {
+    const directLyrics = await fetchDirectLyrics(track.title, track.artist, track.duration);
+    if (directLyrics && (directLyrics.synced?.length > 0 || directLyrics.plain)) {
+      return directLyrics;
+    }
+  } catch (e) {}
+
+  // 2. Fallback to backend lyrics API
   try {
     const rawTitle = track.title || '';
     const rawArtist = track.artist || '';

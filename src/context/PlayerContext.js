@@ -12,6 +12,7 @@ import {
   saveTrackToVault,
 } from '../services/api';
 import { API_BASE_URL } from '../config';
+import { resolveDirectSaavnAudio } from '../services/directResolver';
 
 const PlayerContext = createContext();
 
@@ -517,7 +518,24 @@ export const PlayerProvider = ({ children }) => {
 
           if (status.error) {
             console.warn('[PlayerContext] Audio status error:', status.error);
-            // 1. Try pre-resolved fallbackUrl
+            // 1. Direct Saavn Akamai CDN instant recovery
+            try {
+              console.log('[PlayerContext] Direct Saavn recovery for:', track.title);
+              const directSaavn = await resolveDirectSaavnAudio(track.title, track.artist);
+              if (directSaavn && directSaavn.streamUrl) {
+                player.replace({
+                  uri: directSaavn.streamUrl,
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                  },
+                });
+                player.play();
+                setIsPlaying(true);
+                return;
+              }
+            } catch (e) {}
+
+            // 2. Try pre-resolved fallbackUrl
             if (fallbackUrl && fallbackUrl !== audioUriToPlay) {
               try {
                 console.log('[PlayerContext] Recovering audio with fallbackUrl:', fallbackUrl);
@@ -528,25 +546,10 @@ export const PlayerProvider = ({ children }) => {
                   },
                 });
                 player.play();
+                setIsPlaying(true);
                 return;
               } catch (e) {}
             }
-            // 2. Fetch direct 320k Saavn fallback on-demand
-            try {
-              console.log('[PlayerContext] Requesting on-demand 320k stream fallback...');
-              const directRes = await resolveAudioStream(track, { quality: '320k' });
-              const directUrl = directRes?.streamUrl;
-              if (directUrl && directUrl !== audioUriToPlay && directUrl !== fallbackUrl) {
-                player.replace({
-                  uri: directUrl,
-                  headers: {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-                  },
-                });
-                player.play();
-                return;
-              }
-            } catch (e) {}
           }
 
           if (status.isLoaded) {
@@ -575,8 +578,8 @@ export const PlayerProvider = ({ children }) => {
             } else {
               // Stream dropped or finished prematurely (< 5s), recover immediately with direct 320k Saavn stream!
               try {
-                console.log('[PlayerContext] Premature finish detected (< 5s). Auto-recovering with direct 320k stream...');
-                resolveAudioStream(track, { quality: '320k' }).then((directRes) => {
+                console.log('[PlayerContext] Premature finish detected (< 5s). Auto-recovering with direct Saavn stream...');
+                resolveDirectSaavnAudio(track.title, track.artist).then((directRes) => {
                   const directUrl = directRes?.streamUrl;
                   if (directUrl && directUrl !== audioUriToPlay) {
                     player.replace({
@@ -884,33 +887,42 @@ export const PlayerProvider = ({ children }) => {
         'Accept': '*/*',
       };
 
-      let downloadRes = await FileSystem.downloadAsync(streamUrl, localAudioPath, {
-        headers: downloadHeaders,
-      });
-
-      // If direct CDN blocked with 403, retry through backend proxy
-      if (downloadRes.status >= 400 && !streamUrl.includes('/api/')) {
-        console.warn(`[Download] Direct download returned HTTP ${downloadRes.status}. Retrying via proxy...`);
-        const proxyUrl = `${API_BASE_URL}/api/proxy-stream?url=${encodeURIComponent(streamUrl)}`;
-        downloadRes = await FileSystem.downloadAsync(proxyUrl, localAudioPath, {
+      let downloadRes = null;
+      try {
+        downloadRes = await FileSystem.downloadAsync(streamUrl, localAudioPath, {
           headers: downloadHeaders,
         });
+      } catch (primaryDlErr) {
+        console.warn('[Download] Primary download attempt warning:', primaryDlErr.message);
       }
 
-      // If primary FLAC stream returned error (e.g. 500), auto-fallback to high-speed 320k stream
-      if (downloadRes.status >= 400) {
-        console.warn(`[Download] Primary download returned HTTP ${downloadRes.status}. Auto-recovering via direct 320k stream...`);
-        const fallbackRes = await resolveAudioStream(target, { quality: '320k' });
-        const fbUrl = fallbackRes?.streamUrl;
-        if (fbUrl && fbUrl !== streamUrl) {
-          downloadRes = await FileSystem.downloadAsync(fbUrl, localAudioPath, {
+      // If direct CDN blocked with 403, retry through backend proxy
+      if (downloadRes && downloadRes.status >= 400 && !streamUrl.includes('/api/')) {
+        try {
+          const proxyUrl = `${API_BASE_URL}/api/proxy-stream?url=${encodeURIComponent(streamUrl)}`;
+          downloadRes = await FileSystem.downloadAsync(proxyUrl, localAudioPath, {
             headers: downloadHeaders,
           });
+        } catch (proxyErr) {}
+      }
+
+      // If primary stream failed or returned HTTP 500, auto-recover instantly via direct Saavn CDN!
+      if (!downloadRes || downloadRes.status >= 400) {
+        console.log('[Download] Auto-recovering download via direct Saavn Akamai CDN...');
+        try {
+          const directSaavn = await resolveDirectSaavnAudio(target.title, target.artist);
+          if (directSaavn && directSaavn.streamUrl) {
+            downloadRes = await FileSystem.downloadAsync(directSaavn.streamUrl, localAudioPath, {
+              headers: downloadHeaders,
+            });
+          }
+        } catch (directErr) {
+          console.warn('[Download] Direct fallback error:', directErr.message);
         }
       }
 
-      if (downloadRes.status >= 400) {
-        throw new Error(`Download HTTP error ${downloadRes.status}`);
+      if (!downloadRes || downloadRes.status >= 400) {
+        throw new Error(`Download HTTP error ${downloadRes?.status || 500}`);
       }
 
       const fileInfo = await FileSystem.getInfoAsync(localAudioPath);

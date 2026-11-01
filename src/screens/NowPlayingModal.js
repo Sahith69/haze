@@ -65,9 +65,39 @@ export const NowPlayingModal = () => {
     downloadQuality,
     setShowQualityModal,
     setQualityModalMode,
+    liveLyrics,
   } = usePlayer();
 
   const [scrubberWidth, setScrubberWidth] = useState(width - 48);
+
+  // Live synchronized lyrics line for the player view
+  const currentLyricLine = React.useMemo(() => {
+    if (liveLyrics?.synced && Array.isArray(liveLyrics.synced) && liveLyrics.synced.length > 0) {
+      let activeText = '';
+      let nextText = '';
+      for (let i = 0; i < liveLyrics.synced.length; i++) {
+        if (position >= liveLyrics.synced[i].time) {
+          activeText = liveLyrics.synced[i].text;
+          nextText = liveLyrics.synced[i + 1]?.text || '';
+        } else {
+          break;
+        }
+      }
+      return { active: activeText || liveLyrics.synced[0]?.text || '', next: nextText };
+    }
+    if (liveLyrics?.plain && typeof liveLyrics.plain === 'string') {
+      const trimmed = liveLyrics.plain.trim();
+      if (!trimmed.toLowerCase().startsWith('no lyrics') && !trimmed.toLowerCase().startsWith('lyrics not found')) {
+        const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length > 0) {
+          const step = Math.max(3, Math.floor((duration || 200) / lines.length));
+          const idx = Math.min(lines.length - 1, Math.floor(position / step));
+          return { active: lines[idx] || '', next: lines[idx + 1] || '' };
+        }
+      }
+    }
+    return { active: 'Tap to view live synchronized lyrics', next: '' };
+  }, [liveLyrics, position, duration]);
 
   // Smooth tactile animations
   const artScale = useRef(new Animated.Value(isPlaying ? 1.0 : 0.88)).current;
@@ -142,7 +172,7 @@ export const NowPlayingModal = () => {
   const isDownloaded = isTrackDownloaded(currentTrack.id);
   const isDownloading = downloadProgress[currentTrack.id]?.status === 'downloading';
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
-  const artSize = Math.min(width - 48, 330);
+  const artSize = Math.min(width - 56, 275);
 
   const getQualityBadgeText = () => {
     if (isDownloaded) {
@@ -434,6 +464,31 @@ export const NowPlayingModal = () => {
             <Text style={styles.actionText}>EQ</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Dedicated Live Synchronized Lyrics Column Card */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.lyricsCard}
+          onPress={() => setActiveModal('lyrics')}
+        >
+          <View style={styles.lyricsCardHeader}>
+            <View style={styles.lyricsCardTitleRow}>
+              <Mic2 size={14} color="#F59E0B" />
+              <Text style={styles.lyricsCardTitle}>LIVE LYRICS</Text>
+            </View>
+            <View style={styles.lyricsExpandPill}>
+              <Text style={styles.lyricsExpandText}>Expand ↗</Text>
+            </View>
+          </View>
+          <Text style={styles.lyricsActiveText} numberOfLines={2}>
+            {currentLyricLine.active}
+          </Text>
+          {currentLyricLine.next ? (
+            <Text style={styles.lyricsNextText} numberOfLines={1}>
+              {currentLyricLine.next}
+            </Text>
+          ) : null}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -639,6 +694,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#CCCCCC',
+  },
+  lyricsCard: {
+    marginTop: 12,
+    backgroundColor: '#111116',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#222228',
+  },
+  lyricsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  lyricsCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  lyricsCardTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F59E0B',
+    letterSpacing: 1,
+    fontFamily: 'monospace',
+  },
+  lyricsExpandPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  lyricsExpandText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#A3A3A3',
+  },
+  lyricsActiveText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 21,
+    letterSpacing: -0.2,
+  },
+  lyricsNextText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#71717A',
+    marginTop: 4,
   },
 });
 
