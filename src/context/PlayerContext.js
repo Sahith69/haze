@@ -614,12 +614,12 @@ export const PlayerProvider = ({ children }) => {
           const targetReqId = currentReqId;
           const upgradeWatcher = setInterval(async () => {
             upgradeAttempts++;
-            if (upgradeAttempts > 8 || targetReqId !== playbackRequestIdRef.current || soundRef.current !== player) {
+            if (upgradeAttempts > 25 || targetReqId !== playbackRequestIdRef.current || soundRef.current !== player) {
               clearInterval(upgradeWatcher);
               return;
             }
             try {
-              const upgradeRes = await fetch(`${API_BASE_URL}/api/stream/upgrade?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`);
+              const upgradeRes = await fetch(`${API_BASE_URL}/api/stream/upgrade?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&duration=${encodeURIComponent(track.duration || '')}`);
               const upgradeData = await upgradeRes.json();
               if (upgradeData?.available && upgradeData?.streamUrl && targetReqId === playbackRequestIdRef.current && soundRef.current === player) {
                 clearInterval(upgradeWatcher);
@@ -637,6 +637,13 @@ export const PlayerProvider = ({ children }) => {
                 });
                 if (currentPosSec > 0) {
                   player.seekTo(currentPosSec);
+                  setTimeout(() => {
+                    try {
+                      if (soundRef.current === player && Math.abs((player.currentTime || 0) - currentPosSec) > 2) {
+                        player.seekTo(currentPosSec);
+                      }
+                    } catch (e) {}
+                  }, 120);
                 }
                 player.play();
 

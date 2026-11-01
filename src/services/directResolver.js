@@ -67,6 +67,10 @@ export async function resolveDirectSaavnAudio(title, artist, requestedQuality = 
     // Pick best-scoring result instead of blindly using results[0]
     const scored = results.map(r => ({ r, s: scoreJioSaavnResult(r, cleanTitle, cleanArtist) }));
     scored.sort((a, b) => b.s - a.s);
+    if (!scored[0] || scored[0].s < 40) {
+      console.warn(`[DirectResolver] Best result for "${cleanTitle}" scored ${scored[0]?.s || 0} (< 40 threshold). Rejecting to avoid wrong track.`);
+      return null;
+    }
     const match = scored[0].r;
     if (!match?.more_info?.encrypted_media_url) return null;
 
