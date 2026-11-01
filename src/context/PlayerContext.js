@@ -444,7 +444,7 @@ export const PlayerProvider = ({ children }) => {
     const resolvedQuality = isDownloadedItem
       ? `${isDownloadedItem.qualityLabel} · Offline`
       : streamingQuality === '1411k'
-      ? '1,411 kbps · Lossless FLAC'
+      ? '320 kbps · Studio Master'
       : `${streamingQuality.toUpperCase()} · Studio Master`;
 
     const enrichedTrack = {
@@ -623,6 +623,33 @@ export const PlayerProvider = ({ children }) => {
 
           if (status.isLoaded) {
             setIsLoadingAudio(false);
+            // Integrity check: If playing FLAC, but duration loaded from stream is cut short by > 8 seconds
+            if (isActuallyFlac && track.duration > 20 && status.duration && (track.duration - status.duration > 8)) {
+              console.warn('[PlayerContext] FLAC stream duration cut short! Auto-switching to 320k Studio Master.');
+              resolveDirectSaavnAudio(track.title, track.artist).then((directRes) => {
+                const directUrl = directRes?.streamUrl;
+                if (directUrl && directUrl !== audioUriToPlay) {
+                  player.replace({
+                    uri: directUrl,
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                    },
+                  });
+                  player.play();
+                  setIsPlaying(true);
+                  setCurrentTrack(prev => ({
+                    ...prev,
+                    qualityLabel: '320 kbps · Studio Master',
+                    isFlac: false,
+                  }));
+                  setToastMessage({
+                    type: 'info',
+                    text: '⚡ FLAC incomplete · Switched to 320 kbps Studio Master',
+                  });
+                  updateLockScreenControls(player, track, '320 kbps · Studio Master');
+                }
+              }).catch(() => {});
+            }
           }
 
           if (status.isBuffering) {
