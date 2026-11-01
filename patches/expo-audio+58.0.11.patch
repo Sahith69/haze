@@ -1,7 +1,8 @@
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+index fb2d0b5..61d054e 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
-@@ -68,6 +68,18 @@
+@@ -68,6 +68,18 @@ class AudioPlayer(
    override var lockScreenOptions: AudioLockScreenOptions? = null
    override var mediaSession: MediaSession = buildBasicMediaSession(context, ref) { requestPlay() }
    override val serviceConnection = AudioPlaybackServiceConnection(WeakReference(this), appContext)
@@ -21,9 +22,10 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/Au
    override val isLive: Boolean
      get() = ref.isCurrentMediaItemLive
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+index 53c36f7..7493d48 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-@@ -143,14 +143,20 @@
+@@ -143,14 +143,20 @@ class AudioControlsService : MediaSessionService() {
    private fun createNotificationChannelIfNeeded() {
      val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -52,7 +54,7 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
        }
      }
    }
-@@ -177,94 +183,61 @@
+@@ -177,94 +183,61 @@ class AudioControlsService : MediaSessionService() {
  
    private fun buildNotification(): Notification? {
      val session = mediaSession ?: return null
@@ -78,7 +80,10 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
 -    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
 -      val compactViewIndices = mutableListOf<Int>()
 -      var currentIndex = 0
--
++    // Always attach explicit transport actions across all Android versions
++    val compactViewIndices = mutableListOf<Int>()
++    var currentIndex = 0
+ 
 -      if (currentOptions?.showPreviousTrack == true && currentPlayable?.supportsPreviousTrack == true) {
 -        builder.addAction(
 -          NotificationCompat.Action(
@@ -121,10 +126,6 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
 -            }
 -          )
 -        )
-+    // Always attach explicit transport actions across all Android versions
-+    val compactViewIndices = mutableListOf<Int>()
-+    var currentIndex = 0
-+
 +    builder.addAction(
 +      NotificationCompat.Action(
 +        androidx.media3.session.R.drawable.media3_icon_previous,
@@ -185,7 +186,7 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
      builder.setStyle(style)
      return builder.build()
    }
-@@ -291,26 +264,16 @@
+@@ -291,26 +264,15 @@ class AudioControlsService : MediaSessionService() {
  
      val playable = currentPlayable
  
@@ -215,14 +216,13 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
 +        .setDisplayName("Previous Track")
 +        .setEnabled(true)
 +        .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
-+        .setSessionCommand(SessionCommand(ACTION_PREVIOUS_TRACK, Bundle.EMPTY))
 +        .setSlots(CommandButton.SLOT_BACK)
 +        .build()
 +    )
  
      mediaButtons.add(
        CommandButton.Builder(
-@@ -333,26 +296,16 @@
+@@ -333,26 +295,15 @@ class AudioControlsService : MediaSessionService() {
          .build()
      )
  
@@ -252,14 +252,13 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
 +        .setDisplayName("Next Track")
 +        .setEnabled(true)
 +        .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
-+        .setSessionCommand(SessionCommand(ACTION_NEXT_TRACK, Bundle.EMPTY))
 +        .setSlots(CommandButton.SLOT_FORWARD)
 +        .build()
 +    )
  
      session.setCustomLayout(mediaButtons)
      session.setMediaButtonPreferences(mediaButtons)
-@@ -419,13 +372,61 @@
+@@ -419,13 +370,61 @@ class AudioControlsService : MediaSessionService() {
          seekTo((currentPosition - backwardMs).coerceAtLeast(0))
        }
  
@@ -321,7 +320,7 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
      }
    }
  
-@@ -684,7 +685,7 @@
+@@ -684,7 +683,7 @@ class AudioControlsService : MediaSessionService() {
    }
  
    companion object {
@@ -331,6 +330,7 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
      private const val ACTION_PAUSE = "expo.modules.audio.action.PAUSE"
      private const val ACTION_TOGGLE = "expo.modules.audio.action.TOGGLE"
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+index ee83be1..da5c128 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
 @@ -1,6 +1,8 @@
@@ -342,7 +342,7 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
  import androidx.annotation.OptIn
  import androidx.media3.common.Player
  import androidx.media3.common.util.UnstableApi
-@@ -23,29 +25,17 @@
+@@ -23,29 +25,17 @@ class AudioMediaSessionCallback(
          .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
          .add(Player.COMMAND_SEEK_FORWARD)
          .add(Player.COMMAND_SEEK_BACK)
@@ -378,7 +378,7 @@ diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/se
          .build()
  
        return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-@@ -83,4 +73,47 @@
+@@ -83,4 +73,47 @@ class AudioMediaSessionCallback(
        else -> super.onCustomCommand(session, controller, command, args)
      }
    }

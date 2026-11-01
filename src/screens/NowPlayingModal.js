@@ -56,6 +56,8 @@ export const NowPlayingModal = () => {
     toggleLike,
     isTrackLiked,
     isShuffle,
+    isEndlessShuffle,
+    shuffleMode,
     isRepeat,
     shuffleQueue,
     setIsRepeat,
@@ -145,20 +147,6 @@ export const NowPlayingModal = () => {
     }
   }, [activeLineIndex, isLyricsExpanded]);
 
-  // Android hardware back button inside NowPlayingModal
-  useEffect(() => {
-    const onBackPress = () => {
-      if (isLyricsExpanded) {
-        collapseLyrics();
-        return true;
-      }
-      closeModal();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => sub.remove();
-  }, [isLyricsExpanded]);
-
   // Live preview line for the compact card
   const currentLyricLine = useMemo(() => {
     if (lyricsList.length > 0) {
@@ -170,12 +158,55 @@ export const NowPlayingModal = () => {
   }, [lyricsList, activeLineIndex]);
 
   // Smooth tactile animations
+  const modalAnim = useRef(new Animated.Value(height)).current;
+  const isClosingRef = useRef(false);
   const artScale = useRef(new Animated.Value(isPlaying ? 1.0 : 0.88)).current;
   const playBtnScale = useRef(new Animated.Value(1)).current;
   const likeScale = useRef(new Animated.Value(1)).current;
   const prevBtnScale = useRef(new Animated.Value(1)).current;
   const nextBtnScale = useRef(new Animated.Value(1)).current;
+  const shuffleBtnScale = useRef(new Animated.Value(1)).current;
   const haloOpacity = useRef(new Animated.Value(0.35)).current;
+
+  // Spring slide-up entrance on mount
+  useEffect(() => {
+    Animated.spring(modalAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11,
+    }).start();
+  }, []);
+
+  const handleSmoothClose = () => {
+    if (isLyricsExpanded) {
+      collapseLyrics();
+      return;
+    }
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    Animated.timing(modalAnim, {
+      toValue: height,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => {
+      closeModal();
+    });
+  };
+
+  // Android back button smooth dismiss
+  useEffect(() => {
+    const onBack = () => {
+      if (isLyricsExpanded) {
+        setIsLyricsExpanded(false);
+        return true;
+      }
+      handleSmoothClose();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [isLyricsExpanded]);
 
   // Breathing ambient glow loop when audio is playing
   useEffect(() => {
@@ -226,6 +257,14 @@ export const NowPlayingModal = () => {
       Animated.spring(nextBtnScale, { toValue: 1, friction: 4, tension: 90, useNativeDriver: true }),
     ]).start();
     nextTrack();
+  };
+
+  const handleShufflePress = () => {
+    Animated.sequence([
+      Animated.timing(shuffleBtnScale, { toValue: 0.8, duration: 80, useNativeDriver: true }),
+      Animated.spring(shuffleBtnScale, { toValue: 1, friction: 3.5, tension: 90, useNativeDriver: true }),
+    ]).start();
+    shuffleQueue();
   };
 
   const handleSeek = (e) => {
@@ -287,11 +326,11 @@ export const NowPlayingModal = () => {
   };
 
   return (
-    <View style={styles.modalOverlay}>
+    <Animated.View style={[styles.modalOverlay, { transform: [{ translateY: modalAnim }] }]}>
       <View style={styles.content}>
         {/* Top Header Bar */}
         <View style={styles.headerBar}>
-          <TouchableOpacity style={styles.iconBtn} onPress={closeModal} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity style={styles.iconBtn} onPress={handleSmoothClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <ChevronDown size={26} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
@@ -397,12 +436,17 @@ export const NowPlayingModal = () => {
             </TouchableOpacity>
           </View>
 
-          {isShuffle && (
+          {isEndlessShuffle ? (
+            <View style={[styles.smartShufflePill, styles.endlessPill]}>
+              <Text style={styles.endlessPillInfinity}>∞</Text>
+              <Text style={[styles.smartShufflePillText, styles.endlessPillText]}>Endless Flow</Text>
+            </View>
+          ) : isShuffle ? (
             <View style={styles.smartShufflePill}>
               <Sparkles size={11} color="#22C55E" />
               <Text style={styles.smartShufflePillText}>Smart Flow</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* Scrubber Progress Bar */}
@@ -427,18 +471,22 @@ export const NowPlayingModal = () => {
           <TouchableOpacity
             style={styles.iconBtn}
             activeOpacity={0.7}
-            onPress={shuffleQueue}
+            onPress={handleShufflePress}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <Animated.View style={[{ alignItems: 'center', justifyContent: 'center' }, { transform: [{ scale: shuffleBtnScale }] }]}>
               <Shuffle
                 size={20}
-                color={isShuffle ? '#22C55E' : '#666666'}
+                color={isEndlessShuffle ? '#A855F7' : isShuffle ? '#22C55E' : '#666666'}
               />
-              {isShuffle && (
+              {isEndlessShuffle ? (
+                <View style={styles.endlessShuffleDot}>
+                  <Text style={styles.endlessShuffleDotText}>∞</Text>
+                </View>
+              ) : isShuffle ? (
                 <View style={styles.smartShuffleDot} />
-              )}
-            </View>
+              ) : null}
+            </Animated.View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -697,7 +745,7 @@ export const NowPlayingModal = () => {
           </View>
         </View>
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -816,6 +864,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(34, 197, 94, 0.3)',
   },
+  endlessPill: {
+    backgroundColor: 'rgba(168, 85, 247, 0.16)',
+    borderColor: 'rgba(168, 85, 247, 0.45)',
+  },
+  endlessPillInfinity: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#C084FC',
+    lineHeight: 13,
+  },
+  endlessPillText: {
+    color: '#C084FC',
+  },
   smartShufflePillText: {
     fontSize: 10,
     fontWeight: '800',
@@ -829,6 +890,26 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: '#22C55E',
+  },
+  endlessShuffleDot: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    backgroundColor: '#A855F7',
+    borderRadius: 6,
+    paddingHorizontal: 3,
+    height: 12,
+    minWidth: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#000000',
+  },
+  endlessShuffleDotText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+    lineHeight: 9,
   },
   flacBadge: {
     backgroundColor: '#1C1C1C',

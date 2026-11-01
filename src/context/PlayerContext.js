@@ -169,7 +169,14 @@ export const PlayerProvider = ({ children }) => {
   const [storagePercent, setStoragePercent] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
   const [activeModal, setActiveModal] = useState(null);
-  const [isShuffle, setIsShuffle] = useState(false);
+  const [shuffleMode, setShuffleMode] = useState('off'); // 'off' | 'on' | 'endless'
+  const isShuffle = shuffleMode !== 'off';
+  const isEndlessShuffle = shuffleMode === 'endless';
+  const shuffleModeRef = useRef('off');
+  useEffect(() => {
+    shuffleModeRef.current = shuffleMode;
+  }, [shuffleMode]);
+  const isReplenishingRef = useRef(false);
   const [isRepeat, setIsRepeat] = useState(false);
   const [liveLyrics, setLiveLyrics] = useState({ synced: [], plain: '' });
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -520,6 +527,13 @@ export const PlayerProvider = ({ children }) => {
           }
         }
       } catch (e) {}
+      // Restore persisted shuffle mode
+      try {
+        const savedShuffle = await AsyncStorage.getItem('@haze_shuffle_mode');
+        if (savedShuffle) {
+          setShuffleMode(savedShuffle);
+        }
+      } catch (e) {}
     }
     loadInitialData();
   }, []);
@@ -543,8 +557,8 @@ export const PlayerProvider = ({ children }) => {
       const options = {
         showNextTrack: true,
         showPreviousTrack: true,
-        showSeekForward: true,
-        showSeekBackward: true,
+        showSeekForward: false,
+        showSeekBackward: false,
         seekForwardIntervalSeconds: 10,
         seekBackwardIntervalSeconds: 10,
       };
@@ -1238,19 +1252,86 @@ export const PlayerProvider = ({ children }) => {
     return currentTrack;
   }, [queue, currentTrack, likedTracks]);
 
+  // Endless Shuffle: dynamically discover and append complementary vibe tracks
+  const replenishEndlessQueue = useCallback(async (seedTrack = null) => {
+    if (isReplenishingRef.current) return;
+    const targetTrack = seedTrack || currentTrackRef.current;
+    if (!targetTrack) return;
+
+    try {
+      isReplenishingRef.current = true;
+      console.log(`[PlayerContext] Endless Shuffle: Replenishing queue for "${targetTrack.title}" by ${targetTrack.artist}...`);
+
+      const newRadioTracks = await fetchRadioTracks(targetTrack.artist, targetTrack.genre, targetTrack.title);
+      if (newRadioTracks && newRadioTracks.length > 0) {
+        setQueue((prevQueue) => {
+          const existingIds = new Set(prevQueue.map((t) => t.id));
+          const existingTitles = new Set(prevQueue.map((t) => cleanTitleForComparison(t.title)));
+
+          const uniqueNewTracks = newRadioTracks.filter((t) => {
+            if (existingIds.has(t.id)) return false;
+            if (existingTitles.has(cleanTitleForComparison(t.title))) return false;
+            return true;
+          });
+
+          if (uniqueNewTracks.length === 0) return prevQueue;
+
+          // Randomize new tracks before appending
+          for (let i = uniqueNewTracks.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [uniqueNewTracks[i], uniqueNewTracks[j]] = [uniqueNewTracks[j], uniqueNewTracks[i]];
+          }
+
+          console.log(`[PlayerContext] Endless Shuffle: Appended ${uniqueNewTracks.length} fresh discovered tracks!`);
+          return [...prevQueue, ...uniqueNewTracks];
+        });
+      }
+    } catch (err) {
+      console.warn('[PlayerContext] replenishEndlessQueue error:', err.message);
+    } finally {
+      setTimeout(() => {
+        isReplenishingRef.current = false;
+      }, 1200);
+    }
+  }, []);
+
   const nextTrack = async () => {
     const q = queueRef.current || [];
     const curr = currentTrackRef.current;
     const currentIndex = q.findIndex(t => t.id === curr?.id);
+
+    // If remaining tracks in queue <= 3 and endless shuffle is on, pre-emptively replenish!
+    if (shuffleModeRef.current === 'endless' && (q.length - currentIndex) <= 3) {
+      replenishEndlessQueue(curr);
+    }
+
     if (currentIndex >= 0 && currentIndex + 1 < q.length) {
       playTrack(q[currentIndex + 1]);
       return;
     }
 
-    // Queue exhausted: dynamically discover and autoplay complementary artist vibes
+    // Queue exhausted:
+    if (shuffleModeRef.current === 'endless') {
+      console.log('[PlayerContext] Endless Shuffle: Queue end reached! Fetching immediate radio batch...');
+      const targetSeed = curr || q[q.length - 1];
+      const freshTracks = await fetchRadioTracks(targetSeed?.artist, targetSeed?.genre, targetSeed?.title);
+      if (freshTracks && freshTracks.length > 0) {
+        for (let i = freshTracks.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [freshTracks[i], freshTracks[j]] = [freshTracks[j], freshTracks[i]];
+        }
+        setQueue(prev => [...prev, ...freshTracks]);
+        playTrack(freshTracks[0]);
+        return;
+      }
+    }
+
+    // Standard fallback: dynamically discover and autoplay complementary artist vibes
     const smartNext = await getSmartNextTrack();
     if (smartNext && smartNext.id !== curr?.id) {
       playTrack(smartNext);
+    } else if (q.length > 0) {
+      playTrack(q[0]);
     }
   };
 
@@ -1258,12 +1339,12 @@ export const PlayerProvider = ({ children }) => {
     const q = queueRef.current || [];
     const curr = currentTrackRef.current;
     const currentIndex = q.findIndex(t => t.id === curr?.id);
-    if (currentIndex > 0) {
-      playTrack(q[currentIndex - 1]);
-    } else if (position > 5) {
+    if (position > 4) {
       seekTo(0);
+    } else if (currentIndex > 0) {
+      playTrack(q[currentIndex - 1]);
     } else if (q.length > 0) {
-      playTrack(q[q.length - 1]);
+      seekTo(0);
     }
   };
 
@@ -1584,23 +1665,57 @@ export const PlayerProvider = ({ children }) => {
   };
 
   const clearQueue = () => setQueue([]);
-  const shuffleQueue = () => {
-    setIsShuffle((prev) => {
-      const nextState = !prev;
-      if (nextState && queue && queue.length > 1) {
-        // Perform true Fisher-Yates shuffle on queue, keeping current track at index 0
-        const otherTracks = queue.filter(t => t.id !== currentTrack?.id);
-        for (let i = otherTracks.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+
+  const cycleShuffleMode = () => {
+    setShuffleMode((prev) => {
+      let nextMode = 'off';
+      if (prev === 'off') nextMode = 'on';
+      else if (prev === 'on') nextMode = 'endless';
+      else nextMode = 'off';
+
+      AsyncStorage.setItem('@haze_shuffle_mode', nextMode).catch(() => {});
+
+      if (nextMode === 'on' || nextMode === 'endless') {
+        const q = queueRef.current || [];
+        const curr = currentTrackRef.current;
+        if (q.length > 1) {
+          const otherTracks = q.filter((t) => t.id !== curr?.id);
+          for (let i = otherTracks.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+          }
+          setQueue(curr ? [curr, ...otherTracks] : otherTracks);
         }
-        setQueue(currentTrack ? [currentTrack, ...otherTracks] : otherTracks);
+
+        if (nextMode === 'endless') {
+          replenishEndlessQueue(curr);
+        }
+      }
+
+      setToastMessage({
+        type: 'info',
+        text: nextMode === 'endless'
+          ? '♾️ Endless Shuffle On · Music Will Play Infinitely'
+          : nextMode === 'on'
+          ? '✨ Smart Shuffle On · Queue Randomized'
+          : 'Shuffle Off',
+      });
+      return nextMode;
+    });
+  };
+
+  const toggleEndlessShuffle = () => {
+    setShuffleMode((prev) => {
+      const nextMode = prev === 'endless' ? 'off' : 'endless';
+      AsyncStorage.setItem('@haze_shuffle_mode', nextMode).catch(() => {});
+      if (nextMode === 'endless') {
+        replenishEndlessQueue(currentTrackRef.current);
       }
       setToastMessage({
         type: 'info',
-        text: nextState ? '✨ Smart Shuffle On · Queue Randomized' : 'Shuffle Off',
+        text: nextMode === 'endless' ? '♾️ Endless Shuffle On · Infinite Music Flow' : 'Shuffle Off',
       });
-      return nextState;
+      return nextMode;
     });
   };
 
@@ -1645,7 +1760,10 @@ export const PlayerProvider = ({ children }) => {
         setStoragePercent,
         activeTab,
         activeModal,
+        shuffleMode,
+        setShuffleMode,
         isShuffle,
+        isEndlessShuffle,
         isRepeat,
         liveLyrics,
         setLiveLyrics,
@@ -1679,7 +1797,10 @@ export const PlayerProvider = ({ children }) => {
         isTrackDownloaded,
         saveToVault,
         clearQueue,
-        shuffleQueue,
+        shuffleQueue: cycleShuffleMode,
+        cycleShuffleMode,
+        toggleEndlessShuffle,
+        replenishEndlessQueue,
         setIsRepeat,
         setEqPreset,
         setEqBand: (band, val) => setEqBands(prev => ({ ...prev, [band]: val })),

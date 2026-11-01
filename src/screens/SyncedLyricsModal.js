@@ -51,10 +51,35 @@ export const SyncedLyricsModal = () => {
     streamingQuality,
     setShowQualityModal,
     isShuffle,
+    isEndlessShuffle,
     shuffleQueue,
     isRepeat,
     setIsRepeat,
   } = usePlayer();
+
+  const modalAnim = useRef(new Animated.Value(height)).current;
+  const isClosingRef = useRef(false);
+
+  useEffect(() => {
+    Animated.spring(modalAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11,
+    }).start();
+  }, []);
+
+  const handleDismiss = () => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    Animated.timing(modalAnim, {
+      toValue: height,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setActiveModal('now_playing');
+    });
+  };
 
   const scrollViewRef = useRef(null);
   const [userIsScrolling, setUserIsScrolling] = useState(false);
@@ -125,12 +150,8 @@ export const SyncedLyricsModal = () => {
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
   const isFlac = streamingQuality === '1411k' && currentTrack.isFlac;
 
-  const handleDismiss = () => {
-    setActiveModal('now_playing');
-  };
-
   return (
-    <View style={styles.modalOverlay}>
+    <Animated.View style={[styles.modalOverlay, { transform: [{ translateY: modalAnim }] }]}>
       {/* 1. Dynamic Ambient Blurred Artwork Backdrop (Apple Music Signature Glow) */}
       {currentTrack.cover ? (
         <Image
@@ -270,8 +291,12 @@ export const SyncedLyricsModal = () => {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-              <Shuffle size={18} color={isShuffle ? '#22C55E' : '#71717A'} />
-              {isShuffle && <View style={styles.smartShuffleDot} />}
+              <Shuffle size={18} color={isEndlessShuffle ? '#C084FC' : isShuffle ? '#22C55E' : '#71717A'} />
+              {isEndlessShuffle ? (
+                <View style={[styles.smartShuffleDot, { backgroundColor: '#C084FC' }]} />
+              ) : isShuffle ? (
+                <View style={styles.smartShuffleDot} />
+              ) : null}
             </View>
           </TouchableOpacity>
 
@@ -315,7 +340,7 @@ export const SyncedLyricsModal = () => {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 

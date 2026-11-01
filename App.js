@@ -63,6 +63,35 @@ const ToastBanner = ({ message }) => {
   );
 };
 
+const ScreenTransition = ({ activeTab, children }) => {
+  const fadeAnim = React.useRef(new Animated.Value(0.3)).current;
+  const slideAnim = React.useRef(new Animated.Value(8)).current;
+
+  useEffect(() => {
+    fadeAnim.setValue(0.3);
+    slideAnim.setValue(8);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [activeTab]);
+
+  return (
+    <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      {children}
+    </Animated.View>
+  );
+};
+
 const MainNavigator = () => {
   const {
     activeTab,
@@ -156,8 +185,10 @@ const MainNavigator = () => {
         {/* In-app Toast Banner */}
         <ToastBanner message={toastMessage} />
 
-        {/* Active Tab Screen */}
-        {renderActiveScreen()}
+        {/* Active Tab Screen with Smooth Transition */}
+        <ScreenTransition activeTab={activeTab}>
+          {renderActiveScreen()}
+        </ScreenTransition>
 
         {/* Floating Mini Player (visible unless a full-screen modal is active) */}
         {!activeModal && <MiniPlayer />}
