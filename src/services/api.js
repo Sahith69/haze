@@ -5,17 +5,143 @@ import { resolveDirectSaavnAudio, fetchDirectLyrics } from './directResolver';
 /**
  * Search tracks across global catalog
  */
+/**
+ * Search tracks across global catalog with dual-engine verification
+ * Combines direct edge autocomplete with backend search to guarantee official artists
+ */
 export async function searchTracks(query) {
   if (!query || !query.trim()) return [];
+  const cleanQ = query.trim();
+
   try {
-    const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query.trim())}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const tracks = data.tracks || [];
-    tracks.topResult = data.topResult || null;
-    tracks.popularTracks = data.popularTracks || [];
-    tracks.otherTracks = data.otherTracks || [];
-    return tracks;
+    const autoUrl = `https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&api_version=4&ctx=web6dot0&query=${encodeURIComponent(cleanQ)}`;
+    const backendUrl = `${API_BASE_URL}/api/search?q=${encodeURIComponent(cleanQ)}`;
+
+    const [autoRes, backendRes] = await Promise.all([
+      fetch(autoUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/120.0.0.0 Mobile Safari/537.36' },
+      }).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(backendUrl).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+
+    const topEntity = autoRes?.topquery?.data?.[0];
+    const topSongEntity = autoRes?.songs?.data?.[0];
+    const canonicalArtist = (
+      topSongEntity?.more_info?.primary_artists ||
+      topEntity?.more_info?.music ||
+      topEntity?.subtitle ||
+      ''
+    ).toLowerCase().trim();
+
+    const resultsMap = new Map();
+
+    // 1. Direct verified original records from Edge Autocomplete
+    if (autoRes?.songs?.data) {
+      for (const item of autoRes.songs.data) {
+        const title = item.title ? item.title.replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&') : '';
+        const artist = item.more_info?.primary_artists || item.subtitle || 'Unknown Artist';
+        const album = item.more_info?.album || 'Single';
+        const cover = item.image ? item.image.replace('150x150', '500x500') : '';
+        const key = `${title.toLowerCase().trim()}_${artist.toLowerCase().trim()}_${album.toLowerCase().trim()}`;
+        resultsMap.set(key, {
+          id: `saavn-${item.id}`,
+          title: title || 'Unknown Title',
+          artist: artist || 'Unknown Artist',
+          album,
+          cover,
+          coverLarge: cover,
+          duration: 215,
+          genre: item.more_info?.language || 'Music',
+          source: 'jiosaavn',
+        });
+      }
+    }
+
+    // 2. Tracks from backend (JioSaavn + iTunes catalog)
+    const backendTracks = backendRes?.tracks || [];
+    for (const track of backendTracks) {
+      const key = `${(track.title || '').toLowerCase().trim()}_${(track.artist || '').toLowerCase().trim()}_${(track.album || '').toLowerCase().trim()}`;
+      if (!resultsMap.has(key)) {
+        resultsMap.set(key, track);
+      }
+    }
+
+    const allTracks = Array.from(resultsMap.values());
+
+    function scoreTrack(track, qText) {
+      const q = qText.toLowerCase().trim();
+      const t = (track.title || '').toLowerCase().trim();
+      const a = (track.artist || '').toLowerCase().trim();
+      const alb = (track.album || '').toLowerCase().trim();
+      const g = (track.genre || '').toLowerCase().trim();
+
+      let score = 0;
+      if (t === q) score += 120;
+      else if (t.startsWith(q)) score += 70;
+      else if (t.includes(q)) score += 40;
+
+      // Massive boost for canonical original artist
+      if (canonicalArtist && (a.includes(canonicalArtist) || canonicalArtist.includes(a))) {
+        score += 260;
+      }
+
+      if (a === q) score += 90;
+      else if (a.startsWith(q)) score += 50;
+      else if (a.includes(q)) score += 30;
+
+      if (`${a} ${t}`.includes(q) || `${t} ${a}`.includes(q)) score += 40;
+
+      if (alb && !alb.includes('remix') && !alb.includes('karaoke') && !alb.includes('tribute') && !alb.includes('cover')) {
+        score += 25;
+      }
+
+      const penaltyTerms = [
+        'karaoke', 'tribute', 'piano', 'chill', 'quartet', 'instrumental',
+        'acoustic cover', 'slowed', 'reverb', 'remix', 'ringtone', 'kidz bop', 'originally performed'
+      ];
+      for (const term of penaltyTerms) {
+        if ((t.includes(term) || alb.includes(term) || a.includes(term) || g.includes(term)) && !q.includes(term)) {
+          score -= 100;
+        }
+      }
+      return score;
+    }
+
+    allTracks.sort((a, b) => scoreTrack(b, cleanQ) - scoreTrack(a, cleanQ));
+
+    // Construct topResult
+    let topResult = backendRes?.topResult || null;
+    if (topEntity && topEntity.type === 'artist') {
+      topResult = {
+        type: 'artist',
+        id: topEntity.id,
+        name: topEntity.title,
+        subtitle: `${topEntity.description || 'Artist'} · Top Artist`,
+        cover: (topEntity.image || '').replace('50x50', '500x500').replace('150x150', '500x500'),
+      };
+    } else if (!topResult || topResult.type !== 'artist') {
+      const best = allTracks[0];
+      if (best) {
+        topResult = {
+          type: 'song',
+          id: best.id,
+          title: best.title,
+          name: best.title,
+          subtitle: `${best.artist} · ${best.album || 'Single'}`,
+          cover: best.coverLarge || best.cover,
+          track: best,
+        };
+      }
+    }
+
+    const popularTracks = allTracks.slice(0, 5);
+    const otherTracks = allTracks.slice(5);
+
+    allTracks.topResult = topResult;
+    allTracks.popularTracks = popularTracks;
+    allTracks.otherTracks = otherTracks;
+
+    return allTracks;
   } catch (err) {
     console.warn('[API] searchTracks error:', err.message);
     const empty = [];
