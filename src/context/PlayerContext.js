@@ -193,6 +193,12 @@ export const PlayerProvider = ({ children }) => {
   const soundRef = useRef(null);
   const playbackRequestIdRef = useRef(0);
   const recentHistoryRef = useRef([]);
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  const currentTrackRef = useRef(currentTrack);
+  currentTrackRef.current = currentTrack;
+  const nextTrackRef = useRef(null);
+  const previousTrackRef = useRef(null);
 
   // Auto-dismiss toast after 3.5s
   useEffect(() => {
@@ -601,6 +607,54 @@ export const PlayerProvider = ({ children }) => {
         soundRef.current = player;
         updateLockScreenControls(player, track, effectiveQuality);
 
+        // Dynamic On-the-Fly FLAC Hot-Swapping Watcher:
+        // As soon as Telegram finishes archiving the FLAC in the background, hot-swap the stream at current position!
+        if (streamingQuality === '1411k' && !isActuallyFlac && !isDownloadedItem) {
+          let upgradeAttempts = 0;
+          const targetReqId = currentReqId;
+          const upgradeWatcher = setInterval(async () => {
+            upgradeAttempts++;
+            if (upgradeAttempts > 8 || targetReqId !== playbackRequestIdRef.current || soundRef.current !== player) {
+              clearInterval(upgradeWatcher);
+              return;
+            }
+            try {
+              const upgradeRes = await fetch(`${API_BASE_URL}/api/stream/upgrade?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`);
+              const upgradeData = await upgradeRes.json();
+              if (upgradeData?.available && upgradeData?.streamUrl && targetReqId === playbackRequestIdRef.current && soundRef.current === player) {
+                clearInterval(upgradeWatcher);
+                const flacUrl = upgradeData.streamUrl.startsWith('http')
+                  ? upgradeData.streamUrl
+                  : `${API_BASE_URL}${upgradeData.streamUrl.startsWith('/') ? '' : '/'}${upgradeData.streamUrl}`;
+
+                console.log(`[PlayerContext] Seamlessly hot-swapping "${track.title}" to Lossless FLAC Master! URL: ${flacUrl}`);
+                const currentPosSec = player.currentTime || 0;
+                player.replace({
+                  uri: flacUrl,
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                  },
+                });
+                if (currentPosSec > 0) {
+                  player.seekTo(currentPosSec);
+                }
+                player.play();
+
+                setCurrentTrack(prev => ({
+                  ...prev,
+                  qualityLabel: '1,411 kbps · Pure Lossless FLAC Master',
+                  isFlac: true,
+                }));
+                updateLockScreenControls(player, track, '1,411 kbps · Pure Lossless FLAC Master');
+                setToastMessage({
+                  type: 'success',
+                  text: '⚡ Upgraded to Pure Lossless FLAC Master',
+                });
+              }
+            } catch (err) {}
+          }, 3000);
+        }
+
         let hasAttemptedRecovery = false;
 
         player.addListener('playbackStatusUpdate', async (status) => {
@@ -608,13 +662,13 @@ export const PlayerProvider = ({ children }) => {
 
           // 1. Handle remote lock screen / notification next and previous actions
           if (status.playbackAction === 'nextTrack') {
-            console.log('[PlayerContext] Remote nextTrack action received');
-            nextTrack();
+            console.log('[PlayerContext] Remote nextTrack action received (earphones / lock screen / notification)');
+            nextTrackRef.current?.();
             return;
           }
           if (status.playbackAction === 'previousTrack') {
-            console.log('[PlayerContext] Remote previousTrack action received');
-            previousTrack();
+            console.log('[PlayerContext] Remote previousTrack action received (earphones / lock screen / notification)');
+            previousTrackRef.current?.();
             return;
           }
 
@@ -966,29 +1020,38 @@ export const PlayerProvider = ({ children }) => {
   }, [queue, currentTrack, likedTracks]);
 
   const nextTrack = async () => {
-    const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
-    if (currentIndex >= 0 && currentIndex + 1 < queue.length) {
-      playTrack(queue[currentIndex + 1]);
+    const q = queueRef.current || [];
+    const curr = currentTrackRef.current;
+    const currentIndex = q.findIndex(t => t.id === curr?.id);
+    if (currentIndex >= 0 && currentIndex + 1 < q.length) {
+      playTrack(q[currentIndex + 1]);
       return;
     }
 
     // Queue exhausted: dynamically discover and autoplay complementary artist vibes
     const smartNext = await getSmartNextTrack();
-    if (smartNext && smartNext.id !== currentTrack?.id) {
+    if (smartNext && smartNext.id !== curr?.id) {
       playTrack(smartNext);
     }
   };
 
   const previousTrack = () => {
-    const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
+    const q = queueRef.current || [];
+    const curr = currentTrackRef.current;
+    const currentIndex = q.findIndex(t => t.id === curr?.id);
     if (currentIndex > 0) {
-      playTrack(queue[currentIndex - 1]);
+      playTrack(q[currentIndex - 1]);
     } else if (position > 5) {
       seekTo(0);
-    } else {
-      playTrack(queue[queue.length - 1]);
+    } else if (q.length > 0) {
+      playTrack(q[q.length - 1]);
     }
   };
+
+  useEffect(() => {
+    nextTrackRef.current = nextTrack;
+    previousTrackRef.current = previousTrack;
+  });
 
   const handleTrackFinish = () => {
     if (isRepeat) {
