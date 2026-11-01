@@ -13,6 +13,7 @@ import { NowPlayingModal } from './src/screens/NowPlayingModal';
 import { SyncedLyricsModal } from './src/screens/SyncedLyricsModal';
 import { QueueModal } from './src/screens/QueueModal';
 import { EqualizerModal } from './src/screens/EqualizerModal';
+import { DetailViewModal } from './src/screens/DetailViewModal';
 import { AudioQualityModal } from './src/components/AudioQualityModal';
 import { AddToPlaylistModal } from './src/components/AddToPlaylistModal';
 import { colors } from './src/theme/colors';
@@ -99,6 +100,7 @@ const MainNavigator = () => {
     activeModal,
     setActiveModal,
     closeModal,
+    closeDetailView,
     showQualityModal,
     setShowQualityModal,
     qualityModalMode,
@@ -118,6 +120,12 @@ const MainNavigator = () => {
       // 0. If AddToPlaylist modal open -> close it
       if (showAddToPlaylistModal) {
         setShowAddToPlaylistModal(false);
+        return true;
+      }
+
+      // 0.5 If detail view open -> close it
+      if (activeModal === 'detail_view') {
+        closeDetailView();
         return true;
       }
 
@@ -201,6 +209,7 @@ const MainNavigator = () => {
         {activeModal === 'lyrics' && <SyncedLyricsModal />}
         {activeModal === 'queue' && <QueueModal />}
         {activeModal === 'equalizer' && <EqualizerModal />}
+        {activeModal === 'detail_view' && <DetailViewModal />}
 
         {/* Audio Quality Preferences Modal */}
         <AudioQualityModal

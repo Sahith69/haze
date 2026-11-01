@@ -15,6 +15,7 @@ export const MiniPlayer = () => {
     isLoadingAudio,
     flacEnabled,
     toggleLike,
+    openArtistView,
   } = usePlayer();
 
   // Animated Live Equalizer Bars
@@ -96,9 +97,18 @@ export const MiniPlayer = () => {
             </Text>
           </View>
         </View>
-        <Text style={styles.artist} numberOfLines={1}>
-          {currentTrack.artist}
-        </Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          hitSlop={{ top: 4, bottom: 6, left: 0, right: 8 }}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            openArtistView(currentTrack.artist, currentTrack.cover);
+          }}
+        >
+          <Text style={styles.artist} numberOfLines={1}>
+            {currentTrack.artist}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Like Heart Button */}

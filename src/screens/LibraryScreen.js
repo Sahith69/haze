@@ -24,6 +24,7 @@ import {
   User,
   Disc3,
   Shuffle,
+  Sparkles,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { SpotifyImportModal } from '../components/SpotifyImportModal';
@@ -50,6 +51,8 @@ export const LibraryScreen = () => {
     removeDownload,
     toggleLike,
     flacEnabled,
+    openArtistView,
+    openAlbumView,
   } = usePlayer();
 
   // Top level category: 'playlists' | 'songs' | 'artists' | 'albums'
@@ -164,15 +167,25 @@ export const LibraryScreen = () => {
             {selectedArtist.tracks.length} track{selectedArtist.tracks.length > 1 ? 's' : ''} in your library
           </Text>
 
-          {selectedArtist.tracks.length > 0 && (
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            {selectedArtist.tracks.length > 0 && (
+              <TouchableOpacity
+                style={styles.playAllFullBtn}
+                onPress={() => playTrack(selectedArtist.tracks[0], selectedArtist.tracks)}
+              >
+                <Play size={16} color="#000000" fill="#000000" />
+                <Text style={styles.playAllText}>Play All</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              style={styles.playAllFullBtn}
-              onPress={() => playTrack(selectedArtist.tracks[0], selectedArtist.tracks)}
+              style={styles.catalogPillBtn}
+              activeOpacity={0.8}
+              onPress={() => openArtistView(selectedArtist.artist, selectedArtist.cover)}
             >
-              <Play size={16} color="#000000" fill="#000000" />
-              <Text style={styles.playAllText}>Play All</Text>
+              <Sparkles size={14} color="#FFFFFF" />
+              <Text style={styles.catalogPillText}>Full Discography</Text>
             </TouchableOpacity>
-          )}
+          </View>
         </View>
 
         <View style={styles.trackList}>
@@ -223,15 +236,25 @@ export const LibraryScreen = () => {
           <Text style={styles.bigArtistName}>{selectedAlbum.album}</Text>
           <Text style={styles.shelfSubtitle}>{selectedAlbum.artist} · {selectedAlbum.tracks.length} tracks</Text>
 
-          {selectedAlbum.tracks.length > 0 && (
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            {selectedAlbum.tracks.length > 0 && (
+              <TouchableOpacity
+                style={styles.playAllFullBtn}
+                onPress={() => playTrack(selectedAlbum.tracks[0], selectedAlbum.tracks)}
+              >
+                <Play size={16} color="#000000" fill="#000000" />
+                <Text style={styles.playAllText}>Play Album</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              style={styles.playAllFullBtn}
-              onPress={() => playTrack(selectedAlbum.tracks[0], selectedAlbum.tracks)}
+              style={styles.catalogPillBtn}
+              activeOpacity={0.8}
+              onPress={() => openAlbumView(selectedAlbum.album, selectedAlbum.artist, selectedAlbum.cover)}
             >
-              <Play size={16} color="#000000" fill="#000000" />
-              <Text style={styles.playAllText}>Play Album</Text>
+              <Sparkles size={14} color="#FFFFFF" />
+              <Text style={styles.catalogPillText}>Full Tracklist</Text>
             </TouchableOpacity>
-          )}
+          </View>
         </View>
 
         <View style={styles.trackList}>
@@ -1096,6 +1119,23 @@ const styles = StyleSheet.create({
   playAllText: {
     color: '#000000',
     fontWeight: '800',
+    fontSize: 13,
+  },
+  catalogPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    marginTop: 10,
+  },
+  catalogPillText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: 13,
   },
   gridList: {

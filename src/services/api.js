@@ -435,3 +435,203 @@ export async function fetchRadioTracks(artist, genre, excludeTitle) {
 
   return [];
 }
+
+/**
+ * Fetch full artist profile, top songs discography, and albums
+ */
+export async function fetchArtistDetails(artistName) {
+  if (!artistName || !artistName.trim()) return null;
+  const cleanA = artistName.split(/[,&]/)[0].trim();
+
+  try {
+    const [songsRes, albumsRes, jioRes] = await Promise.all([
+      fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanA)}&entity=song&limit=50`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanA)}&entity=album&limit=25`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`https://www.jiosaavn.com/api.php?__call=search.getArtistResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=1&p=1&q=${encodeURIComponent(cleanA)}`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+
+    let artistImage = '';
+    const jioArtist = jioRes?.results?.[0];
+    if (jioArtist?.image) {
+      artistImage = jioArtist.image.replace('50x50', '500x500').replace('150x150', '500x500');
+    }
+
+    const songs = [];
+    const seenTitles = new Set();
+    for (const item of (songsRes?.results || [])) {
+      const title = item.trackName || '';
+      const norm = title.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
+      if (!title || seenTitles.has(norm)) continue;
+      seenTitles.add(norm);
+
+      const cover = (item.artworkUrl100 || '').replace('100x100bb.jpg', '600x600bb.jpg');
+      if (!artistImage && cover) artistImage = cover;
+
+      songs.push({
+        id: `itunes-${item.trackId}`,
+        title,
+        artist: item.artistName || artistName,
+        album: item.collectionName || 'Single',
+        cover,
+        coverLarge: (item.artworkUrl100 || '').replace('100x100bb.jpg', '1000x1000bb.jpg'),
+        duration: Math.round((item.trackTimeMillis || 210000) / 1000),
+        year: item.releaseDate ? item.releaseDate.substring(0, 4) : '2026',
+        genre: item.primaryGenreName || 'Music',
+        isHiRes: true,
+        qualityLabel: '320 kbps · Studio Master',
+      });
+    }
+
+    const albums = [];
+    const seenAlbums = new Set();
+    for (const item of (albumsRes?.results || [])) {
+      const title = item.collectionName || '';
+      const norm = title.toLowerCase().trim();
+      if (!title || seenAlbums.has(norm)) continue;
+      seenAlbums.add(norm);
+
+      albums.push({
+        id: `alb-${item.collectionId}`,
+        collectionId: item.collectionId,
+        title,
+        artist: item.artistName || artistName,
+        cover: (item.artworkUrl100 || '').replace('100x100bb.jpg', '600x600bb.jpg'),
+        year: item.releaseDate ? item.releaseDate.substring(0, 4) : '2026',
+        trackCount: item.trackCount || 0,
+        genre: item.primaryGenreName || 'Music',
+      });
+    }
+
+    // If iTunes had 0 songs, check JioSaavn artist details as fallback
+    if (songs.length === 0 && jioArtist?.id) {
+      try {
+        const details = await fetch(`https://www.jiosaavn.com/api.php?__call=artist.getArtistPageDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&artistId=${jioArtist.id}`).then(r => r.json());
+        const jioList = details.topSongs || details.songs || [];
+        for (const s of jioList) {
+          const title = s.title ? s.title.replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&') : '';
+          const cover = s.image ? s.image.replace('150x150', '500x500') : '';
+          songs.push({
+            id: `saavn-${s.id}`,
+            title: title || 'Unknown Title',
+            artist: s.more_info?.primary_artists || artistName,
+            album: s.more_info?.album || 'Single',
+            cover,
+            coverLarge: cover,
+            duration: Number(s.more_info?.duration || 215),
+            year: s.year || '2026',
+            genre: s.more_info?.language || 'Music',
+            isHiRes: true,
+            qualityLabel: '320 kbps · Studio Master',
+          });
+        }
+      } catch (e) {}
+    }
+
+    return {
+      name: artistName,
+      cover: artistImage || 'https://via.placeholder.com/500',
+      genre: songs[0]?.genre || 'Music',
+      topSongs: songs,
+      albums,
+    };
+  } catch (err) {
+    console.warn('[API] fetchArtistDetails error:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Fetch full album tracklist with exact track order
+ */
+export async function fetchAlbumDetails(albumTitle, artistName) {
+  if (!albumTitle || !albumTitle.trim()) return null;
+  const cleanAlb = albumTitle.replace(/\(.*?\)|\[.*?\]/g, '').trim();
+  const cleanArt = (artistName || '').split(/[,&]/)[0].trim();
+
+  try {
+    // 1. Search album on iTunes
+    const searchRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanAlb + ' ' + cleanArt)}&entity=album&limit=3`).then(r => (r.ok ? r.json() : null));
+    const col = searchRes?.results?.[0];
+
+    if (col && col.collectionId) {
+      const lookupRes = await fetch(`https://itunes.apple.com/lookup?id=${col.collectionId}&entity=song`).then(r => (r.ok ? r.json() : null));
+      if (lookupRes?.results && lookupRes.results.length > 1) {
+        const albumInfo = lookupRes.results[0]; // Collection meta
+        const songItems = lookupRes.results.slice(1); // Songs
+
+        const tracks = songItems.map((item, index) => ({
+          id: `alb-track-${item.trackId || index}`,
+          trackNumber: item.trackNumber || index + 1,
+          title: item.trackName || 'Unknown Title',
+          artist: item.artistName || artistName,
+          album: albumInfo.collectionName || albumTitle,
+          cover: (albumInfo.artworkUrl100 || '').replace('100x100bb.jpg', '600x600bb.jpg'),
+          coverLarge: (albumInfo.artworkUrl100 || '').replace('100x100bb.jpg', '1000x1000bb.jpg'),
+          duration: Math.round((item.trackTimeMillis || 200000) / 1000),
+          year: albumInfo.releaseDate ? albumInfo.releaseDate.substring(0, 4) : '2026',
+          genre: albumInfo.primaryGenreName || 'Music',
+          isHiRes: true,
+          qualityLabel: '320 kbps · Studio Master',
+        }));
+
+        const totalSec = tracks.reduce((acc, t) => acc + (t.duration || 0), 0);
+
+        return {
+          title: albumInfo.collectionName || albumTitle,
+          artist: albumInfo.artistName || artistName,
+          cover: (albumInfo.artworkUrl100 || '').replace('100x100bb.jpg', '800x800bb.jpg'),
+          year: albumInfo.releaseDate ? albumInfo.releaseDate.substring(0, 4) : '2026',
+          genre: albumInfo.primaryGenreName || 'Music',
+          trackCount: tracks.length,
+          totalDuration: totalSec,
+          tracks,
+        };
+      }
+    }
+
+    // 2. JioSaavn regional album fallback
+    const saavnAlbRes = await fetch(`https://www.jiosaavn.com/api.php?__call=search.getAlbumResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=3&p=1&q=${encodeURIComponent(cleanAlb + ' ' + cleanArt)}`).then(r => (r.ok ? r.json() : null));
+    const saavnAlb = saavnAlbRes?.results?.[0];
+
+    if (saavnAlb?.id) {
+      const details = await fetch(`https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=${saavnAlb.id}`).then(r => r.json());
+      const rawList = details.list || [];
+      const tracks = rawList.map((s, index) => {
+        const title = s.title ? s.title.replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&') : '';
+        const cover = s.image ? s.image.replace('150x150', '500x500') : '';
+        return {
+          id: `saavn-alb-${s.id}`,
+          trackNumber: index + 1,
+          title: title || 'Unknown Title',
+          artist: s.more_info?.primary_artists || artistName,
+          album: details.title || albumTitle,
+          cover: cover || saavnAlb.image,
+          coverLarge: cover || saavnAlb.image,
+          duration: Number(s.more_info?.duration || 215),
+          year: details.year || '2026',
+          genre: details.language || 'Music',
+          isHiRes: true,
+          qualityLabel: '320 kbps · Studio Master',
+        };
+      });
+
+      const totalSec = tracks.reduce((acc, t) => acc + (t.duration || 0), 0);
+      const albumCover = details.image ? details.image.replace('150x150', '800x800') : '';
+
+      return {
+        title: details.title || albumTitle,
+        artist: details.primary_artists || artistName,
+        cover: albumCover,
+        year: details.year || '2026',
+        genre: details.language || 'Music',
+        trackCount: tracks.length,
+        totalDuration: totalSec,
+        tracks,
+      };
+    }
+  } catch (err) {
+    console.warn('[API] fetchAlbumDetails error:', err.message);
+  }
+
+  return null;
+}

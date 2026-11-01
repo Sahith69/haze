@@ -169,6 +169,8 @@ export const PlayerProvider = ({ children }) => {
   const [storagePercent, setStoragePercent] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
   const [activeModal, setActiveModal] = useState(null);
+  const [detailModalData, setDetailModalData] = useState(null);
+  const previousModalRef = useRef(null);
   const [shuffleMode, setShuffleMode] = useState('off'); // 'off' | 'on' | 'endless'
   const isShuffle = shuffleMode !== 'off';
   const isEndlessShuffle = shuffleMode === 'endless';
@@ -1719,6 +1721,35 @@ export const PlayerProvider = ({ children }) => {
     });
   };
 
+  const openArtistView = useCallback((artistName, artistCover = '') => {
+    if (!artistName) return;
+    previousModalRef.current = activeModal;
+    setDetailModalData({
+      type: 'artist',
+      title: artistName,
+      artist: artistName,
+      cover: artistCover,
+    });
+    setActiveModal('detail_view');
+  }, [activeModal]);
+
+  const openAlbumView = useCallback((albumTitle, artistName = '', albumCover = '') => {
+    if (!albumTitle) return;
+    previousModalRef.current = activeModal;
+    setDetailModalData({
+      type: 'album',
+      title: albumTitle,
+      artist: artistName,
+      cover: albumCover,
+    });
+    setActiveModal('detail_view');
+  }, [activeModal]);
+
+  const closeDetailView = useCallback(() => {
+    setActiveModal(previousModalRef.current || null);
+    previousModalRef.current = null;
+  }, []);
+
   return (
     <PlayerContext.Provider
       value={{
@@ -1760,6 +1791,10 @@ export const PlayerProvider = ({ children }) => {
         setStoragePercent,
         activeTab,
         activeModal,
+        detailModalData,
+        openArtistView,
+        openAlbumView,
+        closeDetailView,
         shuffleMode,
         setShuffleMode,
         isShuffle,

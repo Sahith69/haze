@@ -49,6 +49,8 @@ export const SearchScreen = () => {
     addSearchHistory,
     removeSearchHistory,
     clearSearchHistory,
+    openArtistView,
+    openAlbumView,
   } = usePlayer();
 
   const [query, setQuery] = useState('');
@@ -370,7 +372,7 @@ export const SearchScreen = () => {
             activeOpacity={0.8}
             onPress={() => {
               if (topResult.type === 'artist') {
-                if (popularTracks.length > 0) playTrack(popularTracks[0], popularTracks);
+                openArtistView(topResult.name, topResult.cover);
               } else if (topResult.track) {
                 handleTrackPress(topResult.track);
               }
@@ -463,9 +465,37 @@ export const SearchScreen = () => {
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.trackArtist} numberOfLines={1}>
-                      {track.artist} · {track.album || 'Single'}
-                    </Text>
+                    <View style={styles.trackSubtitleRow}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 6, bottom: 6, left: 0, right: 4 }}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          openArtistView(track.artist, track.cover);
+                        }}
+                      >
+                        <Text style={styles.trackArtistLink} numberOfLines={1}>
+                          {track.artist}
+                        </Text>
+                      </TouchableOpacity>
+                      {track.album ? (
+                        <>
+                          <Text style={styles.trackDotSep}>·</Text>
+                          <TouchableOpacity
+                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            activeOpacity={0.7}
+                            onPress={(e) => {
+                              e.stopPropagation?.();
+                              openAlbumView(track.album, track.artist, track.cover);
+                            }}
+                          >
+                            <Text style={styles.trackAlbumLink} numberOfLines={1}>
+                              {track.album}
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : null}
+                    </View>
                   </View>
 
                   <Text style={styles.trackDuration}>{formatDuration(track.duration)}</Text>
@@ -499,13 +529,13 @@ export const SearchScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Artists</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.artistsRow}>
-            {uniqueArtists.slice(0, 6).map((art, idx) => (
+            {uniqueArtists.slice(0, 10).map((art, idx) => (
               <TouchableOpacity
                 key={idx}
                 style={styles.artistCard}
+                activeOpacity={0.7}
                 onPress={() => {
-                  setQuery(art.artist);
-                  executeSearch(art.artist);
+                  openArtistView(art.artist, art.cover);
                 }}
               >
                 {art.cover ? (
@@ -530,13 +560,13 @@ export const SearchScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Albums</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.albumsRow}>
-            {uniqueAlbums.slice(0, 6).map((alb, idx) => (
+            {uniqueAlbums.slice(0, 10).map((alb, idx) => (
               <TouchableOpacity
                 key={idx}
                 style={styles.albumCard}
+                activeOpacity={0.7}
                 onPress={() => {
-                  setQuery(`${alb.artist} ${alb.album}`);
-                  executeSearch(`${alb.artist} ${alb.album}`);
+                  openAlbumView(alb.album, alb.artist, alb.cover);
                 }}
               >
                 {alb.cover ? (
@@ -602,9 +632,37 @@ export const SearchScreen = () => {
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.trackArtist} numberOfLines={1}>
-                      {track.artist} · {track.album || 'Single'}
-                    </Text>
+                    <View style={styles.trackSubtitleRow}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 6, bottom: 6, left: 0, right: 4 }}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          openArtistView(track.artist, track.cover);
+                        }}
+                      >
+                        <Text style={styles.trackArtistLink} numberOfLines={1}>
+                          {track.artist}
+                        </Text>
+                      </TouchableOpacity>
+                      {track.album ? (
+                        <>
+                          <Text style={styles.trackDotSep}>·</Text>
+                          <TouchableOpacity
+                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            activeOpacity={0.7}
+                            onPress={(e) => {
+                              e.stopPropagation?.();
+                              openAlbumView(track.album, track.artist, track.cover);
+                            }}
+                          >
+                            <Text style={styles.trackAlbumLink} numberOfLines={1}>
+                              {track.album}
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : null}
+                    </View>
                   </View>
 
                   <Text style={styles.trackDuration}>{formatDuration(track.duration)}</Text>
@@ -675,9 +733,37 @@ export const SearchScreen = () => {
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.trackArtist} numberOfLines={1}>
-                      {track.artist} · {track.album || 'Single'}
-                    </Text>
+                    <View style={styles.trackSubtitleRow}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 6, bottom: 6, left: 0, right: 4 }}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          openArtistView(track.artist, track.cover);
+                        }}
+                      >
+                        <Text style={styles.trackArtistLink} numberOfLines={1}>
+                          {track.artist}
+                        </Text>
+                      </TouchableOpacity>
+                      {track.album ? (
+                        <>
+                          <Text style={styles.trackDotSep}>·</Text>
+                          <TouchableOpacity
+                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            activeOpacity={0.7}
+                            onPress={(e) => {
+                              e.stopPropagation?.();
+                              openAlbumView(track.album, track.artist, track.cover);
+                            }}
+                          >
+                            <Text style={styles.trackAlbumLink} numberOfLines={1}>
+                              {track.album}
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : null}
+                    </View>
                   </View>
 
                   <Text style={styles.trackDuration}>{formatDuration(track.duration)}</Text>
@@ -995,6 +1081,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#71717A',
     marginTop: 2,
+  },
+  trackSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    flexWrap: 'wrap',
+  },
+  trackArtistLink: {
+    fontSize: 12,
+    color: '#A1A1AA',
+    fontWeight: '500',
+  },
+  trackDotSep: {
+    fontSize: 12,
+    color: '#52525B',
+    marginHorizontal: 3,
+  },
+  trackAlbumLink: {
+    fontSize: 12,
+    color: '#71717A',
   },
   trackDuration: {
     fontSize: 12,

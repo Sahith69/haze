@@ -28,6 +28,7 @@ import {
   ArrowDownToLine,
   CheckCircle2,
   ChevronUp,
+  ChevronRight,
   Sparkles,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
@@ -74,6 +75,8 @@ export const NowPlayingModal = () => {
     setQualityModalMode,
     liveLyrics,
     promptAddToPlaylist,
+    openArtistView,
+    openAlbumView,
   } = usePlayer();
 
   const [scrubberWidth, setScrubberWidth] = useState(width - 48);
@@ -333,12 +336,25 @@ export const NowPlayingModal = () => {
           <TouchableOpacity style={styles.iconBtn} onPress={handleSmoothClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <ChevronDown size={26} color="#FFFFFF" />
           </TouchableOpacity>
-          <View style={styles.headerCenter}>
+          <TouchableOpacity
+            style={styles.headerCenter}
+            activeOpacity={0.7}
+            onPress={() => {
+              if (currentTrack.album) {
+                openAlbumView(currentTrack.album, currentTrack.artist, currentTrack.cover);
+              } else if (currentTrack.artist) {
+                openArtistView(currentTrack.artist, currentTrack.cover);
+              }
+            }}
+          >
             <Text style={styles.headerSuper}>PLAYING FROM</Text>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {currentTrack.album || currentTrack.artist || 'HAZE Master Vault'}
-            </Text>
-          </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {currentTrack.album || currentTrack.artist || 'HAZE Master Vault'}
+              </Text>
+              <ChevronRight size={14} color="#71717A" />
+            </View>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => promptAddToPlaylist(currentTrack)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <MoreHorizontal size={22} color="#FFFFFF" />
           </TouchableOpacity>
@@ -380,9 +396,14 @@ export const NowPlayingModal = () => {
             <Text style={styles.trackTitle} numberOfLines={1}>
               {currentTrack.title}
             </Text>
-            <Text style={styles.trackArtist} numberOfLines={1}>
-              {currentTrack.artist}
-            </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => openArtistView(currentTrack.artist, currentTrack.cover)}
+            >
+              <Text style={styles.trackArtist} numberOfLines={1}>
+                {currentTrack.artist}
+              </Text>
+            </TouchableOpacity>
           </View>
           <TouchableOpacity
             style={styles.likeBtn}

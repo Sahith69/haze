@@ -12,6 +12,18 @@ function formatDuration(seconds) {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
+const POPULAR_ARTISTS = [
+  { name: 'The Weeknd', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b5/92/bb/b592bb72-52e3-e756-9b26-9f56d08f47ab/16UMGIM67864.rgb.jpg/600x600bb.jpg', genre: 'R&B / Pop' },
+  { name: 'Billie Eilish', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/bf/82/53/bf82531e-b8eb-4e68-07dd-b5cb88764835/24UMGIM41846.rgb.jpg/600x600bb.jpg', genre: 'Alternative' },
+  { name: 'Taylor Swift', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/37/64/98/376498bb-4a56-82ae-eb01-389f4172cebe/24UMGIM28639.rgb.jpg/600x600bb.jpg', genre: 'Pop' },
+  { name: 'Arijit Singh', cover: 'https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg', genre: 'Bollywood' },
+  { name: 'Kendrick Lamar', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/58/05/27/58052723-5e93-c40b-741a-a0f5a7066d74/22UMGIM47895.rgb.jpg/600x600bb.jpg', genre: 'Hip-Hop' },
+  { name: 'Sai Abhyankkar', cover: 'https://c.saavncdn.com/editorial/SaiAbhyankkarHits_20240722100808_500x500.jpg', genre: 'Indie / Pop' },
+  { name: 'Drake', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/4e/c5/42/4ec54284-be47-7561-c8b8-d4218eb8548c/23UMGIM95147.rgb.jpg/600x600bb.jpg', genre: 'Hip-Hop' },
+  { name: 'Anirudh Ravichander', cover: 'https://c.saavncdn.com/artists/Anirudh_Ravichander_004_20231019114757_500x500.jpg', genre: 'Soundtrack' },
+  { name: 'Dua Lipa', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/ea/98/86/ea988636-24e6-d98c-ec0c-dcfa328b9d31/190295286101.jpg/600x600bb.jpg', genre: 'Dance / Pop' },
+];
+
 export const HomeScreen = () => {
   const {
     playTrack,
@@ -31,6 +43,8 @@ export const HomeScreen = () => {
     streamingQuality,
     setShowQualityModal,
     setQualityModalMode,
+    openArtistView,
+    openAlbumView,
   } = usePlayer();
   const [showUserModal, setShowUserModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -209,6 +223,39 @@ export const HomeScreen = () => {
         </TouchableOpacity>
       </Modal>
 
+      {/* Popular Artists Horizontal Rail */}
+      <View style={styles.artistsSection}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Sparkles size={15} color="#A3A3A3" />
+            <Text style={styles.sectionTitle}>Popular Artists</Text>
+          </View>
+          <Text style={styles.sectionBadge}>Catalog</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.artistsRail}
+        >
+          {POPULAR_ARTISTS.map((artist, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={styles.artistCard}
+              activeOpacity={0.7}
+              onPress={() => openArtistView(artist.name, artist.cover)}
+            >
+              <Image source={{ uri: artist.cover }} style={styles.artistAvatar} />
+              <Text style={styles.artistName} numberOfLines={1}>
+                {artist.name}
+              </Text>
+              <Text style={styles.artistGenre} numberOfLines={1}>
+                {artist.genre}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Trending Now Section Header */}
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleRow}>
@@ -259,9 +306,18 @@ export const HomeScreen = () => {
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.trackArtist} numberOfLines={1}>
-                  {track.artist}
-                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 4, bottom: 4, left: 0, right: 8 }}
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    openArtistView(track.artist, track.cover);
+                  }}
+                >
+                  <Text style={styles.trackArtist} numberOfLines={1}>
+                    {track.artist}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               {/* Quick Download Button */}
@@ -461,6 +517,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#000000',
+  },
+  artistsSection: {
+    marginBottom: 24,
+  },
+  artistsRail: {
+    gap: 16,
+    paddingVertical: 4,
+    paddingRight: 16,
+  },
+  artistCard: {
+    alignItems: 'center',
+    width: 76,
+  },
+  artistAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#1E1E24',
+    marginBottom: 8,
+    borderWidth: 1.5,
+    borderColor: '#262626',
+  },
+  artistName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    width: '100%',
+  },
+  artistGenre: {
+    fontSize: 10,
+    color: '#71717A',
+    textAlign: 'center',
+    marginTop: 2,
+    width: '100%',
   },
   sectionHeader: {
     flexDirection: 'row',
