@@ -39,14 +39,26 @@ function scoreJioSaavnResult(result, wantedTitle, wantedArtist) {
   const resultHasPenalty = PENALTY_TERMS.some(pt => (result.title || '').toLowerCase().includes(pt));
   if (resultHasPenalty && !wantedPenalty) score -= 150;
 
+  // Strict language match for multi-language regional songs
+  const wLang = (wantedTitle || '').match(/\[(Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\]|\((Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\)/i);
+  if (wLang) {
+    const targetLang = (wLang[1] || wLang[2]).toLowerCase();
+    const rHasLang = (result.title || '').toLowerCase().includes(targetLang) || (result.subtitle || '').toLowerCase().includes(targetLang) || (result.more_info?.language || '').toLowerCase() === targetLang;
+    if (rHasLang) score += 60;
+    else score -= 120; // Heavy penalty if wrong language version!
+  }
+
   return score;
 }
 
 export async function resolveDirectSaavnAudio(title, artist, requestedQuality = '320k') {
   try {
+    const langMatch = (title || '').match(/\[(Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\]|\((Tamil|Telugu|Hindi|Malayalam|Kannada|Punjabi|Bhojpuri|Bengali|Marathi|Gujarati|English)\)/i);
+    const langStr = langMatch ? (langMatch[1] || langMatch[2]) : '';
+
     const cleanTitle = (title || '').replace(/\(.*?\)|\[.*?\]/g, '').trim();
     const cleanArtist = (artist || '').split(',')[0].split('&')[0].trim();
-    const q = encodeURIComponent(`${cleanArtist} ${cleanTitle}`.trim() || title);
+    const q = encodeURIComponent(`${cleanArtist} ${cleanTitle} ${langStr}`.trim() || title);
     // Fetch top 8 results so scoring has more candidates to pick from
     const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=8&p=1&q=${q}`;
 
