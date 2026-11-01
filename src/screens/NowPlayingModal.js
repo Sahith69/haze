@@ -406,11 +406,11 @@ export const NowPlayingModal = () => {
           onLayout={(e) => setScrubberWidth(e.nativeEvent.layout.width)}
           onPress={handleSeek}
         >
-          <View style={styles.scrubberTrack}>
+          <View style={styles.scrubberTrack} pointerEvents="none">
             <View style={[styles.scrubberFill, { width: `${progressPercent}%` }]} />
             <View style={[styles.scrubberThumb, { left: `${progressPercent}%` }]} />
           </View>
-          <View style={styles.timeRow}>
+          <View style={styles.timeRow} pointerEvents="none">
             <Text style={styles.timeText}>{formatTime(position)}</Text>
             <Text style={styles.timeText}>{formatTime(duration)}</Text>
           </View>

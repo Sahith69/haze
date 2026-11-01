@@ -338,3 +338,61 @@ export async function saveTrackToVault(track) {
     return { success: false };
   }
 }
+
+/**
+ * Fetch diverse artist & vibe radio tracks
+ * Excludes the current track title to prevent duplicate-title shuffle
+ */
+export async function fetchRadioTracks(artist, genre, excludeTitle) {
+  try {
+    const params = new URLSearchParams({
+      artist: artist || '',
+      genre: genre || '',
+      exclude: excludeTitle || '',
+      limit: '15',
+    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`${API_BASE_URL}/api/radio?${params.toString()}`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data?.tracks && Array.isArray(data.tracks) && data.tracks.length > 0) {
+      return data.tracks;
+    }
+  } catch (err) {
+    console.warn('[API] fetchRadioTracks backend warning:', err.message);
+  }
+
+  // Client-side fallback: Query iTunes for complementary artist top hits
+  try {
+    const cleanA = (artist || '').split(/[,&]/)[0].trim();
+    if (cleanA) {
+      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanA)}&entity=song&limit=10`).then(r => r.ok ? r.json() : null);
+      const cleanEx = (excludeTitle || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
+      const fallbackTracks = [];
+      for (const item of (itunesRes?.results || [])) {
+        const title = item.trackName || '';
+        const normTitle = title.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
+        if (cleanEx && normTitle.includes(cleanEx)) continue;
+        fallbackTracks.push({
+          id: `radio-fb-${item.trackId}`,
+          title,
+          artist: item.artistName || cleanA,
+          album: item.collectionName || 'Single',
+          cover: (item.artworkUrl100 || '').replace('100x100bb.jpg', '600x600bb.jpg'),
+          coverLarge: (item.artworkUrl100 || '').replace('100x100bb.jpg', '1000x1000bb.jpg'),
+          duration: Math.round((item.trackTimeMillis || 210000) / 1000),
+          year: item.releaseDate ? item.releaseDate.substring(0, 4) : '2026',
+          genre: item.primaryGenreName || genre || 'Music',
+          isHiRes: true,
+          qualityLabel: '320 kbps · Studio Master',
+          source: 'radio-fallback',
+        });
+      }
+      if (fallbackTracks.length > 0) return fallbackTracks;
+    }
+  } catch (e) {}
+
+  return [];
+}

@@ -122,7 +122,17 @@ const MainNavigator = () => {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backHandler.remove();
-  }, [showQualityModal, activeModal, activeTab, closeModal, setActiveModal, setActiveTab, setShowQualityModal]);
+  }, [
+    showAddToPlaylistModal,
+    setShowAddToPlaylistModal,
+    showQualityModal,
+    setShowQualityModal,
+    activeModal,
+    activeTab,
+    closeModal,
+    setActiveModal,
+    setActiveTab,
+  ]);
 
   const renderActiveScreen = () => {
     switch (activeTab) {

@@ -95,6 +95,11 @@ export const SyncedLyricsModal = () => {
     return idx;
   }, [lyricsList, position]);
 
+  // Reset lyrics scroll offset immediately upon track change
+  useEffect(() => {
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentTrack?.id]);
+
   // Apple Music Style Auto-Scroll: Keeps current sung line centered in view
   useEffect(() => {
     if (activeLineIndex >= 0 && scrollViewRef.current && !userIsScrolling) {
@@ -247,10 +252,10 @@ export const SyncedLyricsModal = () => {
             seekTo(Math.round(targetRatio * (duration || 200)));
           }}
         >
-          <View style={styles.scrubberBg}>
+          <View style={styles.scrubberBg} pointerEvents="none">
             <View style={[styles.scrubberFill, { width: `${progressPercent}%` }]} />
           </View>
-          <View style={styles.timeRow}>
+          <View style={styles.timeRow} pointerEvents="none">
             <Text style={styles.timeText}>{formatTime(position)}</Text>
             <Text style={styles.timeText}>{formatTime(duration)}</Text>
           </View>

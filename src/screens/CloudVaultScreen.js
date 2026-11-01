@@ -69,7 +69,7 @@ export const CloudVaultScreen = () => {
               key={`${track.id}-${idx}`}
               activeOpacity={0.7}
               style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
-              onPress={() => playTrack(track)}
+              onPress={() => playTrack(track, vaultTracks)}
             >
               <Text style={styles.trackIndex}>{idx + 1}</Text>
               <Image

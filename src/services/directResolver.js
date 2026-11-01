@@ -54,23 +54,27 @@ export async function resolveDirectSaavnAudio(title, artist, requestedQuality = 
 
 /**
  * Parse standard LRC format into sorted array of timestamped lines
+ * Supports multiple timestamps per line, single-digit minutes, and musical pause markers
  */
 export function parseLrc(lrcText) {
   if (!lrcText || typeof lrcText !== 'string') return [];
   const lines = lrcText.split('\n');
   const result = [];
-  const timeRegex = /\[(\d{2}):(\d{2})\.?(\d{2,3})?\](.*)/;
+  const timestampRegex = /\[(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
 
-  for (const line of lines) {
-    const match = timeRegex.exec(line.trim());
-    if (match) {
-      const minutes = parseInt(match[1], 10);
-      const seconds = parseInt(match[2], 10);
-      const millis = match[3] ? parseInt(match[3].padEnd(3, '0').slice(0, 3), 10) : 0;
-      const totalSeconds = minutes * 60 + seconds + millis / 1000;
-      const text = match[4].trim();
-      if (text) {
-        result.push({ time: totalSeconds, text });
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const matches = [...line.matchAll(timestampRegex)];
+    if (matches.length > 0) {
+      const text = line.replace(timestampRegex, '').trim();
+      for (const match of matches) {
+        const minutes = parseInt(match[1], 10);
+        const seconds = parseInt(match[2], 10);
+        const millisStr = match[3] || '0';
+        const millis = parseInt(millisStr.padEnd(3, '0').slice(0, 3), 10);
+        const totalSeconds = minutes * 60 + seconds + millis / 1000;
+        result.push({ time: totalSeconds, text: text || '♪' });
       }
     }
   }

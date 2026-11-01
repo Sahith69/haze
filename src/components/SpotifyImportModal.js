@@ -40,16 +40,35 @@ export const SpotifyImportModal = ({ visible, onClose }) => {
     const tracks = [];
     const firstLine = lines[0].toLowerCase();
 
+    // Helper to robustly parse standard CSV lines with quotes and consecutive commas
+    const parseCsvLine = (line) => {
+      const values = [];
+      let current = '';
+      let insideQuotes = false;
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        if (char === '"') {
+          insideQuotes = !insideQuotes;
+        } else if (char === ',' && !insideQuotes) {
+          values.push(current.trim().replace(/^"|"$/g, ''));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim().replace(/^"|"$/g, ''));
+      return values;
+    };
+
     // Check if Exportify / Spotlistr CSV header
     if (firstLine.includes('track name') || firstLine.includes('title')) {
-      const headers = lines[0].split(',').map((h) => h.replace(/"/g, '').trim().toLowerCase());
+      const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
       const titleIdx = headers.findIndex((h) => h.includes('track name') || h.includes('title') || h === 'song');
       const artistIdx = headers.findIndex((h) => h.includes('artist'));
       const albumIdx = headers.findIndex((h) => h.includes('album'));
 
       for (let i = 1; i < lines.length; i++) {
-        const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
-        const cleanRow = row.map((cell) => cell.replace(/^"|"$/g, '').trim());
+        const cleanRow = parseCsvLine(lines[i]);
 
         const title = cleanRow[titleIdx] || '';
         const artist = cleanRow[artistIdx] || 'Various Artists';

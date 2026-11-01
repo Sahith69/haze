@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal, RefreshControl } from 'react-native';
 import { Play, Sparkles, Music2, ChevronDown, Check, ArrowDownToLine, CheckCircle2 } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
+import { fetchTrending, fetchVaultList } from '../services/api';
 import { colors } from '../theme/colors';
 
 function formatDuration(seconds) {
@@ -17,6 +18,8 @@ export const HomeScreen = () => {
     currentTrack,
     isPlaying,
     queue,
+    setQueue,
+    setVaultTracks,
     currentUser,
     switchUser,
     flacEnabled,
@@ -35,7 +38,21 @@ export const HomeScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
+    try {
+      const [freshTrending, vaultData] = await Promise.all([
+        fetchTrending().catch(() => null),
+        fetchVaultList().catch(() => null),
+      ]);
+      if (freshTrending && Array.isArray(freshTrending) && freshTrending.length > 0) {
+        setQueue(freshTrending);
+      }
+      if (vaultData?.tracks && setVaultTracks) {
+        setVaultTracks(vaultData.tracks);
+      }
+    } catch (e) {
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   return (

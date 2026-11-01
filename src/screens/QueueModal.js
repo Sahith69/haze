@@ -74,9 +74,9 @@ export const QueueModal = () => {
           {/* UP NEXT SECTION */}
           <Text style={[styles.sectionHeader, { marginTop: 28 }]}>UP NEXT</Text>
           <View style={styles.upNextList}>
-            {upNextTracks.map((track) => (
+            {upNextTracks.map((track, idx) => (
               <TouchableOpacity
-                key={track.id}
+                key={`${track.id}-${idx}`}
                 activeOpacity={0.7}
                 style={styles.trackRow}
                 onPress={() => playTrack(track)}

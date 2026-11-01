@@ -46,6 +46,7 @@ export const LibraryScreen = () => {
     downloadedTracks,
     createPlaylist,
     deletePlaylist,
+    removeTrackFromPlaylist,
     removeDownload,
     toggleLike,
     flacEnabled,
@@ -318,6 +319,20 @@ export const LibraryScreen = () => {
                     <Heart size={18} color="#EF4444" fill="#EF4444" />
                   </TouchableOpacity>
                   <Text style={styles.trackDuration}>{formatDuration(track.duration || 215)}</Text>
+                  {selectedPlaylist && (
+                    <TouchableOpacity
+                      style={{ padding: 6, marginLeft: 6 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        if (selectedPlaylist?.id) {
+                          removeTrackFromPlaylist(selectedPlaylist.id, track.id);
+                        }
+                      }}
+                    >
+                      <X size={16} color="#71717A" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
               );
             })
@@ -392,6 +407,20 @@ export const LibraryScreen = () => {
                     <Trash2 size={16} color="#71717A" />
                   </TouchableOpacity>
                   <Text style={styles.trackDuration}>{formatDuration(track.duration || 215)}</Text>
+                  {selectedPlaylist && (
+                    <TouchableOpacity
+                      style={{ padding: 6, marginLeft: 6 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        if (selectedPlaylist?.id) {
+                          removeTrackFromPlaylist(selectedPlaylist.id, track.id);
+                        }
+                      }}
+                    >
+                      <X size={16} color="#71717A" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
               );
             })
@@ -410,7 +439,25 @@ export const LibraryScreen = () => {
           <TouchableOpacity onPress={() => setActiveSubView(null)} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Library</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => { deletePlaylist(selectedPlaylist.id); setActiveSubView(null); }}>
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                'Delete Playlist',
+                `Are you sure you want to delete "${selectedPlaylist.name}"?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                      deletePlaylist(selectedPlaylist.id);
+                      setActiveSubView(null);
+                    },
+                  },
+                ]
+              );
+            }}
+          >
             <Trash2 size={18} color="#EF4444" />
           </TouchableOpacity>
         </View>
@@ -453,6 +500,20 @@ export const LibraryScreen = () => {
                     <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
                   </View>
                   <Text style={styles.trackDuration}>{formatDuration(track.duration || 215)}</Text>
+                  {selectedPlaylist && (
+                    <TouchableOpacity
+                      style={{ padding: 6, marginLeft: 6 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        if (selectedPlaylist?.id) {
+                          removeTrackFromPlaylist(selectedPlaylist.id, track.id);
+                        }
+                      }}
+                    >
+                      <X size={16} color="#71717A" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
               );
             })
@@ -600,6 +661,20 @@ export const LibraryScreen = () => {
                     <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
                   </View>
                   <Text style={styles.trackDuration}>{formatDuration(track.duration || 215)}</Text>
+                  {selectedPlaylist && (
+                    <TouchableOpacity
+                      style={{ padding: 6, marginLeft: 6 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        if (selectedPlaylist?.id) {
+                          removeTrackFromPlaylist(selectedPlaylist.id, track.id);
+                        }
+                      }}
+                    >
+                      <X size={16} color="#71717A" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
               );
             })

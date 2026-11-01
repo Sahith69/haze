@@ -26,7 +26,7 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
-import { searchTracks } from '../services/api';
+import { searchTracks, fetchRadioTracks } from '../services/api';
 import { colors } from '../theme/colors';
 
 function formatDuration(seconds) {
@@ -39,6 +39,7 @@ function formatDuration(seconds) {
 export const SearchScreen = () => {
   const {
     playTrack,
+    setQueue,
     currentTrack,
     currentUser,
     downloadTrack,
@@ -142,8 +143,31 @@ export const SearchScreen = () => {
     } else {
       addSearchHistory(track.title);
     }
-    // Pass searchResults so the playback context and next tracks remain in search!
-    playTrack(track, searchResults);
+
+    // Filter search results to only unique distinct track titles (drops remixes, acoustic, slowed duplicates)
+    const cleanBase = (t) => (t || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/feat\..*|ft\..*/gi, '').replace(/[^a-z0-9]/g, ' ').trim();
+    const uniqueResults = [];
+    const seen = new Set();
+    for (const item of (searchResults || [])) {
+      const norm = cleanBase(item.title);
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        uniqueResults.push(item);
+      }
+    }
+
+    if (uniqueResults.length <= 2) {
+      // User tapped a specific song: play it and immediately seed complementary artist radio behind it!
+      playTrack(track, [track]);
+      fetchRadioTracks(track.artist, track.genre, track.title).then((radioTracks) => {
+        if (radioTracks && radioTracks.length > 0) {
+          setQueue([track, ...radioTracks]);
+        }
+      });
+    } else {
+      // Broad artist or multi-song search: play with duplicate-free results
+      playTrack(track, uniqueResults);
+    }
   };
 
   const handleRecentPress = (term) => {
@@ -443,7 +467,10 @@ export const SearchScreen = () => {
                   {/* Download Button */}
                   <TouchableOpacity
                     style={styles.downloadBtn}
-                    onPress={() => downloadTrack(track)}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      downloadTrack(track);
+                    }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     {isDownloading ? (
@@ -579,7 +606,10 @@ export const SearchScreen = () => {
                   {/* Download Button */}
                   <TouchableOpacity
                     style={styles.downloadBtn}
-                    onPress={() => downloadTrack(track)}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      downloadTrack(track);
+                    }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     {isDownloading ? (
@@ -649,7 +679,10 @@ export const SearchScreen = () => {
                   {/* Download Button */}
                   <TouchableOpacity
                     style={styles.downloadBtn}
-                    onPress={() => downloadTrack(track)}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      downloadTrack(track);
+                    }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     {isDownloading ? (

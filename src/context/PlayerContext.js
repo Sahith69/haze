@@ -11,9 +11,30 @@ import {
   searchTracks,
   saveTrackToVault,
   resolveTrackCover,
+  fetchRadioTracks,
 } from '../services/api';
 import { API_BASE_URL } from '../config';
 import { resolveDirectSaavnAudio } from '../services/directResolver';
+
+function cleanTitleForComparison(t = '') {
+  return t
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, '')
+    .replace(/feat\..*|ft\..*/gi, '')
+    .replace(/[^a-z0-9]/g, ' ')
+    .trim();
+}
+
+function doTitlesMatch(t1 = '', t2 = '') {
+  const c1 = cleanTitleForComparison(t1);
+  const c2 = cleanTitleForComparison(t2);
+  if (!c1 || !c2) return false;
+  if (c1 === c2) return true;
+  if (c1.length > 4 && c2.length > 4) {
+    if (c1.includes(c2) || c2.includes(c1)) return true;
+  }
+  return false;
+}
 
 const PlayerContext = createContext();
 
@@ -540,11 +561,14 @@ export const PlayerProvider = ({ children }) => {
           ? '1,411 kbps · Pure Lossless FLAC Master'
           : '320 kbps · Studio Master';
 
+        const isLocalFile = audioUriToPlay.startsWith('file://');
         const sourceConfig = {
           uri: audioUriToPlay,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-          },
+          ...(isLocalFile ? {} : {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            },
+          }),
           name: track.title,
         };
 
@@ -676,6 +700,7 @@ export const PlayerProvider = ({ children }) => {
               try {
                 console.log('[PlayerContext] Premature finish detected (< 5s). Auto-recovering with direct Saavn stream...');
                 resolveDirectSaavnAudio(track.title, track.artist).then((directRes) => {
+                  if (currentReqId !== playbackRequestIdRef.current) return;
                   const directUrl = directRes?.streamUrl;
                   if (directUrl && directUrl !== audioUriToPlay) {
                     player.replace({
@@ -763,10 +788,21 @@ export const PlayerProvider = ({ children }) => {
     const recentSet = new Set(recentHistoryRef.current);
     const likedIds = new Set(likedTracks.map((t) => t.id));
 
-    // Candidates in current context (excluding recently played)
-    let candidates = queue.filter((t) => t.id !== currentTrack?.id && !recentSet.has(t.id));
+    // Candidates in current context with STRICT TITLE DIVERSITY FILTER
+    // Exclude any candidate that shares the current song title (remixes, acoustic, slowed, live, covers)
+    let candidates = queue.filter((t) => {
+      if (t.id === currentTrack?.id) return false;
+      if (recentSet.has(t.id)) return false;
+      if (currentTrack?.title && doTitlesMatch(t.title, currentTrack.title)) return false;
+      return true;
+    });
+
     if (candidates.length === 0) {
-      candidates = queue.filter((t) => t.id !== currentTrack?.id);
+      candidates = queue.filter((t) => {
+        if (t.id === currentTrack?.id) return false;
+        if (currentTrack?.title && doTitlesMatch(t.title, currentTrack.title)) return false;
+        return true;
+      });
     }
 
     if (candidates.length > 0) {
@@ -815,24 +851,21 @@ export const PlayerProvider = ({ children }) => {
       scored.sort((a, b) => b.score - a.score);
       const chosenTrack = scored[0]?.track;
 
-      // When queue candidates are running low (<= 2 tracks left), preload similar vibe tracks in background
+      // When queue candidates are running low (<= 2 tracks left), preload complementary artist radio tracks in background
       if (candidates.length <= 2 && currentTrack) {
-        const queryTerm = (currentGenre && currentGenre !== 'unknown' && currentGenre !== 'english')
-          ? `${currentGenre} hits`
-          : `${currentTrack.artist} similar`;
-
-        searchTracks(queryTerm).then((related) => {
-          if (related && Array.isArray(related)) {
-            const fresh = related.filter((r) =>
+        fetchRadioTracks(currentTrack.artist, currentTrack.genre, currentTrack.title).then((freshRadio) => {
+          if (freshRadio && Array.isArray(freshRadio) && freshRadio.length > 0) {
+            const fresh = freshRadio.filter((r) =>
               r.id !== currentTrack.id &&
               !recentSet.has(r.id) &&
-              !queue.some((q) => q.id === r.id)
+              !doTitlesMatch(r.title, currentTrack.title) &&
+              !queue.some((q) => q.id === r.id || doTitlesMatch(q.title, r.title))
             );
             if (fresh.length > 0) {
-              setQueue((prev) => [...prev, ...fresh.slice(0, 6)]);
+              setQueue((prev) => [...prev, ...fresh.slice(0, 8)]);
               setToastMessage({
                 type: 'info',
-                text: `✨ Smart Shuffle: Added ${Math.min(fresh.length, 6)} similar tracks to queue`,
+                text: `✨ Smart Shuffle: Added ${Math.min(fresh.length, 8)} complementary tracks to queue`,
               });
             }
           }
@@ -842,26 +875,23 @@ export const PlayerProvider = ({ children }) => {
       return chosenTrack;
     }
 
-    // Dynamic infinite vibe discovery when queue is exhausted
+    // Dynamic infinite vibe discovery when queue is exhausted: fetch true artist & vibe radio tracks!
     if (currentTrack) {
       try {
-        const queryTerm = (currentGenre && currentGenre !== 'unknown' && currentGenre !== 'english')
-          ? `${currentGenre} hits`
-          : `${currentTrack.artist} similar`;
-
-        const related = await searchTracks(queryTerm);
-        const validRelated = (related || []).filter((t) =>
+        const freshRadio = await fetchRadioTracks(currentTrack.artist, currentTrack.genre, currentTrack.title);
+        const validRelated = (freshRadio || []).filter((t) =>
           t.id !== currentTrack.id &&
           !recentSet.has(t.id) &&
+          !doTitlesMatch(t.title, currentTrack.title) &&
           !queue.some((q) => q.id === t.id)
         );
 
         if (validRelated.length > 0) {
-          const toAdd = validRelated.slice(0, 8);
+          const toAdd = validRelated.slice(0, 10);
           setQueue((prev) => [...prev, ...toAdd]);
           setToastMessage({
             type: 'info',
-            text: `✨ Smart Shuffle: Autoplaying similar vibe tracks`,
+            text: `✨ Smart Shuffle: Autoplaying complementary artist vibes`,
           });
           return toAdd[0];
         }
@@ -1216,9 +1246,18 @@ export const PlayerProvider = ({ children }) => {
   const shuffleQueue = () => {
     setIsShuffle((prev) => {
       const nextState = !prev;
+      if (nextState && queue && queue.length > 1) {
+        // Perform true Fisher-Yates shuffle on queue, keeping current track at index 0
+        const otherTracks = queue.filter(t => t.id !== currentTrack?.id);
+        for (let i = otherTracks.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+        }
+        setQueue(currentTrack ? [currentTrack, ...otherTracks] : otherTracks);
+      }
       setToastMessage({
         type: 'info',
-        text: nextState ? '✨ Smart Shuffle On · Playing similar vibes' : 'Shuffle Off',
+        text: nextState ? '✨ Smart Shuffle On · Queue Randomized' : 'Shuffle Off',
       });
       return nextState;
     });
@@ -1252,10 +1291,15 @@ export const PlayerProvider = ({ children }) => {
         position,
         duration,
         queue,
+        setQueue,
         vaultTracks,
+        setVaultTracks,
         storageUsed,
+        setStorageUsed,
         storageTotal,
+        setStorageTotal,
         storagePercent,
+        setStoragePercent,
         activeTab,
         activeModal,
         isShuffle,
