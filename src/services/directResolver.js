@@ -6,7 +6,7 @@ const JIO_KEY = CryptoJS.enc.Utf8.parse('38346591');
  * Direct JioSaavn 320kbps Akamai CDN stream resolver
  * Bypasses backend failures, cloud blocks, and 500 errors
  */
-export async function resolveDirectSaavnAudio(title, artist) {
+export async function resolveDirectSaavnAudio(title, artist, requestedQuality = '320k') {
   try {
     const cleanTitle = (title || '').replace(/\(.*?\)|\[.*?\]/g, '').trim();
     const cleanArtist = (artist || '').split(',')[0].split('&')[0].trim();
@@ -35,12 +35,16 @@ export async function resolveDirectSaavnAudio(title, artist) {
 
     if (!decrypted || !decrypted.startsWith('http')) return null;
 
-    const stream320 = decrypted.replace(/_[0-9]+\.mp4$/, '_320.mp4');
+    const suffix = requestedQuality === '128k' ? '_96.mp4' : requestedQuality === '256k' ? '_160.mp4' : '_320.mp4';
+    const bitrate = requestedQuality === '128k' ? '128 kbps' : requestedQuality === '256k' ? '256 kbps' : '320 kbps';
+    const qualityLabel = requestedQuality === '128k' ? '128 kbps · Data Saver' : requestedQuality === '256k' ? '256 kbps · HD' : '320 kbps · Studio Master';
+
+    const streamUrl = decrypted.replace(/_[0-9]+\.mp4$/, suffix);
     return {
-      streamUrl: stream320,
-      quality: '320 kbps · Studio Master',
-      bitrate: '320 kbps',
-      isStudioMaster: true,
+      streamUrl,
+      quality: qualityLabel,
+      bitrate,
+      isStudioMaster: requestedQuality === '320k',
     };
   } catch (err) {
     console.warn('[DirectResolver] JioSaavn error:', err.message);
