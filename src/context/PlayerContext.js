@@ -619,7 +619,7 @@ export const PlayerProvider = ({ children }) => {
               return;
             }
             try {
-              const upgradeRes = await fetch(`${API_BASE_URL}/api/stream/upgrade?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&duration=${encodeURIComponent(track.duration || '')}`);
+              const upgradeRes = await fetch(`${API_BASE_URL}/api/stream/upgrade?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&duration=${encodeURIComponent(track.duration || '')}&id=${encodeURIComponent(track.id || '')}`);
               const upgradeData = await upgradeRes.json();
               if (upgradeData?.available && upgradeData?.streamUrl && targetReqId === playbackRequestIdRef.current && soundRef.current === player) {
                 clearInterval(upgradeWatcher);
