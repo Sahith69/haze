@@ -107,7 +107,7 @@ export const MiniPlayer = () => {
         style={styles.heartButton}
         onPress={(e) => {
           e.stopPropagation?.();
-          toggleLike(currentTrack.id);
+          toggleLike(currentTrack);
         }}
       >
         <Heart

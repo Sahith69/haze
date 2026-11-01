@@ -82,7 +82,9 @@ export async function resolveAudioStream(track, options = {}) {
       return {
         streamUrl: primaryUrl,
         fallbackUrl: fallbackUrl,
-        quality: data.quality || (options.quality === '1411k' ? '1,411 kbps · FLAC Master' : '320 kbps · Studio Master'),
+        quality: data.quality || (data.isFlac ? '1,411 kbps · FLAC Master' : '320 kbps · Studio Master'),
+        isFlac: !!data.isFlac,
+        flacUnavailable: !!data.flacUnavailable,
       };
     }
   } catch (err) {
@@ -92,7 +94,11 @@ export async function resolveAudioStream(track, options = {}) {
   // Fallback: direct high-speed 320k Akamai stream
   const fallbackDirect = await directSaavnPromise;
   if (fallbackDirect && fallbackDirect.streamUrl) {
-    return fallbackDirect;
+    return {
+      ...fallbackDirect,
+      isFlac: false,
+      flacUnavailable: options.quality === '1411k',
+    };
   }
 
   return null;

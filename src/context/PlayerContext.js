@@ -22,10 +22,10 @@ export const INITIAL_TRACKS = [
     title: 'Starboy',
     artist: 'The Weeknd',
     album: 'Starboy',
-    cover: 'https://c.saavncdn.com/372/b7f9937fefd686876e90be4a96c9a6e9_500x500.jpg',
+    cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b5/92/bb/b592bb72-52e3-e756-9b26-9f56d08f47ab/16UMGIM67864.rgb.jpg/600x600bb.jpg',
     duration: 230,
     isHiRes: true,
-    qualityLabel: '1,411 kbps · FLAC Master',
+    qualityLabel: '320 kbps · Studio Master',
     gradient: ['#7C5CFF', '#FF5C9E'],
     genre: 'Pop / R&B',
   },
@@ -34,10 +34,10 @@ export const INITIAL_TRACKS = [
     title: 'Shape of You',
     artist: 'Ed Sheeran',
     album: '÷ (Divide)',
-    cover: 'https://c.saavncdn.com/286/2929d11a5d44a3592ced0383fa6f1977_500x500.jpg',
+    cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/15/e6/e8/15e6e8a4-4190-6a8b-86c3-ab4a51b88288/190295851286.jpg/600x600bb.jpg',
     duration: 233,
     isHiRes: true,
-    qualityLabel: '1,411 kbps · FLAC Master',
+    qualityLabel: '320 kbps · Studio Master',
     gradient: ['#FF9A3C', '#FF3C6E'],
     genre: 'Pop',
   },
@@ -46,10 +46,10 @@ export const INITIAL_TRACKS = [
     title: 'Blinding Lights',
     artist: 'The Weeknd',
     album: 'After Hours',
-    cover: 'https://c.saavncdn.com/820/Blinding-Lights-English-2020-20200912094411-500x500.jpg',
+    cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/6f/bc/e6/6fbce6c4-c38c-72d8-4fd0-66cfff32f679/20UMGIM12176.rgb.jpg/600x600bb.jpg',
     duration: 200,
     isHiRes: true,
-    qualityLabel: '1,411 kbps · FLAC Master',
+    qualityLabel: '320 kbps · Studio Master',
     gradient: ['#18C8A8', '#2A6BFF'],
     genre: 'Synthwave / Pop',
   },
@@ -58,10 +58,10 @@ export const INITIAL_TRACKS = [
     title: 'Thriller',
     artist: 'Michael Jackson',
     album: 'Thriller',
-    cover: 'https://c.saavncdn.com/295/2742a0391b87aa58b7ba3eefaf57fcf0_500x500.jpg',
+    cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/32/4f/fd/324ffda2-9e51-8f6a-0c2d-c6fd2b41ac55/074643811224.jpg/600x600bb.jpg',
     duration: 357,
     isHiRes: true,
-    qualityLabel: '1,411 kbps · FLAC Master',
+    qualityLabel: '320 kbps · Studio Master',
     gradient: ['#F5B942', '#C2410C'],
     genre: 'Funk / Pop',
   },
@@ -70,10 +70,10 @@ export const INITIAL_TRACKS = [
     title: 'Die With A Smile',
     artist: 'Lady Gaga & Bruno Mars',
     album: 'Die With A Smile',
-    cover: 'https://c.saavncdn.com/645/Die-With-A-Smile-English-2024-20240816043202-500x500.jpg',
+    cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/11/ae/f2/11aef294-f57c-bab9-c9fc-529162984e62/24UMGIM85348.rgb.jpg/600x600bb.jpg',
     duration: 251,
     isHiRes: true,
-    qualityLabel: '1,411 kbps · FLAC Master',
+    qualityLabel: '320 kbps · Studio Master',
     gradient: ['#3B3B5C', '#8B7CFF'],
     genre: 'Ballad / Pop',
   },
@@ -129,6 +129,10 @@ export const PlayerProvider = ({ children }) => {
 
   // In-app Toast message system
   const [toastMessage, setToastMessage] = useState(null);
+
+  // Add to Playlist picker modal state
+  const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
+  const [playlistModalTrack, setPlaylistModalTrack] = useState(null);
 
   // Player state
   const [currentTrack, setCurrentTrack] = useState(INITIAL_TRACKS[0]);
@@ -477,11 +481,30 @@ export const PlayerProvider = ({ children }) => {
 
       // 2. Remote stream
       let fallbackUrl = null;
+      let isActuallyFlac = false;
       if (!audioUriToPlay) {
         console.log(`[PlayerContext] Resolving audio stream for: "${track.title}" by ${track.artist} (${resolvedQuality})`);
         const streamResult = await resolveAudioStream(track, { quality: streamingQuality });
         audioUriToPlay = typeof streamResult === 'string' ? streamResult : streamResult?.streamUrl;
         fallbackUrl = typeof streamResult === 'object' ? streamResult?.fallbackUrl : null;
+        isActuallyFlac = !!(audioUriToPlay && audioUriToPlay.includes('/api/tg-stream/'));
+
+        // If user requested FLAC (1411k), but audio resolved to 320k Studio Master (not in Vault)
+        if (streamingQuality === '1411k' && !isActuallyFlac && !isDownloadedItem) {
+          console.log('[PlayerContext] FLAC not in Vault, playing 320k Studio Master');
+          setToastMessage({ type: 'info', text: '⚡ FLAC not in Vault · Playing 320 kbps Studio Master' });
+          setCurrentTrack(prev => ({
+            ...prev,
+            qualityLabel: '320 kbps · Studio Master',
+            isFlac: false,
+          }));
+        } else if (isActuallyFlac) {
+          setCurrentTrack(prev => ({
+            ...prev,
+            qualityLabel: '1,411 kbps · Pure Lossless FLAC Master',
+            isFlac: true,
+          }));
+        }
       }
 
       // Check if a newer track was tapped while we were waiting on network!
@@ -744,9 +767,19 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
-  // Toggle Liked Song (Isolated per user profile)
-  const toggleLike = async (track) => {
-    const targetTrack = track || currentTrack;
+  // Toggle Liked Song (Isolated per user profile, robust to track object or ID string)
+  const toggleLike = async (trackOrId) => {
+    let targetTrack = null;
+    if (typeof trackOrId === 'string') {
+      targetTrack = (currentTrack?.id === trackOrId ? currentTrack : null) ||
+                    queue.find(t => t.id === trackOrId) ||
+                    likedTracks.find(t => t.id === trackOrId) ||
+                    INITIAL_TRACKS.find(t => t.id === trackOrId);
+    } else if (trackOrId && typeof trackOrId === 'object') {
+      targetTrack = trackOrId;
+    } else {
+      targetTrack = currentTrack;
+    }
     if (!targetTrack || !targetTrack.id) return;
 
     const isCurrentlyLiked = likedTracks.some(t => t.id === targetTrack.id);
@@ -773,6 +806,11 @@ export const PlayerProvider = ({ children }) => {
     if (currentTrack?.id === targetTrack.id) {
       setCurrentTrack(prev => ({ ...prev, isLiked: !isCurrentlyLiked }));
     }
+  };
+
+  const promptAddToPlaylist = (track) => {
+    setPlaylistModalTrack(track || currentTrack);
+    setShowAddToPlaylistModal(true);
   };
 
   // Playlist Management (Isolated per user profile)
@@ -1070,6 +1108,10 @@ export const PlayerProvider = ({ children }) => {
         deletePlaylist,
         addTrackToPlaylist,
         removeTrackFromPlaylist,
+        showAddToPlaylistModal,
+        setShowAddToPlaylistModal,
+        playlistModalTrack,
+        promptAddToPlaylist,
         downloadTrack,
         removeDownload,
         isTrackDownloaded,

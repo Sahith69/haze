@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,10 @@ import {
   Image,
   ActivityIndicator,
   Animated,
+  ScrollView,
+  BackHandler,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronDown,
   MoreHorizontal,
@@ -24,11 +27,12 @@ import {
   Activity,
   ArrowDownToLine,
   CheckCircle2,
+  ChevronUp,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 function formatTime(seconds) {
   if (!seconds || isNaN(seconds)) return '0:00';
@@ -66,38 +70,103 @@ export const NowPlayingModal = () => {
     setShowQualityModal,
     setQualityModalMode,
     liveLyrics,
+    promptAddToPlaylist,
   } = usePlayer();
 
   const [scrubberWidth, setScrubberWidth] = useState(width - 48);
 
-  // Live synchronized lyrics line for the player view
-  const currentLyricLine = React.useMemo(() => {
+  // Full synchronized lyrics list
+  const lyricsList = useMemo(() => {
     if (liveLyrics?.synced && Array.isArray(liveLyrics.synced) && liveLyrics.synced.length > 0) {
-      let activeText = '';
-      let nextText = '';
-      for (let i = 0; i < liveLyrics.synced.length; i++) {
-        if (position >= liveLyrics.synced[i].time) {
-          activeText = liveLyrics.synced[i].text;
-          nextText = liveLyrics.synced[i + 1]?.text || '';
-        } else {
-          break;
-        }
-      }
-      return { active: activeText || liveLyrics.synced[0]?.text || '', next: nextText };
+      return liveLyrics.synced;
     }
     if (liveLyrics?.plain && typeof liveLyrics.plain === 'string') {
       const trimmed = liveLyrics.plain.trim();
       if (!trimmed.toLowerCase().startsWith('no lyrics') && !trimmed.toLowerCase().startsWith('lyrics not found')) {
-        const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
+        const lines = trimmed.split('\n').map((l) => l.trim()).filter(Boolean);
         if (lines.length > 0) {
           const step = Math.max(3, Math.floor((duration || 200) / lines.length));
-          const idx = Math.min(lines.length - 1, Math.floor(position / step));
-          return { active: lines[idx] || '', next: lines[idx + 1] || '' };
+          return lines.map((text, idx) => ({
+            time: idx * step,
+            text,
+          }));
         }
       }
     }
+    return [];
+  }, [liveLyrics, duration]);
+
+  // Current active lyric line index
+  const activeLineIndex = useMemo(() => {
+    if (lyricsList.length === 0) return -1;
+    let idx = -1;
+    for (let i = 0; i < lyricsList.length; i++) {
+      if (position >= lyricsList[i].time) {
+        idx = i;
+      } else {
+        break;
+      }
+    }
+    return idx;
+  }, [lyricsList, position]);
+
+  // In-place animated slide-up sheet state
+  const [isLyricsExpanded, setIsLyricsExpanded] = useState(false);
+  const lyricsSheetAnim = useRef(new Animated.Value(height)).current;
+  const lyricsScrollRef = useRef(null);
+
+  const expandLyrics = () => {
+    setIsLyricsExpanded(true);
+    Animated.spring(lyricsSheetAnim, {
+      toValue: 0,
+      tension: 65,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const collapseLyrics = () => {
+    Animated.timing(lyricsSheetAnim, {
+      toValue: height,
+      duration: 240,
+      useNativeDriver: true,
+    }).start(() => setIsLyricsExpanded(false));
+  };
+
+  // Auto-scroll expanded synchronized lyrics as playback progresses
+  useEffect(() => {
+    if (isLyricsExpanded && activeLineIndex >= 0 && lyricsScrollRef.current) {
+      const estimatedY = activeLineIndex * 52;
+      lyricsScrollRef.current.scrollTo({
+        y: Math.max(0, estimatedY - 120),
+        animated: true,
+      });
+    }
+  }, [activeLineIndex, isLyricsExpanded]);
+
+  // Android hardware back button inside NowPlayingModal
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isLyricsExpanded) {
+        collapseLyrics();
+        return true;
+      }
+      closeModal();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [isLyricsExpanded]);
+
+  // Live preview line for the compact card
+  const currentLyricLine = useMemo(() => {
+    if (lyricsList.length > 0) {
+      const activeText = activeLineIndex >= 0 ? lyricsList[activeLineIndex]?.text : lyricsList[0]?.text;
+      const nextText = activeLineIndex >= 0 && activeLineIndex + 1 < lyricsList.length ? lyricsList[activeLineIndex + 1]?.text : '';
+      return { active: activeText || '', next: nextText || '' };
+    }
     return { active: 'Tap to view live synchronized lyrics', next: '' };
-  }, [liveLyrics, position, duration]);
+  }, [lyricsList, activeLineIndex]);
 
   // Smooth tactile animations
   const artScale = useRef(new Animated.Value(isPlaying ? 1.0 : 0.88)).current;
@@ -139,7 +208,7 @@ export const NowPlayingModal = () => {
       Animated.timing(likeScale, { toValue: 1.35, duration: 120, useNativeDriver: true }),
       Animated.spring(likeScale, { toValue: 1, friction: 3.5, tension: 80, useNativeDriver: true }),
     ]).start();
-    toggleLike(currentTrack.id);
+    toggleLike(currentTrack);
   };
 
   const handlePrevPress = () => {
@@ -224,7 +293,7 @@ export const NowPlayingModal = () => {
               {currentTrack.album || currentTrack.artist || 'HAZE Master Vault'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => setActiveModal('queue')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => promptAddToPlaylist(currentTrack)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <MoreHorizontal size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -469,7 +538,7 @@ export const NowPlayingModal = () => {
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.lyricsCard}
-          onPress={() => setActiveModal('lyrics')}
+          onPress={expandLyrics}
         >
           <View style={styles.lyricsCardHeader}>
             <View style={styles.lyricsCardTitleRow}>
@@ -490,6 +559,119 @@ export const NowPlayingModal = () => {
           ) : null}
         </TouchableOpacity>
       </View>
+
+      {/* IN-PLACE ANIMATED SLIDE-UP LYRICS SHEET (Spotify-Style) */}
+      <Animated.View
+        style={[
+          styles.expandedLyricsSheet,
+          {
+            transform: [{ translateY: lyricsSheetAnim }],
+          },
+        ]}
+        pointerEvents={isLyricsExpanded ? 'auto' : 'none'}
+      >
+        <LinearGradient
+          colors={['#0C0C12', '#060609', '#000000']}
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+        />
+
+        {/* Top Header Bar */}
+        <View style={styles.expandedLyricsHeader}>
+          <TouchableOpacity style={styles.collapsePillBtn} onPress={collapseLyrics}>
+            <ChevronDown size={20} color="#FFFFFF" />
+            <Text style={styles.collapsePillText}>Collapse ↙</Text>
+          </TouchableOpacity>
+
+          <View style={styles.expandedHeaderCenter}>
+            <Text style={styles.expandedHeaderTitle} numberOfLines={1}>
+              {currentTrack.title}
+            </Text>
+            <Text style={styles.expandedHeaderArtist} numberOfLines={1}>
+              {currentTrack.artist}
+            </Text>
+          </View>
+
+          <View style={styles.expandedQualityPill}>
+            <Text style={styles.expandedQualityText}>
+              {streamingQuality === '1411k' ? '⚡ FLAC' : '✨ 320k'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Live Synchronized Lyrics List */}
+        {lyricsList.length > 0 ? (
+          <ScrollView
+            ref={lyricsScrollRef}
+            style={styles.expandedLyricsScroll}
+            contentContainerStyle={styles.expandedLyricsContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {lyricsList.map((line, idx) => {
+              const isActive = idx === activeLineIndex;
+              const isPast = activeLineIndex >= 0 && idx < activeLineIndex;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  activeOpacity={0.7}
+                  style={styles.expandedLyricRow}
+                  onPress={() => seekTo(line.time)}
+                >
+                  <Text
+                    style={[
+                      styles.expandedLyricLine,
+                      isActive && styles.expandedLyricLineActive,
+                      isPast && styles.expandedLyricLinePast,
+                    ]}
+                  >
+                    {line.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        ) : (
+          <View style={styles.expandedEmptyLyrics}>
+            <Mic2 size={40} color="#444444" />
+            <Text style={styles.expandedEmptyTitle}>Synchronizing Live Lyrics...</Text>
+            <Text style={styles.expandedEmptySubtitle}>
+              Matching millisecond timestamps from HAZE master stream.
+            </Text>
+          </View>
+        )}
+
+        {/* Bottom Playback Controls Bar */}
+        <View style={styles.expandedBottomBar}>
+          <TouchableOpacity style={styles.expandedScrubber} onPress={handleSeek}>
+            <View style={styles.expandedScrubberBg}>
+              <View style={[styles.expandedScrubberFill, { width: `${progressPercent}%` }]} />
+            </View>
+            <View style={styles.expandedTimeRow}>
+              <Text style={styles.expandedTimeText}>{formatTime(position)}</Text>
+              <Text style={styles.expandedTimeText}>{formatTime(duration)}</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.expandedControlsRow}>
+            <TouchableOpacity onPress={handlePrevPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <SkipBack size={26} color="#FFFFFF" fill="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.expandedPlayBtn} onPress={togglePlayPause}>
+              {isPlaying ? (
+                <Pause size={26} color="#000000" fill="#000000" />
+              ) : (
+                <Play size={26} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleNextPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <SkipForward size={26} color="#FFFFFF" fill="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.View>
     </View>
   );
 };
@@ -744,6 +926,156 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#71717A',
     marginTop: 4,
+  },
+  expandedLyricsSheet: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 300,
+    backgroundColor: '#07070A',
+    paddingTop: 48,
+    paddingHorizontal: 20,
+    justifyContent: 'space-between',
+  },
+  expandedLyricsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 8,
+  },
+  collapsePillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  collapsePillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  expandedHeaderCenter: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  expandedHeaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  expandedHeaderArtist: {
+    color: '#71717A',
+    fontSize: 11,
+    marginTop: 1,
+  },
+  expandedQualityPill: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  expandedQualityText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  expandedLyricsScroll: {
+    flex: 1,
+  },
+  expandedLyricsContent: {
+    paddingVertical: 36,
+    paddingHorizontal: 10,
+    gap: 24,
+  },
+  expandedLyricRow: {
+    paddingVertical: 4,
+  },
+  expandedLyricLine: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#52525B',
+    lineHeight: 32,
+    letterSpacing: -0.3,
+  },
+  expandedLyricLineActive: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(255, 255, 255, 0.4)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 14,
+  },
+  expandedLyricLinePast: {
+    color: '#3F3F46',
+  },
+  expandedEmptyLyrics: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 24,
+  },
+  expandedEmptyTitle: {
+    color: '#D4D4D8',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  expandedEmptySubtitle: {
+    color: '#71717A',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  expandedBottomBar: {
+    paddingTop: 12,
+    paddingBottom: 32,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(10, 10, 14, 0.95)',
+  },
+  expandedScrubber: {
+    paddingVertical: 6,
+  },
+  expandedScrubberBg: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+  },
+  expandedScrubberFill: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+  },
+  expandedTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  expandedTimeText: {
+    color: '#71717A',
+    fontSize: 11,
+    fontFamily: 'monospace',
+  },
+  expandedControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 36,
+    marginTop: 10,
+  },
+  expandedPlayBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

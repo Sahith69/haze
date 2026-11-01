@@ -26,6 +26,7 @@ import {
   Shuffle,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import { SpotifyImportModal } from '../components/SpotifyImportModal';
 import { colors } from '../theme/colors';
 
 function formatDuration(seconds) {
@@ -72,6 +73,7 @@ export const LibraryScreen = () => {
 
   // New Playlist Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSpotifyModal, setShowSpotifyModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [newPlaylistDesc, setNewPlaylistDesc] = useState('');
 
@@ -467,10 +469,20 @@ export const LibraryScreen = () => {
           <Text style={styles.headerTitle}>{currentUser.name}'s Library</Text>
           <Text style={styles.headerSubtitle}>HAZE COLLECTION</Text>
         </View>
-        <TouchableOpacity style={styles.newPlaylistBtn} activeOpacity={0.8} onPress={() => setShowCreateModal(true)}>
-          <Plus size={14} color="#000000" strokeWidth={3} />
-          <Text style={styles.newPlaylistText}>New</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <TouchableOpacity
+            style={styles.spotifyImportBtn}
+            activeOpacity={0.8}
+            onPress={() => setShowSpotifyModal(true)}
+          >
+            <Text style={styles.spotifyImportText}>⚡ Spotify</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.newPlaylistBtn} activeOpacity={0.8} onPress={() => setShowCreateModal(true)}>
+            <Plus size={14} color="#000000" strokeWidth={3} />
+            <Text style={styles.newPlaylistText}>New</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Segregation Filter Tabs */}
@@ -692,6 +704,12 @@ export const LibraryScreen = () => {
         </View>
       </Modal>
 
+      {/* Spotify Link & CSV Import Modal */}
+      <SpotifyImportModal
+        visible={showSpotifyModal}
+        onClose={() => setShowSpotifyModal(false)}
+      />
+
       <View style={{ height: 160 }} />
     </ScrollView>
   );
@@ -723,6 +741,22 @@ const styles = StyleSheet.create({
     color: colors.gold,
     letterSpacing: 1.5,
     marginTop: 2,
+  },
+  spotifyImportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.4)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  spotifyImportText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4ADE80',
   },
   newPlaylistBtn: {
     flexDirection: 'row',

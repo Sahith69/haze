@@ -231,11 +231,11 @@ export const HomeScreen = () => {
                   >
                     {track.title}
                   </Text>
-                  <View style={styles.flacBadge}>
-                    <Text style={styles.flacBadgeText}>
+                  <View style={[styles.flacBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
+                    <Text style={[styles.flacBadgeText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
                       {isDownloaded
-                        ? (track.isFlac ? 'FLAC' : '320k')
-                        : (streamingQuality === '1411k' ? 'FLAC' : '320k')}
+                        ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
+                        : '✨ 320k'}
                     </Text>
                   </View>
                 </View>
@@ -533,11 +533,18 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 3,
   },
+  badge320: {
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
   flacBadgeText: {
     fontSize: 8,
     fontWeight: '700',
     color: '#A3A3A3',
     fontFamily: 'monospace',
+  },
+  badgeText320: {
+    color: '#38BDF8',
   },
   trackArtist: {
     fontSize: 11,

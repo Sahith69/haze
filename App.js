@@ -14,6 +14,7 @@ import { SyncedLyricsModal } from './src/screens/SyncedLyricsModal';
 import { QueueModal } from './src/screens/QueueModal';
 import { EqualizerModal } from './src/screens/EqualizerModal';
 import { AudioQualityModal } from './src/components/AudioQualityModal';
+import { AddToPlaylistModal } from './src/components/AddToPlaylistModal';
 import { colors } from './src/theme/colors';
 
 const ToastBanner = ({ message }) => {
@@ -78,18 +79,26 @@ const MainNavigator = () => {
     setStreamingQuality,
     setDownloadQuality,
     toastMessage,
+    showAddToPlaylistModal,
+    setShowAddToPlaylistModal,
   } = usePlayer();
 
   // Android Hardware Back Button Handler
   useEffect(() => {
     const onBackPress = () => {
+      // 0. If AddToPlaylist modal open -> close it
+      if (showAddToPlaylistModal) {
+        setShowAddToPlaylistModal(false);
+        return true;
+      }
+
       // 1. If quality modal open -> close it
       if (showQualityModal) {
         setShowQualityModal(false);
         return true;
       }
 
-      // 2. If lyrics/queue/equalizer modal open -> return to now_playing
+      // 2. If queue/equalizer modal open -> return to now_playing
       if (activeModal && activeModal !== 'now_playing') {
         setActiveModal('now_playing');
         return true;
@@ -148,7 +157,6 @@ const MainNavigator = () => {
 
         {/* Modals & Overlays */}
         {activeModal === 'now_playing' && <NowPlayingModal />}
-        {activeModal === 'lyrics' && <SyncedLyricsModal />}
         {activeModal === 'queue' && <QueueModal />}
         {activeModal === 'equalizer' && <EqualizerModal />}
 
@@ -161,6 +169,9 @@ const MainNavigator = () => {
           currentQuality={qualityModalMode === 'download' ? downloadQuality : streamingQuality}
           onSelectQuality={qualityModalMode === 'download' ? setDownloadQuality : setStreamingQuality}
         />
+
+        {/* Add to Playlist Bottom Sheet Modal */}
+        <AddToPlaylistModal />
       </AmbientBackground>
     </View>
   );

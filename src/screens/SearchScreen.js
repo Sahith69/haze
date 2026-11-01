@@ -405,8 +405,12 @@ export const SearchScreen = () => {
                       >
                         {track.title}
                       </Text>
-                      <View style={styles.hiResBadge}>
-                        <Text style={styles.hiResText}>FLAC</Text>
+                      <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
+                        <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
+                          {isDownloaded
+                            ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
+                            : '✨ 320k'}
+                        </Text>
                       </View>
                     </View>
                     <Text style={styles.trackArtist} numberOfLines={1}>
@@ -710,10 +714,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(245, 185, 66, 0.3)',
   },
+  badge320: {
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
   hiResText: {
     fontSize: 9,
     fontWeight: '800',
     color: colors.gold,
+  },
+  badgeText320: {
+    color: '#38BDF8',
   },
   trackArtist: {
     fontSize: 12,
