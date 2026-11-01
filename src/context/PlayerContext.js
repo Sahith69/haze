@@ -625,7 +625,8 @@ export const PlayerProvider = ({ children }) => {
         }
 
         // Dynamic On-the-Fly FLAC Hot-Swapping Watcher:
-        // As soon as Telegram finishes archiving the FLAC in the background, hot-swap the stream at current position!
+        // When FLAC is ready, download it completely to local storage in the background FIRST.
+        // Once 100% buffered locally, perform an instantaneous <10ms swap so the listener hears ZERO silence/buffering!
         if (streamingQuality === '1411k' && !isActuallyFlac && !isDownloadedItem) {
           let upgradeAttempts = 0;
           const targetReqId = currentReqId;
@@ -644,36 +645,59 @@ export const PlayerProvider = ({ children }) => {
                   ? upgradeData.streamUrl
                   : `${API_BASE_URL}${upgradeData.streamUrl.startsWith('/') ? '' : '/'}${upgradeData.streamUrl}`;
 
-                console.log(`[PlayerContext] Seamlessly hot-swapping "${track.title}" to Lossless FLAC Master! URL: ${flacUrl}`);
-                const currentPosSec = player.currentTime || 0;
-                player.replace({
-                  uri: flacUrl,
-                  headers: {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-                  },
-                });
-                if (currentPosSec > 0) {
-                  player.seekTo(currentPosSec);
-                  setTimeout(() => {
-                    try {
-                      if (soundRef.current === player && Math.abs((player.currentTime || 0) - currentPosSec) > 2) {
-                        player.seekTo(currentPosSec);
-                      }
-                    } catch (e) {}
-                  }, 120);
-                }
-                player.play();
+                console.log(`[PlayerContext] Pre-buffering Lossless FLAC Master locally in background: ${flacUrl}`);
 
-                setCurrentTrack(prev => ({
-                  ...prev,
-                  qualityLabel: '1,411 kbps · Pure Lossless FLAC Master',
-                  isFlac: true,
-                }));
-                updateLockScreenControls(player, track, '1,411 kbps · Pure Lossless FLAC Master');
-                setToastMessage({
-                  type: 'success',
-                  text: '⚡ Upgraded to Pure Lossless FLAC Master',
-                });
+                // Download completely into local flash cache in background while 320k keeps playing smoothly
+                const safeTrackId = String(track.id || 'track').replace(/[^a-zA-Z0-9]/g, '_');
+                const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+                const localFlacPath = `${cacheDir}flac_upgrade_${safeTrackId}_${Date.now()}.flac`;
+
+                try {
+                  const downloadRes = await FileSystem.downloadAsync(flacUrl, localFlacPath, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                    },
+                  });
+
+                  // If user changed tracks or stopped while downloading, clean up and bail
+                  if (targetReqId !== playbackRequestIdRef.current || soundRef.current !== player) {
+                    try { FileSystem.deleteAsync(localFlacPath, { idempotent: true }); } catch (e) {}
+                    return;
+                  }
+
+                  if (downloadRes.status === 200) {
+                    const currentPosSec = player.currentTime || 0;
+                    console.log(`[PlayerContext] FLAC 100% pre-buffered locally (${localFlacPath})! Performing instant zero-buffer swap at ${currentPosSec.toFixed(2)}s`);
+
+                    player.replace({
+                      uri: localFlacPath,
+                    });
+                    if (currentPosSec > 0) {
+                      player.seekTo(currentPosSec);
+                      setTimeout(() => {
+                        try {
+                          if (soundRef.current === player && Math.abs((player.currentTime || 0) - currentPosSec) > 2) {
+                            player.seekTo(currentPosSec);
+                          }
+                        } catch (e) {}
+                      }, 100);
+                    }
+                    player.play();
+
+                    setCurrentTrack(prev => ({
+                      ...prev,
+                      qualityLabel: '1,411 kbps · Pure Lossless FLAC Master',
+                      isFlac: true,
+                    }));
+                    updateLockScreenControls(player, track, '1,411 kbps · Pure Lossless FLAC Master');
+                    setToastMessage({
+                      type: 'success',
+                      text: '⚡ Upgraded to Pure Lossless FLAC Master',
+                    });
+                  }
+                } catch (dlErr) {
+                  console.warn('[PlayerContext] Background FLAC download error:', dlErr.message);
+                }
               }
             } catch (err) {}
           }, 3000);
