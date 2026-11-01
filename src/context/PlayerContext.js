@@ -291,7 +291,7 @@ export const PlayerProvider = ({ children }) => {
         }
         await setAudioModeAsync({
           playsInSilentMode: true,
-          interruptionMode: 'doNotMix',
+          interruptionMode: 'doNotMixPersistent',
           shouldPlayInBackground: true,
           shouldRouteThroughEarpiece: false,
         });
@@ -507,13 +507,15 @@ export const PlayerProvider = ({ children }) => {
         soundRef.current = player;
         updateLockScreenControls(player, track, resolvedQuality);
 
-        player.addListener('playbackStatusUpdate', (status) => {
+        player.addListener('playbackStatusUpdate', async (status) => {
           if (currentReqId !== playbackRequestIdRef.current) return;
 
           if (status.error) {
             console.warn('[PlayerContext] Audio status error:', status.error);
+            // 1. Try pre-resolved fallbackUrl
             if (fallbackUrl && fallbackUrl !== audioUriToPlay) {
               try {
+                console.log('[PlayerContext] Recovering audio with fallbackUrl:', fallbackUrl);
                 player.replace({
                   uri: fallbackUrl,
                   headers: {
@@ -521,15 +523,40 @@ export const PlayerProvider = ({ children }) => {
                   },
                 });
                 player.play();
+                return;
               } catch (e) {}
             }
+            // 2. Fetch direct 320k Saavn fallback on-demand
+            try {
+              console.log('[PlayerContext] Requesting on-demand 320k stream fallback...');
+              const directRes = await resolveAudioStream(track, { quality: '320k' });
+              const directUrl = directRes?.streamUrl;
+              if (directUrl && directUrl !== audioUriToPlay && directUrl !== fallbackUrl) {
+                player.replace({
+                  uri: directUrl,
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                  },
+                });
+                player.play();
+                return;
+              }
+            } catch (e) {}
           }
+
           if (status.isLoaded) {
             setIsLoadingAudio(false);
           }
-          if (status.playing !== undefined) {
-            setIsPlaying(status.playing);
+
+          if (status.isBuffering) {
+            setIsLoadingAudio(true);
+          } else {
+            setIsLoadingAudio(false);
+            if (status.playing !== undefined) {
+              setIsPlaying(status.playing);
+            }
           }
+
           if (typeof status.currentTime === 'number') {
             setPosition(Math.round(status.currentTime));
           }
@@ -537,7 +564,10 @@ export const PlayerProvider = ({ children }) => {
             setDuration(Math.round(status.duration));
           }
           if (status.didJustFinish) {
-            handleTrackFinish();
+            // Guard against premature finish triggers when stream fails to load
+            if (status.currentTime > 5 || (status.duration && status.duration > 10)) {
+              handleTrackFinish();
+            }
           }
         });
 
