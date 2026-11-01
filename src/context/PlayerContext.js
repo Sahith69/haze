@@ -10,6 +10,7 @@ import {
   fetchVaultList,
   searchTracks,
   saveTrackToVault,
+  resolveTrackCover,
 } from '../services/api';
 import { API_BASE_URL } from '../config';
 import { resolveDirectSaavnAudio } from '../services/directResolver';
@@ -465,6 +466,25 @@ export const PlayerProvider = ({ children }) => {
     // Fetch synced lyrics concurrently
     fetchLyrics(track).then(setLiveLyrics);
 
+    // Self-heal album artwork if missing, placeholder, or from playlist banner
+    resolveTrackCover(track.title, track.artist).then((freshCover) => {
+      if (freshCover) {
+        setCurrentTrack((prev) => {
+          if (!prev || prev.id !== track.id) return prev;
+          if (
+            !prev.cover ||
+            prev.cover.includes('20UMGIM12176') ||
+            prev.cover.includes('placeholder') ||
+            prev.album === 'Imported Spotify Playlist' ||
+            prev.album === 'Spotify Import'
+          ) {
+            return { ...prev, cover: freshCover, coverLarge: freshCover };
+          }
+          return prev;
+        });
+      }
+    }).catch(() => {});
+
     try {
       let audioUriToPlay = null;
 
@@ -489,10 +509,10 @@ export const PlayerProvider = ({ children }) => {
         fallbackUrl = typeof streamResult === 'object' ? streamResult?.fallbackUrl : null;
         isActuallyFlac = !!(audioUriToPlay && audioUriToPlay.includes('/api/tg-stream/'));
 
-        // If user requested FLAC (1411k), but audio resolved to 320k Studio Master (not in Vault)
-        if (streamingQuality === '1411k' && !isActuallyFlac && !isDownloadedItem) {
+        // If user requested FLAC (1411k), but audio resolved to 320k Studio Master (not in Vault or unavailable)
+        if (streamingQuality === '1411k' && (!isActuallyFlac || streamResult?.flacUnavailable) && !isDownloadedItem) {
           console.log('[PlayerContext] FLAC not in Vault, playing 320k Studio Master');
-          setToastMessage({ type: 'info', text: '⚡ FLAC not in Vault · Playing 320 kbps Studio Master' });
+          setToastMessage({ type: 'info', text: '⚡ FLAC not in Vault · Playing in 320 kbps Studio Master' });
           setCurrentTrack(prev => ({
             ...prev,
             qualityLabel: '320 kbps · Studio Master',
@@ -514,6 +534,12 @@ export const PlayerProvider = ({ children }) => {
       }
 
       if (audioUriToPlay) {
+        const effectiveQuality = isDownloadedItem
+          ? `${isDownloadedItem.qualityLabel} · Offline`
+          : isActuallyFlac
+          ? '1,411 kbps · Pure Lossless FLAC Master'
+          : '320 kbps · Studio Master';
+
         const sourceConfig = {
           uri: audioUriToPlay,
           headers: {
@@ -534,7 +560,7 @@ export const PlayerProvider = ({ children }) => {
         }
 
         soundRef.current = player;
-        updateLockScreenControls(player, track, resolvedQuality);
+        updateLockScreenControls(player, track, effectiveQuality);
 
         player.addListener('playbackStatusUpdate', async (status) => {
           if (currentReqId !== playbackRequestIdRef.current) return;
@@ -554,6 +580,16 @@ export const PlayerProvider = ({ children }) => {
                 });
                 player.play();
                 setIsPlaying(true);
+                setCurrentTrack(prev => ({
+                  ...prev,
+                  qualityLabel: '320 kbps · Studio Master',
+                  isFlac: false,
+                }));
+                setToastMessage({
+                  type: 'info',
+                  text: '⚡ Switched to 320 kbps Studio Master',
+                });
+                updateLockScreenControls(player, track, '320 kbps · Studio Master');
                 return;
               }
             } catch (e) {}
@@ -570,6 +606,16 @@ export const PlayerProvider = ({ children }) => {
                 });
                 player.play();
                 setIsPlaying(true);
+                setCurrentTrack(prev => ({
+                  ...prev,
+                  qualityLabel: '320 kbps · Studio Master',
+                  isFlac: false,
+                }));
+                setToastMessage({
+                  type: 'info',
+                  text: '⚡ Switched to 320 kbps Studio Master',
+                });
+                updateLockScreenControls(player, track, '320 kbps · Studio Master');
                 return;
               } catch (e) {}
             }
@@ -613,6 +659,16 @@ export const PlayerProvider = ({ children }) => {
                     });
                     player.play();
                     setIsPlaying(true);
+                    setCurrentTrack(prev => ({
+                      ...prev,
+                      qualityLabel: '320 kbps · Studio Master',
+                      isFlac: false,
+                    }));
+                    setToastMessage({
+                      type: 'info',
+                      text: '⚡ Switched to 320 kbps Studio Master',
+                    });
+                    updateLockScreenControls(player, track, '320 kbps · Studio Master');
                   }
                 });
               } catch (e) {}

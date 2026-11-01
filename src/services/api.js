@@ -153,6 +153,40 @@ export async function searchTracks(query) {
 }
 
 /**
+ * Fast individual album cover resolver for playlist imports and track self-healing
+ */
+export async function resolveTrackCover(title, artist) {
+  const cleanT = (title || '').replace(/\(.*?\)|\[.*?\]/g, '').trim();
+  const cleanA = (artist || '').split(',')[0].split('&')[0].trim();
+  if (!cleanT) return null;
+
+  // 1. Try Apple Music / iTunes 600x600 CDN
+  try {
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanA + ' ' + cleanT)}&entity=song&limit=3`;
+    const res = await fetch(url).then(r => (r.ok ? r.json() : null));
+    if (res?.results?.length > 0) {
+      for (const item of res.results) {
+        if (item.artworkUrl100) {
+          return item.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 2. Try JioSaavn 500x500 CDN
+  try {
+    const url = `https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&api_version=4&ctx=web6dot0&query=${encodeURIComponent(cleanA + ' ' + cleanT)}`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => (r.ok ? r.json() : null));
+    const match = res?.songs?.data?.[0];
+    if (match?.image) {
+      return match.image.replace('150x150', '500x500').replace('50x50', '500x500');
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+/**
  * Fetch live trending tracks
  */
 export async function fetchTrending() {

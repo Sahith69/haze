@@ -15,6 +15,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { X, Link, FileSpreadsheet, CheckCircle2, Music2, Sparkles, FolderUp } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { API_BASE_URL } from '../config';
+import { resolveTrackCover } from '../services/api';
 import { colors } from '../theme/colors';
 
 export const SpotifyImportModal = ({ visible, onClose }) => {
@@ -60,7 +61,7 @@ export const SpotifyImportModal = ({ visible, onClose }) => {
             title,
             artist,
             album,
-            cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/6f/bc/e6/6fbce6c4-c38c-72d8-4fd0-66cfff32f679/20UMGIM12176.rgb.jpg/600x600bb.jpg',
+            cover: '',
             duration: 210,
             isHiRes: true,
             qualityLabel: '320 kbps · Studio Master',
@@ -89,7 +90,7 @@ export const SpotifyImportModal = ({ visible, onClose }) => {
             title,
             artist,
             album: 'Spotify Import',
-            cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/6f/bc/e6/6fbce6c4-c38c-72d8-4fd0-66cfff32f679/20UMGIM12176.rgb.jpg/600x600bb.jpg',
+            cover: '',
             duration: 210,
             isHiRes: true,
             qualityLabel: '320 kbps · Studio Master',
@@ -113,9 +114,32 @@ export const SpotifyImportModal = ({ visible, onClose }) => {
       const data = await res.json();
 
       setPlaylistName(data.name || 'Imported Spotify Playlist');
-      setPreviewCover(data.cover || '');
-      setPreviewTracks(data.tracks || []);
-      setStatusText(`Found ${data.tracks?.length || 0} tracks in 320k Studio Master quality.`);
+      const playlistCover = data.cover || '';
+      setPreviewCover(playlistCover);
+
+      const rawTracks = data.tracks || [];
+      setPreviewTracks(rawTracks);
+      setStatusText(`Found ${rawTracks.length} tracks. Resolving high-res covers...`);
+
+      // Ensure every track has its own authentic album cover
+      const enriched = [...rawTracks];
+      for (let i = 0; i < enriched.length; i += 6) {
+        const slice = enriched.slice(i, i + 6);
+        await Promise.all(
+          slice.map(async (tr, idx) => {
+            if (!tr.cover || tr.cover === playlistCover) {
+              try {
+                const indiv = await resolveTrackCover(tr.title, tr.artist);
+                if (indiv) {
+                  enriched[i + idx] = { ...tr, cover: indiv };
+                }
+              } catch (e) {}
+            }
+          })
+        );
+      }
+      setPreviewTracks(enriched);
+      setStatusText(`Found ${enriched.length} tracks ready in 320k Studio Master quality.`);
     } catch (err) {
       console.warn('[Spotify] Scrape error:', err.message);
       setStatusText('Failed to load playlist. Check URL or try CSV import.');
@@ -144,7 +168,25 @@ export const SpotifyImportModal = ({ visible, onClose }) => {
         const content = await FileSystem.readAsStringAsync(file.uri);
         const parsed = parseCsvContent(content);
         setPreviewTracks(parsed);
-        setStatusText(`Detected ${parsed.length} songs from CSV!`);
+        setStatusText(`Detected ${parsed.length} songs. Resolving cover art...`);
+
+        // Batch resolve authentic individual covers for CSV tracks
+        const enriched = [...parsed];
+        for (let i = 0; i < enriched.length; i += 6) {
+          const slice = enriched.slice(i, i + 6);
+          await Promise.all(
+            slice.map(async (tr, idx) => {
+              try {
+                const indiv = await resolveTrackCover(tr.title, tr.artist);
+                if (indiv) {
+                  enriched[i + idx] = { ...tr, cover: indiv };
+                }
+              } catch (e) {}
+            })
+          );
+        }
+        setPreviewTracks(enriched);
+        setStatusText(`Detected ${enriched.length} songs from CSV ready with artwork!`);
       }
     } catch (err) {
       console.warn('[CSV Import] Error:', err.message);
@@ -302,6 +344,12 @@ export const SpotifyImportModal = ({ visible, onClose }) => {
                 {previewTracks.slice(0, 15).map((track, i) => (
                   <View key={i} style={styles.previewRow}>
                     <Text style={styles.previewIndex}>{i + 1}</Text>
+                    {track.cover ? (
+                      <Image
+                        source={{ uri: track.cover }}
+                        style={{ width: 34, height: 34, borderRadius: 6, marginRight: 10 }}
+                      />
+                    ) : null}
                     <View style={{ flex: 1 }}>
                       <Text style={styles.previewTrackTitle} numberOfLines={1}>
                         {track.title}
