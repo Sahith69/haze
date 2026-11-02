@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - haze-v5.1.2
+      - spotube-v5.1.2
   workflow_dispatch:
 
 permissions:
