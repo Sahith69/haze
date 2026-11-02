@@ -21,5 +21,9 @@ export const colors = {
   badgeBorder: '#383838',
   navBg: '#121212',
   gold: '#FBBF24',
+  goldDark: '#D97706',
   cyan: '#38BDF8',
+  glassBg: 'rgba(30, 30, 30, 0.85)',
+  glassBorder: 'rgba(255, 255, 255, 0.08)',
+  cardBg: '#1E1E1E',
 };

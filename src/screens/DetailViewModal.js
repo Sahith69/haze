@@ -24,6 +24,7 @@ function formatDuration(seconds) {
 export const DetailViewModal = () => {
   const {
     detailViewData,
+    detailModalData,
     closeDetailView,
     playTrack,
     currentTrack,
@@ -31,9 +32,10 @@ export const DetailViewModal = () => {
     promptAddToPlaylist,
   } = usePlayer();
 
-  if (!detailViewData) return null;
+  const data = detailViewData || detailModalData;
+  if (!data) return null;
 
-  const { title, description, cover, tracks = [] } = detailViewData;
+  const { title = '', description = '', cover = '', tracks = [] } = data;
 
   const handlePlayAll = () => {
     if (tracks.length > 0) {

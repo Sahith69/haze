@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Search as SearchIcon, X, Play, MoreVertical, Disc3, Mic2, ListMusic } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
-import { searchMusic } from '../services/api';
+import { searchTracks, searchMusic } from '../services/api';
 import { colors } from '../theme/colors';
 
 const CATEGORIES = ['All', 'Tracks', 'Artists', 'Albums'];
@@ -36,6 +36,8 @@ export const SearchScreen = () => {
     promptAddToPlaylist,
   } = usePlayer();
 
+  const queryValue = typeof searchQuery === 'string' ? searchQuery : '';
+
   const [activeCategory, setActiveCategory] = useState('All');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
@@ -49,7 +51,8 @@ export const SearchScreen = () => {
     }
     setLoading(true);
     try {
-      const data = await searchMusic(text.trim());
+      const searchFn = searchTracks || searchMusic;
+      const data = await searchFn(text.trim());
       setResults(Array.isArray(data) ? data : []);
     } catch (e) {
       setResults([]);
@@ -58,8 +61,14 @@ export const SearchScreen = () => {
     }
   };
 
+  useEffect(() => {
+    if (queryValue && queryValue.trim().length > 0) {
+      executeSearch(queryValue);
+    }
+  }, [queryValue]);
+
   const handleQueryChange = (text) => {
-    setSearchQuery(text);
+    if (setSearchQuery) setSearchQuery(text);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       executeSearch(text);
@@ -67,7 +76,7 @@ export const SearchScreen = () => {
   };
 
   const handleClear = () => {
-    setSearchQuery('');
+    if (setSearchQuery) setSearchQuery('');
     setResults([]);
   };
 
@@ -90,12 +99,12 @@ export const SearchScreen = () => {
             style={styles.input}
             placeholder="Search songs, artists, albums..."
             placeholderTextColor={colors.textDim}
-            value={searchQuery}
+            value={queryValue}
             onChangeText={handleQueryChange}
             returnKeyType="search"
             autoCapitalize="none"
           />
-          {searchQuery.length > 0 && (
+          {queryValue.length > 0 && (
             <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
               <X size={16} color={colors.textSecondary} />
             </TouchableOpacity>

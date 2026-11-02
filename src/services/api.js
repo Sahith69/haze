@@ -152,6 +152,8 @@ export async function searchTracks(query) {
   }
 }
 
+export const searchMusic = searchTracks;
+
 /**
  * Fast individual album cover resolver for playlist imports and track self-healing
  */

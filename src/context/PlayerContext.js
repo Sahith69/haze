@@ -1760,6 +1760,40 @@ export const PlayerProvider = ({ children }) => {
     setActiveModal('detail_view');
   }, [activeModal, detailModalData]);
 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const openModal = useCallback(() => {
+    setActiveModal('now_playing');
+  }, []);
+
+  const openDetailView = useCallback((data) => {
+    if (!data) return;
+    if (activeModal === 'detail_view') {
+      if (detailModalData) {
+        detailHistoryRef.current.push(detailModalData);
+      }
+    } else {
+      previousModalRef.current = activeModal;
+      detailHistoryRef.current = [];
+    }
+    setDetailModalData(data);
+    setActiveModal('detail_view');
+  }, [activeModal, detailModalData]);
+
+  const showToast = useCallback((text, type = 'info') => {
+    setToastMessage({ text, type });
+  }, []);
+
+  const removeFromQueue = useCallback((trackId) => {
+    setQueue((prev) => prev.filter((t) => t.id !== trackId));
+  }, []);
+
+  const performSearch = useCallback(async (query) => {
+    if (!query) return;
+    setSearchQuery(query);
+    setActiveTab('search');
+  }, []);
+
   const closeDetailView = useCallback(() => {
     if (detailHistoryRef.current.length > 0) {
       const prev = detailHistoryRef.current.pop();
@@ -1814,10 +1848,18 @@ export const PlayerProvider = ({ children }) => {
         activeTab,
         activeModal,
         detailModalData,
+        detailViewData: detailModalData,
         hasDetailHistory: detailHistoryRef.current.length > 0,
         openArtistView,
         openAlbumView,
+        openDetailView,
         closeDetailView,
+        openModal,
+        showToast,
+        removeFromQueue,
+        searchQuery,
+        setSearchQuery,
+        performSearch,
         shuffleMode,
         setShuffleMode,
         isShuffle,
@@ -1830,6 +1872,7 @@ export const PlayerProvider = ({ children }) => {
         volumeLeveling,
         likedTracks,
         userPlaylists,
+        playlists: userPlaylists,
         downloadedTracks,
         downloadProgress,
         setActiveTab,

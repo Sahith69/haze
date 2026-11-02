@@ -112,7 +112,9 @@ export const QueueModal = () => {
 
                 <TouchableOpacity
                   style={styles.deleteBtn}
-                  onPress={() => removeFromQueue(track.id)}
+                  onPress={() => {
+                    if (removeFromQueue) removeFromQueue(track.id);
+                  }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Trash2 size={16} color={colors.textDim} />

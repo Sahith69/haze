@@ -22,7 +22,11 @@ export const MiniPlayer = () => {
   if (!currentTrack) return null;
 
   const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
-  const liked = isTrackLiked(currentTrack.id);
+  const liked = isTrackLiked && currentTrack?.id ? isTrackLiked(currentTrack.id) : false;
+
+  const handleOpenNowPlaying = () => {
+    if (openModal) openModal();
+  };
 
   return (
     <View style={styles.wrapper}>
@@ -36,7 +40,7 @@ export const MiniPlayer = () => {
         <TouchableOpacity
           activeOpacity={0.8}
           style={styles.trackInfoArea}
-          onPress={openModal}
+          onPress={handleOpenNowPlaying}
         >
           <Image
             source={{ uri: currentTrack.cover || 'https://via.placeholder.com/150' }}

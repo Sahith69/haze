@@ -15,7 +15,6 @@ import {
   Plus,
   HardDrive,
   Download,
-  FolderMusic,
   Play,
   Trash2,
   Share2,
@@ -29,6 +28,7 @@ const LIBRARY_TABS = ['Playlists', 'Liked Tracks', 'Downloads', 'Cloud Vault'];
 export const LibraryScreen = () => {
   const {
     likedTracks,
+    userPlaylists,
     playlists,
     createPlaylist,
     deletePlaylist,
@@ -41,16 +41,19 @@ export const LibraryScreen = () => {
     showToast,
   } = usePlayer();
 
+  const activePlaylists = playlists || userPlaylists || [];
+  const activeLikedTracks = likedTracks || [];
+
   const [activeTab, setActiveTab] = useState('Playlists');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
 
   const handleCreatePlaylist = () => {
     if (!newPlaylistName.trim()) return;
-    createPlaylist(newPlaylistName.trim());
+    if (createPlaylist) createPlaylist(newPlaylistName.trim());
     setNewPlaylistName('');
     setShowCreateModal(false);
-    showToast('Playlist created', 'success');
+    if (showToast) showToast('Playlist created', 'success');
   };
 
   const renderContent = () => {
@@ -73,15 +76,17 @@ export const LibraryScreen = () => {
           <TouchableOpacity
             style={styles.playlistRow}
             activeOpacity={0.7}
-            onPress={() =>
-              openDetailView({
-                type: 'playlist',
-                title: 'Liked Tracks',
-                description: `${likedTracks.length} favorite songs`,
-                cover: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=400&q=80',
-                tracks: likedTracks,
-              })
-            }
+            onPress={() => {
+              if (openDetailView) {
+                openDetailView({
+                  type: 'playlist',
+                  title: 'Liked Tracks',
+                  description: `${activeLikedTracks.length} favorite songs`,
+                  cover: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=400&q=80',
+                  tracks: activeLikedTracks,
+                });
+              }
+            }}
           >
             <View style={[styles.playlistThumb, { backgroundColor: '#450af5' }]}>
               <Heart size={22} color="#FFFFFF" fill="#FFFFFF" />
@@ -89,30 +94,32 @@ export const LibraryScreen = () => {
             <View style={styles.playlistMeta}>
               <Text style={styles.playlistTitle}>Liked Tracks</Text>
               <Text style={styles.playlistSubtitle}>
-                {likedTracks.length} {likedTracks.length === 1 ? 'song' : 'songs'} · Auto Playlist
+                {activeLikedTracks.length} {activeLikedTracks.length === 1 ? 'song' : 'songs'} · Auto Playlist
               </Text>
             </View>
           </TouchableOpacity>
 
           {/* User Playlists */}
-          {playlists.map((pl) => (
+          {activePlaylists.map((pl) => (
             <TouchableOpacity
               key={pl.id}
               style={styles.playlistRow}
               activeOpacity={0.7}
-              onPress={() =>
-                openDetailView({
-                  type: 'playlist',
-                  id: pl.id,
-                  title: pl.name,
-                  description: `${(pl.tracks || []).length} songs`,
-                  cover: pl.cover || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80',
-                  tracks: pl.tracks || [],
-                })
-              }
+              onPress={() => {
+                if (openDetailView) {
+                  openDetailView({
+                    type: 'playlist',
+                    id: pl.id,
+                    title: pl.name,
+                    description: `${(pl.tracks || []).length} songs`,
+                    cover: pl.cover || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80',
+                    tracks: pl.tracks || [],
+                  });
+                }
+              }}
             >
               <View style={[styles.playlistThumb, { backgroundColor: '#282828' }]}>
-                <FolderMusic size={22} color={colors.primary} />
+                <Music2 size={22} color={colors.primary} />
               </View>
               <View style={styles.playlistMeta}>
                 <Text style={styles.playlistTitle}>{pl.name}</Text>
@@ -129,7 +136,7 @@ export const LibraryScreen = () => {
     if (activeTab === 'Liked Tracks') {
       return (
         <View style={styles.tabContent}>
-          {likedTracks.length === 0 ? (
+          {activeLikedTracks.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Heart size={44} color={colors.borderLight} />
               <Text style={styles.emptyTitle}>No Liked Tracks Yet</Text>
@@ -138,7 +145,7 @@ export const LibraryScreen = () => {
               </Text>
             </View>
           ) : (
-            likedTracks.map((track, idx) => {
+            activeLikedTracks.map((track, idx) => {
               const isCurrent = currentTrack?.id === track.id;
               return (
                 <TouchableOpacity
