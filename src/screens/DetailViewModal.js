@@ -408,7 +408,7 @@ export const DetailViewModal = () => {
 const styles = StyleSheet.create({
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#07070A',
+    backgroundColor: colors.bg,
     zIndex: 120,
   },
   container: {
@@ -562,13 +562,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
-    shadowColor: '#FFF',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 6,
   },

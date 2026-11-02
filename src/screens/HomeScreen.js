@@ -12,6 +12,13 @@ function formatDuration(seconds) {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
+function getGreeting() {
+  const hr = new Date().getHours();
+  if (hr < 12) return 'Good morning';
+  if (hr < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 const POPULAR_ARTISTS = [
   { name: 'The Weeknd', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b5/92/bb/b592bb72-52e3-e756-9b26-9f56d08f47ab/16UMGIM67864.rgb.jpg/600x600bb.jpg', genre: 'R&B / Pop' },
   { name: 'Billie Eilish', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/bf/82/53/bf82531e-b8eb-4e68-07dd-b5cb88764835/24UMGIM41846.rgb.jpg/600x600bb.jpg', genre: 'Alternative' },
@@ -86,17 +93,11 @@ export const HomeScreen = () => {
         />
       }
     >
-      {/* HAZE Brand Header matching Sidebar & Header */}
+      {/* Spotube Header Bar */}
       <View style={styles.brandRow}>
         <View style={styles.brandLeft}>
-          {/* HAZE Signature Dot Logo */}
-          <View style={styles.logoCircle}>
-            <View style={styles.logoDot} />
-          </View>
-          <View style={styles.brandTextGroup}>
-            <Text style={styles.brandTitle}>HAZE</Text>
-            <Text style={styles.brandSubtitle}>STUDIO & LOSSLESS AUDIO</Text>
-          </View>
+          <Text style={styles.greetingText}>{getGreeting()}</Text>
+          <Text style={styles.subGreetingText}>HAZE STUDIO · HI-FI AUDIO</Text>
         </View>
 
         <View style={styles.brandRight}>
@@ -143,30 +144,34 @@ export const HomeScreen = () => {
         </View>
       </View>
 
-      {/* Featured Banner */}
-      <View style={styles.featuredBanner}>
-        <View style={styles.bannerBadge}>
-          <Sparkles size={12} color="#FFFFFF" />
-          <Text style={styles.bannerBadgeText}>
-            {streamingQuality === '1411k' ? 'Pure FLAC & Lossless Master' : 'Hi-Fi Studio Audio'}
-          </Text>
-        </View>
-
-        <Text style={styles.bannerTitle}>Welcome to HAZE.</Text>
-        <Text style={styles.bannerSubtitle}>
-          Stream and download millions of tracks with bit-perfect lossless quality, synchronized lyrics, Spotify smart shuffle, and offline vault.
-        </Text>
-
-        <View style={styles.bannerActionRow}>
-          <TouchableOpacity
-            style={styles.playButton}
-            activeOpacity={0.85}
-            onPress={() => playTrack(activeTrendingTracks[0], activeTrendingTracks)}
-          >
-            <Play size={14} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
-            <Text style={styles.playButtonText}>Play Top Trending</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Spotube 2-Column Quick Picks Grid */}
+      <View style={styles.quickPicksGrid}>
+        {activeTrendingTracks.slice(0, 6).map((track, idx) => {
+          const isThisPlaying = currentTrack?.id === track.id && isPlaying;
+          return (
+            <TouchableOpacity
+              key={`quick-${track.id}-${idx}`}
+              style={[styles.quickPickCard, isThisPlaying && styles.quickPickCardActive]}
+              activeOpacity={0.75}
+              onPress={() => playTrack(track, activeTrendingTracks)}
+            >
+              <Image
+                source={{ uri: track.cover || 'https://via.placeholder.com/60' }}
+                style={styles.quickPickCover}
+              />
+              <View style={styles.quickPickTextWrap}>
+                <Text style={[styles.quickPickTitle, isThisPlaying && styles.quickPickTitleActive]} numberOfLines={2}>
+                  {track.title}
+                </Text>
+              </View>
+              {isThisPlaying && (
+                <View style={styles.quickPickPlayDot}>
+                  <Play size={10} color="#000000" fill="#000000" />
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* User Switcher Modal */}
@@ -227,7 +232,7 @@ export const HomeScreen = () => {
       <View style={styles.artistsSection}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
-            <Sparkles size={15} color="#A3A3A3" />
+            <Sparkles size={16} color={colors.primary} />
             <Text style={styles.sectionTitle}>Popular Artists</Text>
           </View>
           <Text style={styles.sectionBadge}>Catalog</Text>
@@ -260,13 +265,13 @@ export const HomeScreen = () => {
       {/* Trending Now Section Header */}
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleRow}>
-          <Music2 size={16} color="#A3A3A3" />
-          <Text style={styles.sectionTitle}>Trending Now</Text>
+          <Music2 size={16} color={colors.primary} />
+          <Text style={styles.sectionTitle}>Top Charts & Trending</Text>
         </View>
-        <Text style={styles.sectionBadge}>Top Charts</Text>
+        <Text style={styles.sectionBadge}>Hi-Fi</Text>
       </View>
 
-      {/* HAZE Track List (exact TrackList design) */}
+      {/* Spotube Track List */}
       <View style={styles.trackList}>
         {activeTrendingTracks.map((track, idx) => {
           const isThisPlaying = currentTrack?.id === track.id;
@@ -343,11 +348,11 @@ export const HomeScreen = () => {
                 delayLongPress={400}
               >
                 {isDownloaded ? (
-                  <CheckCircle2 size={16} color="#22C55E" />
+                  <CheckCircle2 size={16} color={colors.primary} />
                 ) : isDownloading ? (
                   <Text style={styles.downloadingText}>...</Text>
                 ) : (
-                  <ArrowDownToLine size={15} color="#555555" />
+                  <ArrowDownToLine size={15} color="#666666" />
                 )}
               </TouchableOpacity>
 
@@ -368,10 +373,10 @@ export const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.bg,
   },
   contentContainer: {
-    paddingTop: 54,
+    paddingTop: 52,
     paddingHorizontal: 16,
     paddingBottom: 160,
   },
@@ -379,46 +384,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A1A',
+    marginBottom: 16,
   },
   brandLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  logoCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#000000',
-  },
-  brandTextGroup: {
     flexDirection: 'column',
   },
-  brandTitle: {
-    fontSize: 14,
+  greetingText: {
+    fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 2,
-    fontFamily: 'monospace',
+    color: colors.text,
+    letterSpacing: -0.4,
   },
-  brandSubtitle: {
+  subGreetingText: {
     fontSize: 9,
-    fontWeight: '600',
-    color: '#737373',
-    letterSpacing: 1,
-    marginTop: 1,
+    fontWeight: '700',
+    color: colors.textDim,
+    letterSpacing: 1.2,
+    marginTop: 2,
+    fontFamily: 'monospace',
   },
   brandRight: {
     flexDirection: 'row',
@@ -429,15 +412,15 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 20,
-    backgroundColor: '#141414',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   qualityBadgePillFlac: {
-    borderColor: 'rgba(245, 185, 66, 0.4)',
-    backgroundColor: 'rgba(245, 185, 66, 0.08)',
+    borderColor: 'rgba(245, 196, 81, 0.4)',
+    backgroundColor: 'rgba(245, 196, 81, 0.08)',
   },
   qualityBadgePillText: {
     fontSize: 10,
@@ -449,9 +432,9 @@ const styles = StyleSheet.create({
   profilePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121212',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#222222',
+    borderColor: colors.border,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 20,
@@ -461,7 +444,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#222222',
+    backgroundColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -471,64 +454,56 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
-  featuredBanner: {
-    backgroundColor: '#0A0A0A',
-    borderWidth: 1,
-    borderColor: '#1E1E1E',
-    borderRadius: 16,
-    padding: 20,
+  quickPicksGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 24,
   },
-  bannerBadge: {
+  quickPickCard: {
+    width: '48.5%',
+    height: 52,
+    backgroundColor: colors.card,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#171717',
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#262626',
-    alignSelf: 'flex-start',
+    borderColor: colors.border,
+  },
+  quickPickCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.cardHover,
+  },
+  quickPickCover: {
+    width: 52,
+    height: 52,
+    backgroundColor: '#1E2130',
+  },
+  quickPickTextWrap: {
+    flex: 1,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    marginBottom: 10,
+    justifyContent: 'center',
   },
-  bannerBadgeText: {
-    fontSize: 10,
-    color: '#D4D4D4',
-    fontFamily: 'monospace',
-    letterSpacing: 0.5,
+  quickPickTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 14,
   },
-  bannerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
+  quickPickTitleActive: {
+    color: colors.primary,
   },
-  bannerSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    lineHeight: 18,
-    marginTop: 6,
-  },
-  bannerActionRow: {
-    marginTop: 14,
-  },
-  playButton: {
-    flexDirection: 'row',
+  quickPickPlayDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  playButtonText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#000000',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   artistsSection: {
     marginBottom: 24,
@@ -546,24 +521,24 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#1E1E24',
+    backgroundColor: '#1E2130',
     marginBottom: 8,
     borderWidth: 1.5,
-    borderColor: '#262626',
+    borderColor: colors.border,
   },
   artistName: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     textAlign: 'center',
     width: '100%',
   },
   artistGenre: {
     fontSize: 10,
-    color: '#71717A',
+    color: colors.textDim,
     textAlign: 'center',
-    marginTop: 2,
     width: '100%',
+    marginTop: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -577,21 +552,28 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.3,
   },
   sectionBadge: {
-    fontSize: 11,
-    color: '#737373',
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.primary,
+    backgroundColor: 'rgba(30, 215, 96, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(30, 215, 96, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
     fontFamily: 'monospace',
   },
   trackList: {
-    backgroundColor: '#080808',
+    backgroundColor: colors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1A1A1A',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   trackRow: {
@@ -600,10 +582,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#121212',
+    borderBottomColor: colors.border,
   },
   trackRowPlaying: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.cardHover,
   },
   trackLeftTouch: {
     flexDirection: 'row',
@@ -612,7 +594,7 @@ const styles = StyleSheet.create({
   trackIndex: {
     width: 22,
     fontSize: 12,
-    color: '#666666',
+    color: colors.textDim,
     fontFamily: 'monospace',
     textAlign: 'center',
   },
@@ -623,13 +605,13 @@ const styles = StyleSheet.create({
   },
   playingIndexText: {
     fontSize: 11,
-    color: '#34D399',
+    color: colors.primary,
   },
   trackCover: {
     width: 40,
     height: 40,
-    borderRadius: 5,
-    backgroundColor: '#171717',
+    borderRadius: 6,
+    backgroundColor: '#1E2130',
     marginLeft: 8,
   },
   trackDetails: {
@@ -645,17 +627,17 @@ const styles = StyleSheet.create({
   trackTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
     flexShrink: 1,
   },
   trackTitlePlaying: {
-    color: '#34D399',
+    color: colors.primary,
     fontWeight: '700',
   },
   flacBadge: {
-    backgroundColor: '#171717',
+    backgroundColor: colors.badgeBg,
     borderWidth: 0.5,
-    borderColor: '#262626',
+    borderColor: colors.badgeBorder,
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 3,
@@ -667,20 +649,20 @@ const styles = StyleSheet.create({
   flacBadgeText: {
     fontSize: 8,
     fontWeight: '700',
-    color: '#A3A3A3',
+    color: colors.badgeText,
     fontFamily: 'monospace',
   },
   badgeText320: {
-    color: '#38BDF8',
+    color: colors.cyan,
   },
   trackArtist: {
     fontSize: 11,
-    color: '#8E8E93',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   trackDuration: {
     fontSize: 11,
-    color: '#666666',
+    color: colors.textDim,
     fontFamily: 'monospace',
   },
   downloadIconBtn: {
@@ -691,7 +673,7 @@ const styles = StyleSheet.create({
   },
   downloadingText: {
     fontSize: 12,
-    color: '#F5B942',
+    color: colors.gold,
     fontWeight: '700',
   },
   modalOverlay: {
@@ -703,21 +685,21 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    backgroundColor: '#0D0D0D',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#242424',
+    borderColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 18,
@@ -727,21 +709,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderRadius: 12,
-    backgroundColor: '#141414',
+    backgroundColor: '#11131C',
     borderWidth: 1,
-    borderColor: '#222222',
+    borderColor: colors.border,
     marginBottom: 10,
     gap: 12,
   },
   userCardSelected: {
-    borderColor: '#FFFFFF',
-    backgroundColor: '#1C1C1C',
+    borderColor: colors.primary,
+    backgroundColor: '#161928',
   },
   userCardAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#262626',
+    backgroundColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -760,16 +742,16 @@ const styles = StyleSheet.create({
   userCardName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   userBadgePill: {
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 4,
-    backgroundColor: '#262626',
+    backgroundColor: colors.borderLight,
   },
   userBadgePillActive: {
-    backgroundColor: '#333333',
+    backgroundColor: colors.primary,
   },
   userBadgeText: {
     fontSize: 9,
@@ -779,13 +761,13 @@ const styles = StyleSheet.create({
   },
   userCardDesc: {
     fontSize: 11,
-    color: '#8E8E93',
+    color: colors.textSecondary,
   },
   checkCircle: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -88,7 +88,7 @@ export const MiniPlayer = () => {
 
   return (
     <View style={[styles.container, isDetailView && styles.containerDetailView]}>
-      {/* Top 2px Progress Bar */}
+      {/* Top Spotube Accent Progress Bar */}
       <View style={styles.progressBarBg} pointerEvents="none">
         <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
       </View>
@@ -132,7 +132,7 @@ export const MiniPlayer = () => {
         </View>
       </TouchableOpacity>
 
-      {/* Clean Non-nested Media Controls Group */}
+      {/* Spotube Media Controls Group */}
       <View style={styles.controlsGroup}>
         {/* Like Heart Button */}
         <TouchableOpacity
@@ -156,11 +156,11 @@ export const MiniPlayer = () => {
           onPress={handlePrevPress}
         >
           <Animated.View style={{ transform: [{ scale: prevBtnScale }] }}>
-            <SkipBack size={18} color="#CCCCCC" fill="#CCCCCC" />
+            <SkipBack size={18} color="#D1D5DB" fill="#D1D5DB" />
           </Animated.View>
         </TouchableOpacity>
 
-        {/* Play/Pause Button - Pure HAZE Animated Spring Button */}
+        {/* Play/Pause Button - Spotube Signature Vibrant Accent Spring Button */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handlePlayPress}
@@ -184,7 +184,7 @@ export const MiniPlayer = () => {
           onPress={handleNextPress}
         >
           <Animated.View style={{ transform: [{ scale: nextBtnScale }] }}>
-            <SkipForward size={18} color="#CCCCCC" fill="#CCCCCC" />
+            <SkipForward size={18} color="#D1D5DB" fill="#D1D5DB" />
           </Animated.View>
         </TouchableOpacity>
       </View>
@@ -195,23 +195,32 @@ export const MiniPlayer = () => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 80,
-    height: 64,
-    backgroundColor: '#0A0A0E',
-    borderTopWidth: 1,
-    borderTopColor: '#1F1F24',
+    left: 8,
+    right: 8,
+    bottom: 84,
+    height: 62,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     zIndex: 95,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
+    overflow: 'hidden',
   },
   containerDetailView: {
-    bottom: 0,
+    left: 8,
+    right: 8,
+    bottom: 8,
     zIndex: 130,
-    backgroundColor: '#07070A',
-    borderTopColor: '#272730',
+    backgroundColor: '#141622',
+    borderColor: colors.borderLight,
   },
   trackInfoPressArea: {
     flex: 1,
@@ -223,11 +232,11 @@ const styles = StyleSheet.create({
   artWrapper: {
     width: 44,
     height: 44,
-    borderRadius: 7,
+    borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#141414',
+    backgroundColor: '#1E2130',
     borderWidth: 1,
-    borderColor: '#222222',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   albumArt: {
     width: '100%',
@@ -244,7 +253,7 @@ const styles = StyleSheet.create({
   },
   visualizerBar: {
     width: 3.5,
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.primary,
     borderRadius: 2,
   },
   infoContainer: {
@@ -268,36 +277,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 3,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.badgeBg,
     borderWidth: 0.5,
-    borderColor: '#333333',
+    borderColor: colors.badgeBorder,
   },
   qualityBadgeFlac: {
     backgroundColor: '#2E2207',
-    borderColor: '#E5A93C',
+    borderColor: colors.gold,
   },
   qualityBadgeText: {
     fontSize: 8,
     fontWeight: '700',
-    color: '#E5E5E5',
+    color: colors.badgeText,
     letterSpacing: 0.5,
     fontFamily: 'monospace',
   },
   qualityBadgeTextFlac: {
-    color: '#F5C451',
+    color: colors.gold,
   },
   artist: {
     fontSize: 11,
-    color: '#8E8E93',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   controlsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   controlBtn: {
-    width: 32,
+    width: 30,
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
@@ -306,21 +315,21 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 2,
+    marginHorizontal: 3,
   },
   progressBarBg: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
-    height: 2,
-    backgroundColor: '#1A1A1A',
+    height: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   progressBarFill: {
-    height: 2,
-    backgroundColor: '#FFFFFF',
+    height: 2.5,
+    backgroundColor: colors.primary,
   },
 });

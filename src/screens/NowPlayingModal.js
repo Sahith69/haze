@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
   scrubberFill: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
   },
   scrubberThumb: {
     position: 'absolute',
@@ -976,6 +976,8 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     marginLeft: -6,
   },
   timeRow: {
@@ -998,9 +1000,14 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   actionsRow: {
     flexDirection: 'row',

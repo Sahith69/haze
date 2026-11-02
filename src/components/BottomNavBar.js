@@ -24,9 +24,9 @@ const TabItem = ({ tab, isActive, onPress }) => {
     >
       <Animated.View style={[styles.tabContent, { transform: [{ scale }] }]}>
         <IconComponent
-          size={20}
-          color={isActive ? '#FFFFFF' : '#666666'}
-          strokeWidth={isActive ? 2.4 : 1.8}
+          size={21}
+          color={isActive ? colors.primary : colors.textDim}
+          strokeWidth={isActive ? 2.4 : 1.9}
         />
         <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
           {tab.label}
@@ -67,12 +67,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 80,
+    height: 76,
     paddingTop: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(13, 14, 21, 0.96)',
     borderTopWidth: 1,
-    borderTopColor: '#1A1A1A',
+    borderTopColor: colors.border,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'flex-start',
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   tabContent: {
     alignItems: 'center',
@@ -91,20 +91,20 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#666666',
+    color: colors.textDim,
     marginTop: 4,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   tabLabelActive: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '700',
   },
   activeDot: {
     position: 'absolute',
     bottom: -6,
-    width: 3.5,
-    height: 3.5,
+    width: 4,
+    height: 4,
     borderRadius: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
   },
 });

@@ -108,7 +108,7 @@ export const CloudVaultScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.bg,
   },
   contentContainer: {
     paddingTop: 54,
@@ -125,9 +125,9 @@ const styles = StyleSheet.create({
   storageCard: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#1E1E1E',
+    borderColor: colors.border,
     marginBottom: 20,
   },
   storageHeaderRow: {
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   storageStatus: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#34D399',
+    color: colors.primary,
     fontFamily: 'monospace',
     letterSpacing: 0.5,
   },
@@ -171,14 +171,14 @@ const styles = StyleSheet.create({
   storageBarBg: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginTop: 10,
     overflow: 'hidden',
   },
   storageBarFill: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
   },
   storageSubtitle: {
     fontSize: 11,
@@ -195,10 +195,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   trackList: {
-    backgroundColor: '#080808',
+    backgroundColor: colors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1A1A1A',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   trackRow: {

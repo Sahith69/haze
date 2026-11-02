@@ -813,6 +813,7 @@ export const LibraryScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.bg,
   },
   contentContainer: {
     paddingHorizontal: 20,
@@ -858,7 +859,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
@@ -877,18 +878,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   tabPillActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FFFFFF',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   tabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#A1A1AA',
+    color: colors.textSecondary,
   },
   tabTextActive: {
     color: '#000000',
@@ -901,11 +902,11 @@ const styles = StyleSheet.create({
   shelfCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: colors.border,
     gap: 14,
   },
   shelfIconCircleHeartSmall: {
