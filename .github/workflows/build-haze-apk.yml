@@ -1,0 +1,95 @@
+name: Build HAZE Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - haze-v5.1.2
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build_android:
+    name: Build HAZE Android APK
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+          cache: "gradle"
+          check-latest: true
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2.18.0
+        with:
+          flutter-version: "3.35.2"
+          channel: "master"
+          cache: true
+          git-source: https://github.com/flutter/flutter.git
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev make python3-pip python3-setuptools patchelf desktop-file-utils libgdk-pixbuf2.0-dev fakeroot strace fuse
+
+      - name: Generate Environment Configuration
+        run: |
+          cat << 'EOF' > .env
+          ENABLE_UPDATE_CHECK=0
+          RELEASE_CHANNEL=stable
+          HIDE_DONATIONS=1
+          LASTFM_API_KEY=
+          LASTFM_API_SECRET=
+          EOF
+
+      - name: Install Flutter Packages
+        run: flutter pub get
+
+      - name: Run Build Runner
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Android Release APK
+        run: flutter build apk --flavor stable --release
+
+      - name: Stage APK for Release
+        run: |
+          mkdir -p build-output
+          cp build/app/outputs/flutter-apk/app-stable-release.apk build-output/HAZE-v5.1.2.apk
+          echo "Built APK details:"
+          ls -lh build-output/HAZE-v5.1.2.apk
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HAZE-v5.1.2-APK
+          path: build-output/HAZE-v5.1.2.apk
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v5.1.2-haze
+          name: "HAZE v5.1.2 (Spotube Engine + Studio Master 320k / Lossless FLAC)"
+          body: |
+            ### ⚡ HAZE v5.1.2 - Powered by Spotube Native Flutter Engine
+            
+            **Highlights in this build:**
+            - **Exact Spotube v5.1.2 UI**: Native Flutter Material 3 interface, 120Hz gesture handling, and synchronized LRCLIB lyrics.
+            - **HAZE Studio Master 320kbps Audio**: Direct resolution to unthrottled 320kbps AAC/MP4 CDN streams.
+            - **Seamless Fallback**: If a track is not on high-bitrate CDNs, it transparently falls back to YouTube streams without any user interruption.
+            - **Android Media3 Background Playback**: Lockscreen album artwork, interactive seekbar, and persistent notification player controls.
+            
+            📲 **Installation**: Download `HAZE-v5.1.2.apk` below and install it directly on your Android phone!
+          files: build-output/HAZE-v5.1.2.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
