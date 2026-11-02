@@ -9,12 +9,15 @@ import {
   Image,
   ActivityIndicator,
   FlatList,
+  StatusBar as RNStatusBar,
+  Platform,
 } from 'react-native';
 import { Search as SearchIcon, X, Play, MoreVertical, Disc3, Mic2, ListMusic } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { searchTracks, searchMusic } from '../services/api';
 import { colors } from '../theme/colors';
 
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 const CATEGORIES = ['All', 'Tracks', 'Artists', 'Albums'];
 
 function formatDuration(seconds) {
@@ -151,30 +154,32 @@ export const SearchScreen = () => {
           renderItem={({ item, index }) => {
             const isCurrent = currentTrack?.id === item.id;
             return (
-              <TouchableOpacity
-                style={[styles.resultRow, isCurrent && styles.resultRowActive]}
-                activeOpacity={0.7}
-                onPress={() => playTrack(item, filteredResults)}
-              >
-                <Image
-                  source={{ uri: item.cover || 'https://via.placeholder.com/150' }}
-                  style={styles.resultCover}
-                />
-                <View style={styles.resultDetails}>
-                  <Text
-                    style={[styles.resultTitle, isCurrent && { color: colors.primary }]}
-                    numberOfLines={1}
-                  >
-                    {item.title}
-                  </Text>
-                  <Text style={styles.resultSubtitle} numberOfLines={1}>
-                    {item.artist}
-                  </Text>
-                </View>
+              <View style={[styles.resultRow, isCurrent && styles.resultRowActive]}>
+                <TouchableOpacity
+                  style={styles.resultMainPressable}
+                  activeOpacity={0.7}
+                  onPress={() => playTrack(item, filteredResults)}
+                >
+                  <Image
+                    source={{ uri: item.cover || 'https://via.placeholder.com/150' }}
+                    style={styles.resultCover}
+                  />
+                  <View style={styles.resultDetails}>
+                    <Text
+                      style={[styles.resultTitle, isCurrent && { color: colors.primary }]}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+                    <Text style={styles.resultSubtitle} numberOfLines={1}>
+                      {item.artist}
+                    </Text>
+                  </View>
 
-                {item.duration > 0 && (
-                  <Text style={styles.durationText}>{formatDuration(item.duration)}</Text>
-                )}
+                  {item.duration > 0 && (
+                    <Text style={styles.durationText}>{formatDuration(item.duration)}</Text>
+                  )}
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.moreBtn}
@@ -183,7 +188,7 @@ export const SearchScreen = () => {
                 >
                   <MoreVertical size={18} color={colors.textDim} />
                 </TouchableOpacity>
-              </TouchableOpacity>
+              </View>
             );
           }}
         />
@@ -207,7 +212,7 @@ const styles = StyleSheet.create({
   },
   searchBarWrapper: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
     paddingBottom: 8,
   },
   searchInputContainer: {
@@ -272,6 +277,11 @@ const styles = StyleSheet.create({
   },
   resultRowActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  resultMainPressable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   resultCover: {
     width: 46,

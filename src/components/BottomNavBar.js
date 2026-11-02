@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Home, Search, Library, HardDrive } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
@@ -47,27 +47,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 62,
-    backgroundColor: colors.bg,
+    height: Platform.OS === 'android' ? 68 : 74,
+    backgroundColor: '#121212',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: '#242424',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingBottom: 4,
+    paddingBottom: Platform.OS === 'android' ? 8 : 16,
     zIndex: 90,
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   tabLabel: {
     fontSize: 11,
     fontWeight: '500',
     color: colors.textDim,
-    marginTop: 3,
+    marginTop: 2,
   },
   tabLabelActive: {
     color: colors.primary,

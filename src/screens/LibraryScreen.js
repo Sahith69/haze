@@ -9,6 +9,8 @@ import {
   FlatList,
   Modal,
   TextInput,
+  StatusBar as RNStatusBar,
+  Platform,
 } from 'react-native';
 import {
   Heart,
@@ -23,6 +25,7 @@ import {
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 const LIBRARY_TABS = ['Playlists', 'Liked Tracks', 'Downloads', 'Cloud Vault'];
 
 export const LibraryScreen = () => {
@@ -368,7 +371,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
     paddingBottom: 8,
   },
   headerTitle: {
@@ -410,7 +413,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 150,
+    paddingBottom: 160,
   },
   tabContent: {
     paddingTop: 4,

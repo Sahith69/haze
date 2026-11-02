@@ -25,7 +25,17 @@ export const EqualizerModal = () => {
     volumeLeveling,
     setVolumeLeveling,
     closeModal,
+    setActiveModal,
+    currentTrack,
   } = usePlayer();
+
+  const handleClose = () => {
+    if (currentTrack) {
+      setActiveModal('now_playing');
+    } else {
+      closeModal();
+    }
+  };
 
   const presets = ['Flat', 'Bass boost', 'Vocal', 'Rock'];
 
@@ -87,13 +97,13 @@ export const EqualizerModal = () => {
       visible={activeModal === 'equalizer'}
       animationType="slide"
       statusBarTranslucent
-      onRequestClose={closeModal}
+      onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.content}>
           {/* Top Header */}
           <View style={styles.headerBar}>
-            <TouchableOpacity style={styles.iconBtn} onPress={closeModal}>
+            <TouchableOpacity style={styles.iconBtn} onPress={handleClose}>
               <ChevronDown size={26} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Equalizer</Text>

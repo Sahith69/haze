@@ -1,8 +1,19 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  StatusBar as RNStatusBar,
+  Platform,
+} from 'react-native';
 import { HardDrive, Cloud, Play } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
+
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 
 function formatDuration(seconds) {
   if (!seconds || isNaN(seconds)) return '--:--';
@@ -111,7 +122,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   contentContainer: {
-    paddingTop: 54,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
     paddingHorizontal: 16,
     paddingBottom: 160,
   },

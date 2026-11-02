@@ -1722,8 +1722,15 @@ export const PlayerProvider = ({ children }) => {
     });
   };
 
-  const openArtistView = useCallback((artistName, artistCover = '') => {
+  const openArtistView = useCallback((artistInput, artistCover = '') => {
+    const artistName = typeof artistInput === 'object' && artistInput !== null
+      ? (artistInput.name || artistInput.title || '')
+      : (artistInput || '');
+    const cover = typeof artistInput === 'object' && artistInput !== null
+      ? (artistInput.cover || artistCover)
+      : artistCover;
     if (!artistName) return;
+
     if (activeModal === 'detail_view') {
       if (detailModalData) {
         detailHistoryRef.current.push(detailModalData);
@@ -1736,13 +1743,24 @@ export const PlayerProvider = ({ children }) => {
       type: 'artist',
       title: artistName,
       artist: artistName,
-      cover: artistCover,
+      cover: cover,
+      tracks: [],
     });
     setActiveModal('detail_view');
   }, [activeModal, detailModalData]);
 
-  const openAlbumView = useCallback((albumTitle, artistName = '', albumCover = '') => {
+  const openAlbumView = useCallback((albumInput, artistName = '', albumCover = '') => {
+    const albumTitle = typeof albumInput === 'object' && albumInput !== null
+      ? (albumInput.title || albumInput.name || '')
+      : (albumInput || '');
+    const artist = typeof albumInput === 'object' && albumInput !== null
+      ? (albumInput.artist || artistName)
+      : artistName;
+    const cover = typeof albumInput === 'object' && albumInput !== null
+      ? (albumInput.cover || albumCover)
+      : albumCover;
     if (!albumTitle) return;
+
     if (activeModal === 'detail_view') {
       if (detailModalData) {
         detailHistoryRef.current.push(detailModalData);
@@ -1754,8 +1772,9 @@ export const PlayerProvider = ({ children }) => {
     setDetailModalData({
       type: 'album',
       title: albumTitle,
-      artist: artistName,
-      cover: albumCover,
+      artist: artist,
+      cover: cover,
+      tracks: [],
     });
     setActiveModal('detail_view');
   }, [activeModal, detailModalData]);

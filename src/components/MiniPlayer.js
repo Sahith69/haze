@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
 import { Play, Pause, SkipBack, SkipForward, Heart } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 8,
     right: 8,
-    bottom: 68,
+    bottom: Platform.OS === 'android' ? 76 : 82,
     backgroundColor: '#242424',
     borderRadius: 8,
     overflow: 'hidden',

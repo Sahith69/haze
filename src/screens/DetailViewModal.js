@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,11 @@ import {
   Modal,
   StatusBar as RNStatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { ArrowLeft, Play, Shuffle, MoreVertical, Music2 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import { fetchArtistDetails, fetchAlbumDetails } from '../services/api';
 import { colors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -38,19 +40,62 @@ export const DetailViewModal = () => {
   } = usePlayer();
 
   const data = detailViewData || detailModalData;
+  const initialTracks = data?.tracks || [];
+  const initialCover = data?.cover || '';
+
+  const [activeTracks, setActiveTracks] = useState(initialTracks);
+  const [heroCover, setHeroCover] = useState(initialCover);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!data) return;
+    if (data.tracks && data.tracks.length > 0) {
+      setActiveTracks(data.tracks);
+      setHeroCover(data.cover || '');
+      setLoading(false);
+      return;
+    }
+
+    let isCurrent = true;
+    const fetchDetails = async () => {
+      setLoading(true);
+      try {
+        if (data.type === 'artist' && data.title) {
+          const res = await fetchArtistDetails(data.title);
+          if (isCurrent && res) {
+            if (res.songs && res.songs.length > 0) setActiveTracks(res.songs);
+            if (res.image) setHeroCover(res.image);
+          }
+        } else if (data.type === 'album' && data.title) {
+          const res = await fetchAlbumDetails(data.title, data.artist);
+          if (isCurrent && res) {
+            if (res.tracks && res.tracks.length > 0) setActiveTracks(res.tracks);
+            if (res.cover) setHeroCover(res.cover);
+          }
+        }
+      } catch (e) {
+      } finally {
+        if (isCurrent) setLoading(false);
+      }
+    };
+    fetchDetails();
+    return () => { isCurrent = false; };
+  }, [data]);
+
   if (!data) return null;
 
-  const { title = '', description = '', cover = '', tracks = [] } = data;
+  const title = data.title || 'Collection';
+  const description = data.description || '';
 
   const handlePlayAll = () => {
-    if (tracks.length > 0) {
-      playTrack(tracks[0], tracks);
+    if (activeTracks.length > 0) {
+      playTrack(activeTracks[0], activeTracks);
     }
   };
 
   const handleShuffleAll = () => {
-    if (tracks.length > 0) {
-      const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+    if (activeTracks.length > 0) {
+      const shuffled = [...activeTracks].sort(() => Math.random() - 0.5);
       playTrack(shuffled[0], shuffled);
     }
   };
@@ -86,7 +131,7 @@ export const DetailViewModal = () => {
         {/* Hero Header */}
         <View style={styles.heroSection}>
           <Image
-            source={{ uri: cover || 'https://via.placeholder.com/300' }}
+            source={{ uri: heroCover || 'https://via.placeholder.com/300' }}
             style={styles.heroCover}
           />
           <Text style={styles.heroTitle}>{title}</Text>
@@ -94,7 +139,7 @@ export const DetailViewModal = () => {
             <Text style={styles.heroSubtitle}>{description}</Text>
           ) : null}
           <Text style={styles.trackCountText}>
-            {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}
+            {loading ? 'Loading tracks...' : `${activeTracks.length} ${activeTracks.length === 1 ? 'track' : 'tracks'}`}
           </Text>
 
           {/* Action Buttons */}
@@ -121,40 +166,49 @@ export const DetailViewModal = () => {
 
         {/* Tracks List */}
         <View style={styles.trackList}>
-          {tracks.length === 0 ? (
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Fetching discography...</Text>
+            </View>
+          ) : activeTracks.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Music2 size={36} color={colors.borderLight} />
               <Text style={styles.emptyText}>No tracks in this collection</Text>
             </View>
           ) : (
-            tracks.map((track, idx) => {
+            activeTracks.map((track, idx) => {
               const isCurrent = currentTrack?.id === track.id;
               return (
-                <TouchableOpacity
+                <View
                   key={`detail_track_${track.id || idx}`}
                   style={[styles.trackRow, isCurrent && styles.trackRowActive]}
-                  activeOpacity={0.7}
-                  onPress={() => playTrack(track, tracks)}
                 >
-                  <Text style={styles.trackIndex}>{idx + 1}</Text>
-                  <Image source={{ uri: track.cover }} style={styles.trackThumb} />
-                  <View style={styles.trackDetails}>
-                    <Text
-                      style={[styles.trackName, isCurrent && { color: colors.primary }]}
-                      numberOfLines={1}
-                    >
-                      {track.title}
-                    </Text>
-                    <Text style={styles.trackArtist} numberOfLines={1}>
-                      {track.artist}
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.trackPressable}
+                    activeOpacity={0.7}
+                    onPress={() => playTrack(track, activeTracks)}
+                  >
+                    <Text style={styles.trackIndex}>{idx + 1}</Text>
+                    <Image source={{ uri: track.cover || 'https://via.placeholder.com/150' }} style={styles.trackThumb} />
+                    <View style={styles.trackDetails}>
+                      <Text
+                        style={[styles.trackName, isCurrent && { color: colors.primary }]}
+                        numberOfLines={1}
+                      >
+                        {track.title}
+                      </Text>
+                      <Text style={styles.trackArtist} numberOfLines={1}>
+                        {track.artist}
+                      </Text>
+                    </View>
 
-                  {track.duration > 0 && (
-                    <Text style={styles.durationText}>
-                      {formatDuration(track.duration)}
-                    </Text>
-                  )}
+                    {track.duration > 0 && (
+                      <Text style={styles.durationText}>
+                        {formatDuration(track.duration)}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.moreBtn}
@@ -163,7 +217,7 @@ export const DetailViewModal = () => {
                   >
                     <MoreVertical size={16} color={colors.textDim} />
                   </TouchableOpacity>
-                </TouchableOpacity>
+                </View>
               );
             })
           )}
@@ -286,6 +340,11 @@ const styles = StyleSheet.create({
   trackRowActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
+  trackPressable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   trackIndex: {
     width: 26,
     fontSize: 13,
@@ -326,6 +385,17 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 40,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 12,
   },
   emptyText: {
     fontSize: 14,

@@ -7,11 +7,15 @@ import {
   StyleSheet,
   Image,
   RefreshControl,
+  StatusBar as RNStatusBar,
+  Platform,
 } from 'react-native';
 import { Play, Settings, Cast, Music, Disc3, Sparkles } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { fetchTrending, fetchVaultList } from '../services/api';
 import { colors } from '../theme/colors';
+
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 
 const GENRES = [
   { id: 'pop', name: 'Pop', color: '#E13300' },
@@ -250,7 +254,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   contentContainer: {
-    paddingTop: 16,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
     paddingBottom: 150,
   },
   topBar: {
@@ -416,13 +420,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 16,
     justifyContent: 'space-between',
-    gap: 12,
   },
   genreCard: {
     width: '48%',
     height: 80,
     borderRadius: 8,
     padding: 12,
+    marginBottom: 12,
     justifyContent: 'flex-start',
   },
   genreTitle: {
