@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   StatusBar as RNStatusBar,
   Platform,
 } from 'react-native';
-import { ChevronDown, Mic2 } from 'lucide-react-native';
+import { ChevronDown, Mic2, Plus, Minus, RotateCcw } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
@@ -18,8 +18,14 @@ const { width, height } = Dimensions.get('window');
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 
 export const SyncedLyricsModal = () => {
-  const { activeModal, currentTrack, position, duration, liveLyrics, seekTo, setActiveModal } = usePlayer();
+  const { activeModal, currentTrack, position, duration, liveLyrics, seekTo, setActiveModal, accentColor } = usePlayer();
   const scrollViewRef = useRef(null);
+  const [syncOffset, setSyncOffset] = useState(0); // Offset in seconds (-5.0s to +5.0s)
+
+  // Reset offset when track changes
+  useEffect(() => {
+    setSyncOffset(0);
+  }, [currentTrack?.id]);
 
   const lyricsList = useMemo(() => {
     if (liveLyrics?.synced && Array.isArray(liveLyrics.synced) && liveLyrics.synced.length > 0) {
@@ -41,19 +47,20 @@ export const SyncedLyricsModal = () => {
     return [];
   }, [liveLyrics, duration]);
 
-  // Find active line index based on position
+  // Find active line index based on position + syncOffset
   const activeLineIndex = useMemo(() => {
     if (lyricsList.length === 0) return -1;
+    const effectivePos = position + syncOffset;
     let idx = -1;
     for (let i = 0; i < lyricsList.length; i++) {
-      if (position >= lyricsList[i].time) {
+      if (effectivePos >= lyricsList[i].time) {
         idx = i;
       } else {
         break;
       }
     }
     return idx;
-  }, [lyricsList, position]);
+  }, [lyricsList, position, syncOffset]);
 
   // Auto-scroll to active line
   useEffect(() => {
@@ -64,6 +71,13 @@ export const SyncedLyricsModal = () => {
       });
     }
   }, [activeLineIndex]);
+
+  const adjustOffset = (delta) => {
+    setSyncOffset((prev) => {
+      const next = Math.round((prev + delta) * 10) / 10;
+      return Math.max(-5.0, Math.min(5.0, next));
+    });
+  };
 
   return (
     <Modal
@@ -88,12 +102,58 @@ export const SyncedLyricsModal = () => {
               {currentTrack?.title || 'Lyrics'}
             </Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
-              {currentTrack?.artist || 'Spotube LRCLIB Sync'}
+              {currentTrack?.artist || 'Synced Lyrics'}
             </Text>
           </View>
 
           <View style={{ width: 40 }} />
         </View>
+
+        {/* Sync Offset Controls */}
+        {lyricsList.length > 0 && (
+          <View style={styles.offsetBar}>
+            <Text style={styles.offsetLabel}>Sync Offset</Text>
+            <View style={styles.offsetControls}>
+              <TouchableOpacity
+                style={styles.offsetBtn}
+                onPress={() => adjustOffset(-0.5)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Minus size={14} color="#FFFFFF" />
+                <Text style={styles.offsetBtnText}>0.5s</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.offsetValuePill,
+                  syncOffset !== 0 && { borderColor: accentColor || colors.primary, backgroundColor: (accentColor || colors.primary) + '20' },
+                ]}
+                onPress={() => setSyncOffset(0)}
+              >
+                <Text
+                  style={[
+                    styles.offsetValueText,
+                    syncOffset !== 0 && { color: accentColor || colors.primary, fontWeight: '800' },
+                  ]}
+                >
+                  {syncOffset === 0 ? '0.0s' : `${syncOffset > 0 ? '+' : ''}${syncOffset.toFixed(1)}s`}
+                </Text>
+                {syncOffset !== 0 && (
+                  <RotateCcw size={11} color={accentColor || colors.primary} style={{ marginLeft: 4 }} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.offsetBtn}
+                onPress={() => adjustOffset(0.5)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Plus size={14} color="#FFFFFF" />
+                <Text style={styles.offsetBtnText}>0.5s</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Lyrics Scrollable Area */}
         {lyricsList.length > 0 ? (
@@ -110,9 +170,14 @@ export const SyncedLyricsModal = () => {
                   key={`lyric_${idx}`}
                   style={styles.lineTouchable}
                   activeOpacity={0.7}
-                  onPress={() => seekTo(item.time)}
+                  onPress={() => seekTo(Math.max(0, item.time - syncOffset))}
                 >
-                  <Text style={[styles.lineText, isActive && styles.lineTextActive]}>
+                  <Text
+                    style={[
+                      styles.lineText,
+                      isActive && [styles.lineTextActive, { color: accentColor || '#FFFFFF' }],
+                    ]}
+                  >
                     {item.text}
                   </Text>
                 </TouchableOpacity>
@@ -166,12 +231,63 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textSecondary,
   },
+  offsetBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: '#181818',
+    borderBottomWidth: 1,
+    borderBottomColor: '#222222',
+  },
+  offsetLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textDim,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  offsetControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  offsetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#262626',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    gap: 2,
+  },
+  offsetBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  offsetValuePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    backgroundColor: '#242424',
+    borderWidth: 1,
+    borderColor: '#383838',
+  },
+  offsetValueText: {
+    color: '#E5E7EB',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   lyricsScroll: {
     flex: 1,
   },
   lyricsContent: {
     paddingHorizontal: 28,
-    paddingTop: 40,
+    paddingTop: 30,
     paddingBottom: 180,
   },
   lineTouchable: {

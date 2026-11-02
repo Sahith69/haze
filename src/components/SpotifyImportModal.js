@@ -378,7 +378,7 @@ export const SpotifyImportModal = ({ visible, onClose }) => {
                       </Text>
                     </View>
                     <View style={styles.qualityPill}>
-                      <Text style={styles.qualityPillText}>✨ 320k</Text>
+                      <Text style={styles.qualityPillText}>320k</Text>
                     </View>
                   </View>
                 ))}

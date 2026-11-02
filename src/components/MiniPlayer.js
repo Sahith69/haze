@@ -18,6 +18,7 @@ export const MiniPlayer = () => {
     duration,
     toggleLike,
     isTrackLiked,
+    accentColor,
   } = usePlayer();
 
   if (!currentTrack) return null;
@@ -34,7 +35,12 @@ export const MiniPlayer = () => {
     <View style={styles.wrapper}>
       {/* Top Thin Progress Bar */}
       <View style={styles.progressBarBg}>
-        <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+        <View
+          style={[
+            styles.progressBarFill,
+            { width: `${progress * 100}%`, backgroundColor: accentColor || colors.primary },
+          ]}
+        />
       </View>
 
       <View style={styles.container}>
@@ -83,7 +89,7 @@ export const MiniPlayer = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.playPauseBtn}
+            style={[styles.playPauseBtn, { backgroundColor: accentColor || colors.primary }]}
             activeOpacity={0.8}
             onPress={togglePlayPause}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}

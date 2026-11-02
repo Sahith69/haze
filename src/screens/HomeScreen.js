@@ -54,6 +54,7 @@ export const HomeScreen = () => {
     setShowQualityModal,
     setQualityModalMode,
     currentUser,
+    accentColor,
     setShowUserModal,
   } = usePlayer();
 
@@ -95,17 +96,17 @@ export const HomeScreen = () => {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
+          tintColor={accentColor || colors.primary}
+          colors={[accentColor || colors.primary]}
         />
       }
     >
-      {/* Spotube Top Bar */}
+      {/* Top Bar */}
       <View style={styles.topBar}>
         <View style={styles.brandingLeft}>
           <Text style={styles.brandTitle}>HAZE</Text>
-          <View style={styles.spotubeEnginePill}>
-            <Text style={styles.spotubeEngineText}>Spotube UI</Text>
+          <View style={[styles.hiResPill, { borderColor: (accentColor || colors.primary) + '50', backgroundColor: (accentColor || colors.primary) + '18' }]}>
+            <Text style={[styles.hiResText, { color: accentColor || colors.primary }]}>LOSSLESS</Text>
           </View>
         </View>
 
@@ -115,7 +116,9 @@ export const HomeScreen = () => {
             activeOpacity={0.7}
             onPress={() => setShowUserModal(true)}
           >
-            <Text style={styles.userAvatarEmoji}>{currentUser?.avatar || '⚡'}</Text>
+            <View style={[styles.userInitialsBadge, { backgroundColor: accentColor || colors.primary }]}>
+              <Text style={styles.userInitialsText}>{currentUser?.initials || currentUser?.name?.charAt(0) || 'S'}</Text>
+            </View>
             <Text style={styles.userNameText}>{currentUser?.name || 'Sahith'}</Text>
           </TouchableOpacity>
 
@@ -156,7 +159,7 @@ export const HomeScreen = () => {
                 />
                 {isCurrent && isPlaying && (
                   <View style={styles.playingOverlay}>
-                    <Play size={20} color={colors.primary} fill={colors.primary} />
+                    <Play size={20} color={accentColor || colors.primary} fill={accentColor || colors.primary} />
                   </View>
                 )}
               </View>
@@ -220,7 +223,7 @@ export const HomeScreen = () => {
               <Image source={{ uri: track.cover }} style={styles.trackThumb} />
               <View style={styles.trackDetails}>
                 <Text
-                  style={[styles.trackName, isCurrent && { color: colors.primary }]}
+                  style={[styles.trackName, isCurrent && { color: accentColor || colors.primary }]}
                   numberOfLines={1}
                 >
                   {track.title}
@@ -231,8 +234,8 @@ export const HomeScreen = () => {
               </View>
               <Play
                 size={16}
-                color={isCurrent ? colors.primary : colors.textDim}
-                fill={isCurrent ? colors.primary : 'transparent'}
+                color={isCurrent ? (accentColor || colors.primary) : colors.textDim}
+                fill={isCurrent ? (accentColor || colors.primary) : 'transparent'}
               />
             </TouchableOpacity>
           );
@@ -286,19 +289,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 1.2,
   },
-  spotubeEnginePill: {
-    backgroundColor: 'rgba(30, 215, 96, 0.15)',
+  hiResPill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
     marginLeft: 8,
     borderWidth: 1,
-    borderColor: 'rgba(30, 215, 96, 0.3)',
   },
-  spotubeEngineText: {
-    color: colors.primary,
+  hiResText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   topBarActions: {
     flexDirection: 'row',
@@ -308,16 +309,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#242424',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#383838',
     marginRight: 6,
-    gap: 6,
+    gap: 8,
   },
-  userAvatarEmoji: {
-    fontSize: 14,
+  userInitialsBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInitialsText: {
+    color: '#000000',
+    fontSize: 11,
+    fontWeight: '900',
   },
   userNameText: {
     color: '#FFFFFF',

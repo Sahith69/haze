@@ -105,8 +105,9 @@ export const USERS = {
   sahith: {
     id: 'sahith',
     name: 'Sahith',
-    avatar: '⚡',
-    badge: '⚡ FLAC Master',
+    initials: 'S',
+    badge: 'Lossless Master',
+    accentColor: '#F5B942',
     colors: ['#F5B942', '#7C5CFF'],
     defaultQuality: '1411k',
     defaultFlac: true,
@@ -115,8 +116,9 @@ export const USERS = {
   kritika: {
     id: 'kritika',
     name: 'Kritika',
-    avatar: '✨',
-    badge: '✨ Hi-Fi Studio',
+    initials: 'K',
+    badge: 'Hi-Fi Studio',
+    accentColor: '#FF5C9E',
     colors: ['#FF5C9E', '#9B51E0'],
     defaultQuality: '320k',
     defaultFlac: false,
@@ -151,6 +153,26 @@ export const PlayerProvider = ({ children }) => {
 
   // User Profile Switcher modal state
   const [showUserModal, setShowUserModal] = useState(false);
+
+  // Dynamic Accent Color per profile
+  const accentColor = currentUser?.accentColor || '#1ED760';
+
+  // Sleep Timer state
+  const [sleepTimerOption, setSleepTimerOption] = useState('off'); // 'off' | '15m' | '30m' | '45m' | '60m' | 'end_of_track'
+  const [sleepTimerRemainingSec, setSleepTimerRemainingSec] = useState(null);
+  const sleepTimerIntervalRef = useRef(null);
+  const sleepTimerOptionRef = useRef('off');
+  useEffect(() => {
+    sleepTimerOptionRef.current = sleepTimerOption;
+  }, [sleepTimerOption]);
+
+  // Crossfade state
+  const [crossfadeSeconds, setCrossfadeSecondsState] = useState(0); // 0, 2, 3, 5
+  const crossfadeSecondsRef = useRef(0);
+  useEffect(() => {
+    crossfadeSecondsRef.current = crossfadeSeconds;
+  }, [crossfadeSeconds]);
+  const hasCrossfadedRef = useRef(false);
 
   // In-app Toast message system
   const [toastMessage, setToastMessage] = useState(null);
@@ -284,6 +306,7 @@ export const PlayerProvider = ({ children }) => {
       const qualityKey = `@haze_${userId}_quality`;
       const dlQualityKey = `@haze_${userId}_dl_quality`;
       const searchKey = `@haze_${userId}_search_history`;
+      const crossfadeKey = `@haze_${userId}_crossfade`;
 
       const [
         storedLikes,
@@ -292,6 +315,7 @@ export const PlayerProvider = ({ children }) => {
         storedQuality,
         storedDlQuality,
         storedSearch,
+        storedCrossfade,
       ] = await Promise.all([
         AsyncStorage.getItem(likesKey),
         AsyncStorage.getItem(playlistsKey),
@@ -299,12 +323,22 @@ export const PlayerProvider = ({ children }) => {
         AsyncStorage.getItem(qualityKey),
         AsyncStorage.getItem(dlQualityKey),
         AsyncStorage.getItem(searchKey),
+        AsyncStorage.getItem(crossfadeKey),
       ]);
 
       setLikedTracks(storedLikes ? JSON.parse(storedLikes) : []);
       setUserPlaylists(storedPlaylists ? JSON.parse(storedPlaylists) : []);
       setDownloadedTracks(storedDownloads ? JSON.parse(storedDownloads) : []);
       setSearchHistory(storedSearch ? JSON.parse(storedSearch) : []);
+
+      if (storedCrossfade !== null) {
+        const cf = Number(storedCrossfade) || 0;
+        setCrossfadeSecondsState(cf);
+        crossfadeSecondsRef.current = cf;
+      } else {
+        setCrossfadeSecondsState(0);
+        crossfadeSecondsRef.current = 0;
+      }
 
       const fallbackQuality = USERS[userId]?.defaultQuality || '1411k';
       const activeQ = storedQuality || fallbackQuality;
@@ -401,6 +435,123 @@ export const PlayerProvider = ({ children }) => {
     try {
       await AsyncStorage.removeItem(`@haze_${currentUser.id}_search_history`);
     } catch (e) {}
+  };
+
+  // Sleep Timer Controller
+  const setSleepTimer = (option) => {
+    if (sleepTimerIntervalRef.current) {
+      clearInterval(sleepTimerIntervalRef.current);
+      sleepTimerIntervalRef.current = null;
+    }
+    setSleepTimerOption(option);
+    sleepTimerOptionRef.current = option;
+
+    if (!option || option === 'off') {
+      setSleepTimerRemainingSec(null);
+      setToastMessage({ type: 'info', text: 'Sleep timer turned off' });
+      return;
+    }
+    if (option === 'end_of_track') {
+      setSleepTimerRemainingSec(null);
+      setToastMessage({ type: 'success', text: 'Sleep timer: Pauses at end of song' });
+      return;
+    }
+
+    const minutes = parseInt(option, 10);
+    if (isNaN(minutes) || minutes <= 0) return;
+
+    let remaining = minutes * 60;
+    setSleepTimerRemainingSec(remaining);
+    setToastMessage({ type: 'success', text: `Sleep timer set for ${minutes} minutes` });
+
+    sleepTimerIntervalRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(sleepTimerIntervalRef.current);
+        sleepTimerIntervalRef.current = null;
+        setSleepTimerRemainingSec(null);
+        setSleepTimerOption('off');
+        sleepTimerOptionRef.current = 'off';
+        if (soundRef.current) {
+          try {
+            soundRef.current.pause();
+          } catch (e) {}
+        }
+        setIsPlaying(false);
+        setToastMessage({ type: 'info', text: 'Sleep timer ended · Playback paused' });
+      } else {
+        setSleepTimerRemainingSec(remaining);
+      }
+    }, 1000);
+  };
+
+  // Crossfade Controller (persisted per profile)
+  const setCrossfadeSeconds = async (seconds) => {
+    const s = Number(seconds) || 0;
+    setCrossfadeSecondsState(s);
+    crossfadeSecondsRef.current = s;
+    try {
+      await AsyncStorage.setItem(`@haze_${currentUser.id}_crossfade`, String(s));
+    } catch (e) {}
+    setToastMessage({ type: 'info', text: s > 0 ? `Crossfade: ${s}s between songs` : 'Crossfade turned off' });
+  };
+
+  // Playlist management: Update playlist title and description
+  const updatePlaylist = async (playlistId, { name, description }) => {
+    if (!playlistId) return;
+    const updated = userPlaylists.map((pl) => {
+      if (pl.id === playlistId) {
+        return {
+          ...pl,
+          name: name ? name.trim() : pl.name,
+          description: description !== undefined ? description.trim() : pl.description,
+        };
+      }
+      return pl;
+    });
+    setUserPlaylists(updated);
+    try {
+      await AsyncStorage.setItem(`@haze_${currentUser.id}_playlists`, JSON.stringify(updated));
+      setToastMessage({ type: 'success', text: 'Playlist updated' });
+    } catch (e) {
+      console.error('[Playlist] Update error:', e);
+    }
+  };
+
+  // Offline Storage: Clear all downloads
+  const clearAllDownloads = async () => {
+    try {
+      for (const track of downloadedTracks) {
+        if (track.localAudioUri) {
+          try {
+            await FileSystem.deleteAsync(track.localAudioUri, { idempotent: true });
+          } catch (e) {}
+        }
+      }
+      setDownloadedTracks([]);
+      await AsyncStorage.setItem(`@haze_${currentUser.id}_downloads`, JSON.stringify([]));
+      setToastMessage({ type: 'success', text: 'All offline downloads removed' });
+    } catch (e) {
+      console.error('[Download] Clear all error:', e);
+    }
+  };
+
+  // Clear temporary cache
+  const clearTempCache = async () => {
+    try {
+      const cacheDir = FileSystem.cacheDirectory;
+      if (cacheDir) {
+        const files = await FileSystem.readDirectoryAsync(cacheDir);
+        for (const f of files) {
+          try {
+            await FileSystem.deleteAsync(`${cacheDir}${f}`, { idempotent: true });
+          } catch (e) {}
+        }
+      }
+      setToastMessage({ type: 'success', text: 'Temporary cache cleared' });
+    } catch (e) {
+      console.error('[Cache] Clear error:', e);
+    }
   };
 
   // Configure background audio mode and notification permissions on mount
@@ -613,6 +764,8 @@ export const PlayerProvider = ({ children }) => {
       queueRef.current = contextQueue;
     }
 
+    hasCrossfadedRef.current = false;
+
     const isDownloadedItem = downloadedTracks.find(d => d.id === track.id);
     const resolvedQuality = isDownloadedItem
       ? `${isDownloadedItem.qualityLabel} · Offline`
@@ -706,7 +859,7 @@ export const PlayerProvider = ({ children }) => {
         // If user requested FLAC (1411k), but audio resolved to 320k Studio Master (not in Vault or unavailable)
         if (streamingQuality === '1411k' && (!isActuallyFlac || streamResult?.flacUnavailable) && !isDownloadedItem) {
           console.log('[PlayerContext] FLAC not in Vault, playing 320k Studio Master');
-          setToastMessage({ type: 'info', text: '⚡ FLAC not in Vault · Playing in 320 kbps Studio Master' });
+          setToastMessage({ type: 'info', text: 'FLAC not in Vault · Playing in 320 kbps Studio Master' });
           setCurrentTrack(prev => ({
             ...prev,
             qualityLabel: '320 kbps · Studio Master',
@@ -856,7 +1009,7 @@ export const PlayerProvider = ({ children }) => {
                     updateLockScreenControls(player, track, '1,411 kbps · Pure Lossless FLAC Master');
                     setToastMessage({
                       type: 'success',
-                      text: '⚡ Upgraded to Pure Lossless FLAC Master',
+                      text: 'Upgraded to Lossless FLAC Master',
                     });
                   }
                 } catch (dlErr) {
@@ -922,7 +1075,7 @@ export const PlayerProvider = ({ children }) => {
                 }));
                 setToastMessage({
                   type: 'info',
-                  text: '⚡ Switched to 320 kbps Studio Master',
+                  text: 'Switched to 320 kbps Studio Master',
                 });
                 updateLockScreenControls(player, track, '320 kbps · Studio Master');
                 return;
@@ -948,7 +1101,7 @@ export const PlayerProvider = ({ children }) => {
                 }));
                 setToastMessage({
                   type: 'info',
-                  text: '⚡ Switched to 320 kbps Studio Master',
+                  text: 'Switched to 320 kbps Studio Master',
                 });
                 updateLockScreenControls(player, track, '320 kbps · Studio Master');
                 return;
@@ -994,6 +1147,19 @@ export const PlayerProvider = ({ children }) => {
           if (status.duration) {
             setDuration(Math.round(status.duration));
           }
+          // Seamless Crossfade Transition
+          if (
+            crossfadeSecondsRef.current > 0 &&
+            !hasCrossfadedRef.current &&
+            status.duration &&
+            status.duration > 20 &&
+            status.currentTime >= status.duration - crossfadeSecondsRef.current
+          ) {
+            hasCrossfadedRef.current = true;
+            console.log(`[PlayerContext] Crossfade triggered at ${status.currentTime}s`);
+            handleTrackFinish();
+            return;
+          }
           if (status.didJustFinish) {
             // Guard against premature finish triggers when stream fails to load
             if (status.currentTime > 5 || (status.duration && status.duration > 10)) {
@@ -1036,7 +1202,7 @@ export const PlayerProvider = ({ children }) => {
                     }));
                     setToastMessage({
                       type: 'info',
-                      text: '⚡ Switched to 320 kbps Studio Master',
+                      text: 'Switched to 320 kbps Studio Master',
                     });
                     updateLockScreenControls(player, track, '320 kbps · Studio Master');
                   } else {
@@ -1220,7 +1386,7 @@ export const PlayerProvider = ({ children }) => {
               setQueue((prev) => [...prev, ...fresh.slice(0, 8)]);
               setToastMessage({
                 type: 'info',
-                text: `✨ Smart Shuffle: Added ${Math.min(fresh.length, 8)} complementary tracks to queue`,
+                text: `Smart Shuffle: Added ${Math.min(fresh.length, 8)} complementary tracks to queue`,
               });
             }
           }
@@ -1246,7 +1412,7 @@ export const PlayerProvider = ({ children }) => {
           setQueue((prev) => [...prev, ...toAdd]);
           setToastMessage({
             type: 'info',
-            text: `✨ Smart Shuffle: Autoplaying complementary artist vibes`,
+            text: `Smart Shuffle: Autoplaying complementary artist vibes`,
           });
           return toAdd[0];
         }
@@ -1358,6 +1524,18 @@ export const PlayerProvider = ({ children }) => {
   });
 
   const handleTrackFinish = () => {
+    if (sleepTimerOptionRef.current === 'end_of_track') {
+      sleepTimerOptionRef.current = 'off';
+      setSleepTimerOption('off');
+      if (soundRef.current) {
+        try {
+          soundRef.current.pause();
+        } catch (e) {}
+      }
+      setIsPlaying(false);
+      setToastMessage({ type: 'info', text: 'Sleep timer ended · Playback paused' });
+      return;
+    }
     if (isRepeat) {
       seekTo(0);
       if (soundRef.current) soundRef.current.play();
@@ -1701,7 +1879,7 @@ export const PlayerProvider = ({ children }) => {
         text: nextMode === 'endless'
           ? '♾️ Endless Shuffle On · Music Will Play Infinitely'
           : nextMode === 'on'
-          ? '✨ Smart Shuffle On · Queue Randomized'
+          ? 'Smart Shuffle On · Queue Randomized'
           : 'Shuffle Off',
       });
       return nextMode;
@@ -1830,9 +2008,18 @@ export const PlayerProvider = ({ children }) => {
     <PlayerContext.Provider
       value={{
         currentUser,
+        accentColor,
         switchUser,
         showUserModal,
         setShowUserModal,
+        sleepTimerOption,
+        sleepTimerRemainingSec,
+        setSleepTimer,
+        crossfadeSeconds,
+        setCrossfadeSeconds,
+        updatePlaylist,
+        clearAllDownloads,
+        clearTempCache,
         flacEnabled,
         toggleFlac,
         streamingQuality,

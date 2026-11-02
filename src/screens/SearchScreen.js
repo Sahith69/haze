@@ -41,6 +41,7 @@ export const SearchScreen = () => {
     addSearchHistory,
     removeSearchHistory,
     clearSearchHistory,
+    accentColor,
   } = usePlayer();
 
   const queryValue = typeof searchQuery === 'string' ? searchQuery : '';
@@ -167,7 +168,7 @@ export const SearchScreen = () => {
         </View>
       </View>
 
-      {/* Spotube Category Filter Pills */}
+      {/* Category Filter Pills */}
       <View style={styles.categoriesWrapper}>
         <ScrollView
           horizontal
@@ -179,7 +180,10 @@ export const SearchScreen = () => {
             return (
               <TouchableOpacity
                 key={cat}
-                style={[styles.pill, isActive && styles.pillActive]}
+                style={[
+                  styles.pill,
+                  isActive && [styles.pillActive, { backgroundColor: accentColor || colors.primary }],
+                ]}
                 activeOpacity={0.7}
                 onPress={() => setActiveCategory(cat)}
               >
@@ -195,7 +199,7 @@ export const SearchScreen = () => {
       {/* Content Area */}
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={accentColor || colors.primary} />
         </View>
       ) : filteredResults.length > 0 ? (
         <FlatList
@@ -266,7 +270,7 @@ export const SearchScreen = () => {
                   />
                   <View style={styles.resultDetails}>
                     <Text
-                      style={[styles.resultTitle, isCurrent && { color: colors.primary }]}
+                      style={[styles.resultTitle, isCurrent && { color: accentColor || colors.primary }]}
                       numberOfLines={1}
                     >
                       {item.title}
@@ -311,7 +315,7 @@ export const SearchScreen = () => {
           <View style={styles.historyHeader}>
             <Text style={styles.historySectionTitle}>Recent Searches</Text>
             <TouchableOpacity onPress={clearSearchHistory} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.clearHistoryText}>Clear All</Text>
+              <Text style={[styles.clearHistoryText, { color: accentColor || colors.primary }]}>Clear All</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.historyList}>
@@ -344,7 +348,7 @@ export const SearchScreen = () => {
       ) : (
         <View style={styles.centerContainer}>
           <SearchIcon size={48} color={colors.borderLight} />
-          <Text style={styles.emptyPromptTitle}>Search Spotube Library</Text>
+          <Text style={styles.emptyPromptTitle}>Search HAZE Catalog</Text>
           <Text style={styles.emptyPromptSub}>
             Type any song, artist, album, or genre name above
           </Text>

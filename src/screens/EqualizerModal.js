@@ -27,6 +27,10 @@ export const EqualizerModal = () => {
     closeModal,
     setActiveModal,
     currentTrack,
+    crossfadeSeconds,
+    setCrossfadeSeconds,
+    accentColor,
+    showToast,
   } = usePlayer();
 
   const handleClose = () => {
@@ -106,88 +110,146 @@ export const EqualizerModal = () => {
             <TouchableOpacity style={styles.iconBtn} onPress={handleClose}>
               <ChevronDown size={26} color="#FFFFFF" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Equalizer</Text>
+            <Text style={styles.headerTitle}>Audio & Equalizer</Text>
             <View style={{ width: 44 }} />
           </View>
 
-          {/* Preset Selector Pills */}
-        <View style={styles.presetsRow}>
-          {presets.map((preset) => {
-            const isActive = eqPreset === preset;
-            return (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+            {/* Preset Selector Pills */}
+            <View style={styles.presetsRow}>
+              {presets.map((preset) => {
+                const isActive = eqPreset === preset;
+                return (
+                  <TouchableOpacity
+                    key={preset}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.presetPill,
+                      isActive
+                        ? [styles.presetPillActive, { backgroundColor: accentColor || '#FFFFFF' }]
+                        : styles.presetPillInactive,
+                    ]}
+                    onPress={() => handlePresetSelect(preset)}
+                  >
+                    <Text
+                      style={[
+                        styles.presetText,
+                        isActive ? styles.presetTextActive : styles.presetTextInactive,
+                      ]}
+                    >
+                      {preset}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* 10-Band Graphic Equalizer Faders */}
+            <View style={styles.eqContainer}>
+              {bands.map((band) => {
+                const val = eqBands[band.key] || 80; // 0 to 160
+                const thumbBottom = Math.max(0, Math.min(val - 10, 140));
+
+                return (
+                  <TouchableOpacity
+                    key={band.key}
+                    activeOpacity={0.9}
+                    style={styles.bandColumn}
+                    onPress={() => {
+                      const nextVal = ((val + 30) % 150) + 20;
+                      setEqBand(band.key, nextVal);
+                    }}
+                  >
+                    {/* 160px Vertical Fader Track */}
+                    <View style={styles.faderTrack}>
+                      <View style={[styles.faderFill, { height: val, backgroundColor: accentColor || colors.primary }]} />
+                      <View style={[styles.faderThumb, { bottom: thumbBottom, backgroundColor: '#FFFFFF' }]} />
+                    </View>
+                    <Text style={styles.bandLabel}>{band.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Crossfade & Gapless Playback Suite */}
+            <View style={styles.featureCard}>
+              <View style={styles.featureCardHeader}>
+                <Text style={styles.featureTitle}>Crossfade & Gapless Playback</Text>
+                <Text style={styles.featureDesc}>Smoothly blend transitions between consecutive tracks</Text>
+              </View>
+
+              <View style={styles.crossfadePillsRow}>
+                {[
+                  { sec: 0, label: 'Off' },
+                  { sec: 2, label: '2s' },
+                  { sec: 3, label: '3s' },
+                  { sec: 5, label: '5s' },
+                ].map((item) => {
+                  const isSelected = crossfadeSeconds === item.sec;
+                  return (
+                    <TouchableOpacity
+                      key={`cf_${item.sec}`}
+                      style={[
+                        styles.crossfadePill,
+                        isSelected && [
+                          styles.crossfadePillActive,
+                          { backgroundColor: accentColor || colors.primary, borderColor: accentColor || colors.primary },
+                        ],
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setCrossfadeSeconds(item.sec);
+                        if (showToast) {
+                          showToast(
+                            item.sec === 0
+                              ? 'Crossfade turned off'
+                              : `Crossfade set to ${item.label}`,
+                            'info'
+                          );
+                        }
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.crossfadePillText,
+                          isSelected && styles.crossfadePillTextActive,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Volume Leveling Switch */}
+            <View style={styles.levelingCard}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={styles.levelingTitle}>Volume leveling</Text>
+                <Text style={styles.levelingDesc}>Consistent loudness across every studio track</Text>
+              </View>
               <TouchableOpacity
-                key={preset}
                 activeOpacity={0.8}
                 style={[
-                  styles.presetPill,
-                  isActive ? styles.presetPillActive : styles.presetPillInactive,
+                  styles.switchTrack,
+                  volumeLeveling
+                    ? [styles.switchTrackOn, { backgroundColor: accentColor || colors.primary }]
+                    : styles.switchTrackOff,
                 ]}
-                onPress={() => handlePresetSelect(preset)}
+                onPress={() => setVolumeLeveling(!volumeLeveling)}
               >
-                <Text
+                <View
                   style={[
-                    styles.presetText,
-                    isActive ? styles.presetTextActive : styles.presetTextInactive,
+                    styles.switchThumb,
+                    volumeLeveling ? styles.switchThumbOn : styles.switchThumbOff,
                   ]}
-                >
-                  {preset}
-                </Text>
+                />
               </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* 10-Band Graphic Equalizer Faders matching 08_Equalizer */}
-        <View style={styles.eqContainer}>
-          {bands.map((band) => {
-            const val = eqBands[band.key] || 80; // 0 to 160
-            const thumbBottom = Math.max(0, Math.min(val - 10, 140));
-
-            return (
-              <TouchableOpacity
-                key={band.key}
-                activeOpacity={0.9}
-                style={styles.bandColumn}
-                onPress={() => {
-                  const nextVal = (val + 30) % 150 + 20;
-                  setEqBand(band.key, nextVal);
-                }}
-              >
-                {/* 160px Vertical Fader Track */}
-                <View style={styles.faderTrack}>
-                  <View style={[styles.faderFill, { height: val }]} />
-                  <View style={[styles.faderThumb, { bottom: thumbBottom }]} />
-                </View>
-                <Text style={styles.bandLabel}>{band.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Volume Leveling Switch matching 08_Equalizer */}
-        <View style={styles.levelingCard}>
-          <View>
-            <Text style={styles.levelingTitle}>Volume leveling</Text>
-            <Text style={styles.levelingDesc}>Same loudness on every song</Text>
-          </View>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[
-              styles.switchTrack,
-              volumeLeveling ? styles.switchTrackOn : styles.switchTrackOff,
-            ]}
-            onPress={() => setVolumeLeveling(!volumeLeveling)}
-          >
-            <View
-              style={[
-                styles.switchThumb,
-                volumeLeveling ? styles.switchThumbOn : styles.switchThumbOff,
-              ]}
-            />
-          </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </View>
-    </View>
   </Modal>
   );
 };
@@ -295,8 +357,8 @@ const styles = StyleSheet.create({
     color: colors.textDim,
   },
   levelingCard: {
-    marginTop: 38,
-    height: 64,
+    marginTop: 20,
+    minHeight: 64,
     borderRadius: 16,
     backgroundColor: colors.cardBg,
     borderWidth: 1,
@@ -305,6 +367,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  featureCard: {
+    marginTop: 24,
+    borderRadius: 16,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    padding: 16,
+  },
+  featureCardHeader: {
+    marginBottom: 12,
+  },
+  featureTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  featureDesc: {
+    fontSize: 12,
+    color: colors.textDim,
+  },
+  crossfadePillsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  crossfadePill: {
+    flex: 1,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#262626',
+    borderWidth: 1,
+    borderColor: '#383838',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  crossfadePillActive: {
+    backgroundColor: colors.primary,
+  },
+  crossfadePillText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  crossfadePillTextActive: {
+    color: '#000000',
+    fontWeight: '900',
   },
   levelingTitle: {
     fontSize: 15,

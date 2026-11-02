@@ -83,7 +83,7 @@ function parseCSVToTracks(text) {
 }
 
 export const ImportPlaylistModal = ({ visible, onClose }) => {
-  const { createPlaylist, showToast, currentUser } = usePlayer();
+  const { createPlaylist, showToast, currentUser, accentColor } = usePlayer();
 
   const [activeTab, setActiveTab] = useState('link'); // 'link' | 'csv'
   const [spotifyUrl, setSpotifyUrl] = useState('');
@@ -222,13 +222,16 @@ export const ImportPlaylistModal = ({ visible, onClose }) => {
           </View>
 
           <Text style={styles.subtitle}>
-            Import playlists directly into <Text style={{ color: colors.primary, fontWeight: '700' }}>{currentUser?.name || 'Your'}</Text> library.
+            Import playlists directly into <Text style={{ color: accentColor || colors.primary, fontWeight: '700' }}>{currentUser?.name || 'Your'}</Text> library.
           </Text>
 
           {/* Mode Tabs */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
-              style={[styles.tabBtn, activeTab === 'link' && styles.tabBtnActive]}
+              style={[
+                styles.tabBtn,
+                activeTab === 'link' && [styles.tabBtnActive, { backgroundColor: accentColor || colors.primary }],
+              ]}
               onPress={() => {
                 setActiveTab('link');
                 setErrorMsg('');
@@ -240,7 +243,10 @@ export const ImportPlaylistModal = ({ visible, onClose }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.tabBtn, activeTab === 'csv' && styles.tabBtnActive]}
+              style={[
+                styles.tabBtn,
+                activeTab === 'csv' && [styles.tabBtnActive, { backgroundColor: accentColor || colors.primary }],
+              ]}
               onPress={() => {
                 setActiveTab('csv');
                 setErrorMsg('');
@@ -283,7 +289,11 @@ export const ImportPlaylistModal = ({ visible, onClose }) => {
               />
 
               <TouchableOpacity
-                style={[styles.importBtn, loading && styles.importBtnDisabled]}
+                style={[
+                  styles.importBtn,
+                  { backgroundColor: accentColor || colors.primary },
+                  loading && styles.importBtnDisabled,
+                ]}
                 onPress={handleImportLink}
                 disabled={loading}
                 activeOpacity={0.8}
@@ -302,7 +312,7 @@ export const ImportPlaylistModal = ({ visible, onClose }) => {
             /* TAB 2: CSV FILE */
             <ScrollView showsVerticalScrollIndicator={false} style={styles.bodyScroll}>
               <TouchableOpacity style={styles.pickFileBtn} onPress={handlePickDocument} activeOpacity={0.8}>
-                <Upload size={20} color={colors.primary} style={{ marginRight: 10 }} />
+                <Upload size={20} color={accentColor || colors.primary} style={{ marginRight: 10 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pickFileTitle}>
                     {csvFileName ? csvFileName : 'Select CSV File'}
@@ -313,7 +323,7 @@ export const ImportPlaylistModal = ({ visible, onClose }) => {
                       : 'From Exportify, Soundiiz, TuneMyMusic'}
                   </Text>
                 </View>
-                {parsedTracks.length > 0 && <CheckCircle2 size={18} color={colors.primary} />}
+                {parsedTracks.length > 0 && <CheckCircle2 size={18} color={accentColor || colors.primary} />}
               </TouchableOpacity>
 
               <Text style={styles.inputLabel}>Playlist Title</Text>
@@ -339,6 +349,7 @@ export const ImportPlaylistModal = ({ visible, onClose }) => {
               <TouchableOpacity
                 style={[
                   styles.importBtn,
+                  { backgroundColor: accentColor || colors.primary },
                   (loading || parsedTracks.length === 0) && styles.importBtnDisabled,
                 ]}
                 onPress={handleImportCSV}

@@ -5,7 +5,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 export const BottomNavBar = () => {
-  const { activeTab, setActiveTab } = usePlayer();
+  const { activeTab, setActiveTab, accentColor } = usePlayer();
 
   const tabs = [
     { id: 'home', label: 'Home', icon: Home },
@@ -19,6 +19,7 @@ export const BottomNavBar = () => {
       {tabs.map((tab) => {
         const IconComponent = tab.icon;
         const isActive = activeTab === tab.id;
+        const activeColor = accentColor || colors.primary;
         return (
           <TouchableOpacity
             key={tab.id}
@@ -28,10 +29,10 @@ export const BottomNavBar = () => {
           >
             <IconComponent
               size={22}
-              color={isActive ? colors.primary : colors.textDim}
+              color={isActive ? activeColor : colors.textDim}
               strokeWidth={isActive ? 2.4 : 1.8}
             />
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+            <Text style={[styles.tabLabel, isActive && [styles.tabLabelActive, { color: activeColor }]]}>
               {tab.label}
             </Text>
           </TouchableOpacity>

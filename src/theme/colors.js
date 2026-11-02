@@ -1,4 +1,4 @@
-// Spotube Official Dark Theme Palette
+// HAZE Dark Theme Palette
 export const colors = {
   bg: '#121212',
   surface: '#181818',

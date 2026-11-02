@@ -68,27 +68,27 @@ export const UserSwitchModal = () => {
                   activeOpacity={0.7}
                   onPress={() => handleSelectUser(user.id)}
                 >
-                  <View style={[styles.avatarWrap, isActive && styles.avatarWrapActive]}>
-                    <Text style={styles.avatarEmoji}>{user.avatar}</Text>
+                  <View style={[styles.avatarWrap, { backgroundColor: user.accentColor || colors.primary }]}>
+                    <Text style={styles.avatarInitials}>{user.initials || user.name.charAt(0)}</Text>
                   </View>
 
                   <View style={styles.userDetails}>
                     <View style={styles.userNameRow}>
-                      <Text style={[styles.userName, isActive && { color: colors.primary }]}>
+                      <Text style={[styles.userName, isActive && { color: user.accentColor || colors.primary }]}>
                         {user.name}
                       </Text>
                       {isActive && (
-                        <View style={styles.activeBadge}>
-                          <Text style={styles.activeBadgeText}>ACTIVE</Text>
+                        <View style={[styles.activeBadge, { backgroundColor: (user.accentColor || colors.primary) + '30' }]}>
+                          <Text style={[styles.activeBadgeText, { color: user.accentColor || colors.primary }]}>ACTIVE</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.userBadgeDesc}>{user.badge}</Text>
+                    <Text style={[styles.userBadgeDesc, { color: user.accentColor || colors.primary }]}>{user.badge}</Text>
                     <Text style={styles.userSubDesc}>{user.description}</Text>
                   </View>
 
                   {isActive && (
-                    <Check size={22} color={colors.primary} style={styles.checkIcon} />
+                    <Check size={22} color={user.accentColor || colors.primary} style={styles.checkIcon} />
                   )}
                 </TouchableOpacity>
               );
@@ -168,19 +168,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#262D27',
   },
   avatarWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
-  avatarWrapActive: {
-    backgroundColor: 'rgba(30, 215, 96, 0.15)',
-  },
-  avatarEmoji: {
-    fontSize: 24,
+  avatarInitials: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#000000',
   },
   userDetails: {
     flex: 1,

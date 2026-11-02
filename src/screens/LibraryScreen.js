@@ -46,6 +46,10 @@ export const LibraryScreen = () => {
     showToast,
     currentUser,
     setShowUserModal,
+    accentColor,
+    removeDownload,
+    clearAllDownloads,
+    clearTempCache,
   } = usePlayer();
 
   const activePlaylists = playlists || userPlaylists || [];
@@ -86,7 +90,7 @@ export const LibraryScreen = () => {
               activeOpacity={0.8}
               onPress={() => setShowImportModal(true)}
             >
-              <View style={[styles.createIconWrapper, { backgroundColor: colors.primary }]}>
+              <View style={[styles.createIconWrapper, { backgroundColor: accentColor || colors.primary }]}>
                 <DownloadCloud size={18} color="#000000" />
               </View>
               <Text style={styles.createBtnText}>Import Spotify</Text>
@@ -178,7 +182,7 @@ export const LibraryScreen = () => {
                   <Image source={{ uri: track.cover }} style={styles.trackThumb} />
                   <View style={styles.trackDetails}>
                     <Text
-                      style={[styles.trackName, isCurrent && { color: colors.primary }]}
+                      style={[styles.trackName, isCurrent && { color: accentColor || colors.primary }]}
                       numberOfLines={1}
                     >
                       {track.title}
@@ -189,8 +193,8 @@ export const LibraryScreen = () => {
                   </View>
                   <Play
                     size={16}
-                    color={isCurrent ? colors.primary : colors.textDim}
-                    fill={isCurrent ? colors.primary : 'transparent'}
+                    color={isCurrent ? (accentColor || colors.primary) : colors.textDim}
+                    fill={isCurrent ? (accentColor || colors.primary) : 'transparent'}
                   />
                 </TouchableOpacity>
               );
@@ -202,8 +206,50 @@ export const LibraryScreen = () => {
 
     if (activeTab === 'Downloads') {
       const downloadsList = downloadedTracks || [];
+      const totalMB = downloadsList.reduce((acc, t) => {
+        const isF = Boolean(t.isFlac || (t.qualityLabel && t.qualityLabel.includes('FLAC')));
+        const size = isF ? (t.duration ? (t.duration * 1411) / (8 * 1024) : 34.5) : (t.duration ? (t.duration * 320) / (8 * 1024) : 7.8);
+        return acc + size;
+      }, 0);
+      const storageFormatted = totalMB >= 1000 ? `${(totalMB / 1024).toFixed(2)} GB` : `${Math.round(totalMB)} MB`;
+
       return (
         <View style={styles.tabContent}>
+          {/* Offline Storage & Cache Manager Card */}
+          <View style={styles.storageCard}>
+            <View style={styles.storageHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.storageCardLabel}>OFFLINE STORAGE & CACHE</Text>
+                <Text style={[styles.storageAmountText, { color: accentColor || colors.primary }]}>
+                  {storageFormatted}
+                </Text>
+                <Text style={styles.storageSubText}>
+                  {downloadsList.length} {downloadsList.length === 1 ? 'track' : 'tracks'} stored on device
+                </Text>
+              </View>
+
+              <View style={styles.storageActionBtns}>
+                <TouchableOpacity
+                  style={styles.storageBtnOutline}
+                  activeOpacity={0.7}
+                  onPress={clearTempCache}
+                >
+                  <Text style={styles.storageBtnOutlineText}>Clear Cache</Text>
+                </TouchableOpacity>
+
+                {downloadsList.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.storageBtnDanger}
+                    activeOpacity={0.7}
+                    onPress={clearAllDownloads}
+                  >
+                    <Text style={styles.storageBtnDangerText}>Remove All</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+
           {downloadsList.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Download size={44} color={colors.borderLight} />
@@ -216,30 +262,37 @@ export const LibraryScreen = () => {
             downloadsList.map((track, idx) => {
               const isCurrent = currentTrack?.id === track.id;
               return (
-                <TouchableOpacity
+                <View
                   key={`downloaded_${track.id || idx}`}
                   style={[styles.trackRow, isCurrent && styles.trackRowActive]}
-                  activeOpacity={0.7}
-                  onPress={() => playTrack(track, downloadsList)}
                 >
-                  <Image source={{ uri: track.cover }} style={styles.trackThumb} />
-                  <View style={styles.trackDetails}>
-                    <Text
-                      style={[styles.trackName, isCurrent && { color: colors.primary }]}
-                      numberOfLines={1}
-                    >
-                      {track.title}
-                    </Text>
-                    <Text style={styles.trackArtist} numberOfLines={1}>
-                      {track.artist} · Offline Audio
-                    </Text>
-                  </View>
-                  <Play
-                    size={16}
-                    color={isCurrent ? colors.primary : colors.textDim}
-                    fill={isCurrent ? colors.primary : 'transparent'}
-                  />
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.trackPressable}
+                    activeOpacity={0.7}
+                    onPress={() => playTrack(track, downloadsList)}
+                  >
+                    <Image source={{ uri: track.cover }} style={styles.trackThumb} />
+                    <View style={styles.trackDetails}>
+                      <Text
+                        style={[styles.trackName, isCurrent && { color: accentColor || colors.primary }]}
+                        numberOfLines={1}
+                      >
+                        {track.title}
+                      </Text>
+                      <Text style={styles.trackArtist} numberOfLines={1}>
+                        {track.artist} · Offline Audio
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.removeDownloadBtn}
+                    onPress={() => removeDownload && removeDownload(track.id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Trash2 size={16} color={colors.textDim} />
+                  </TouchableOpacity>
+                </View>
               );
             })
           )}
@@ -272,7 +325,7 @@ export const LibraryScreen = () => {
                   <Image source={{ uri: track.cover }} style={styles.trackThumb} />
                   <View style={styles.trackDetails}>
                     <Text
-                      style={[styles.trackName, isCurrent && { color: colors.primary }]}
+                      style={[styles.trackName, isCurrent && { color: accentColor || colors.primary }]}
                       numberOfLines={1}
                     >
                       {track.title}
@@ -283,8 +336,8 @@ export const LibraryScreen = () => {
                   </View>
                   <Play
                     size={16}
-                    color={isCurrent ? colors.primary : colors.textDim}
-                    fill={isCurrent ? colors.primary : 'transparent'}
+                    color={isCurrent ? (accentColor || colors.primary) : colors.textDim}
+                    fill={isCurrent ? (accentColor || colors.primary) : 'transparent'}
                   />
                 </TouchableOpacity>
               );
@@ -307,12 +360,14 @@ export const LibraryScreen = () => {
           activeOpacity={0.7}
           onPress={() => setShowUserModal(true)}
         >
-          <Text style={styles.profileEmoji}>{currentUser?.avatar || '⚡'}</Text>
+          <View style={[styles.userInitialsBadge, { backgroundColor: accentColor || colors.primary }]}>
+            <Text style={styles.userInitialsText}>{currentUser?.initials || currentUser?.name?.charAt(0) || 'S'}</Text>
+          </View>
           <Text style={styles.profileName}>{currentUser?.name || 'Sahith'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Spotube Sub-Tabs */}
+      {/* Library Sub-Tabs */}
       <View style={styles.subTabsWrapper}>
         <ScrollView
           horizontal
@@ -324,7 +379,10 @@ export const LibraryScreen = () => {
             return (
               <TouchableOpacity
                 key={tab}
-                style={[styles.subTabPill, isActive && styles.subTabPillActive]}
+                style={[
+                  styles.subTabPill,
+                  isActive && [styles.subTabPillActive, { backgroundColor: accentColor || colors.primary }],
+                ]}
                 activeOpacity={0.7}
                 onPress={() => setActiveTab(tab)}
               >
@@ -412,15 +470,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#242424',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#383838',
-    gap: 6,
+    gap: 8,
   },
-  profileEmoji: {
-    fontSize: 14,
+  userInitialsBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInitialsText: {
+    color: '#000000',
+    fontSize: 11,
+    fontWeight: '900',
   },
   profileName: {
     color: '#FFFFFF',
@@ -573,6 +640,74 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: colors.textSecondary,
+  },
+  trackPressable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  removeDownloadBtn: {
+    padding: 8,
+  },
+  storageCard: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#2E2E2E',
+    marginBottom: 14,
+  },
+  storageHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  storageCardLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textDim,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  storageAmountText: {
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 2,
+  },
+  storageSubText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  storageActionBtns: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  storageBtnOutline: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#2A2A2A',
+    borderWidth: 1,
+    borderColor: '#383838',
+  },
+  storageBtnOutlineText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  storageBtnDanger: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(244, 63, 94, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.4)',
+  },
+  storageBtnDangerText: {
+    color: '#F43F5E',
+    fontSize: 11,
+    fontWeight: '700',
   },
   emptyContainer: {
     alignItems: 'center',

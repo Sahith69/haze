@@ -11,8 +11,23 @@ import {
   StatusBar as RNStatusBar,
   Platform,
   ActivityIndicator,
+  Share,
+  TextInput,
+  Alert,
 } from 'react-native';
-import { ArrowLeft, Play, Shuffle, MoreVertical, Music2 } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Play,
+  Shuffle,
+  MoreVertical,
+  Music2,
+  Download,
+  Share2,
+  Trash2,
+  Edit3,
+  X,
+  Check,
+} from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { fetchArtistDetails, fetchAlbumDetails } from '../services/api';
 import { colors } from '../theme/colors';
@@ -37,6 +52,10 @@ export const DetailViewModal = () => {
     currentTrack,
     isPlaying,
     promptAddToPlaylist,
+    removeTrackFromPlaylist,
+    updatePlaylist,
+    accentColor,
+    showToast,
   } = usePlayer();
 
   const data = detailViewData || detailModalData;
@@ -47,8 +66,16 @@ export const DetailViewModal = () => {
   const [heroCover, setHeroCover] = useState(initialCover);
   const [loading, setLoading] = useState(false);
 
+  // Edit playlist modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [playlistName, setPlaylistName] = useState(data?.title || '');
+  const [playlistDesc, setPlaylistDesc] = useState(data?.description || '');
+
   useEffect(() => {
     if (!data) return;
+    setPlaylistName(data.title || '');
+    setPlaylistDesc(data.description || '');
+
     if (data.tracks && data.tracks.length > 0) {
       setActiveTracks(data.tracks);
       setHeroCover(data.cover || '');
@@ -90,8 +117,9 @@ export const DetailViewModal = () => {
 
   if (!data) return null;
 
-  const title = data.title || 'Collection';
-  const description = data.description || '';
+  const isCustomPlaylist = Boolean(data.type === 'playlist' && data.playlistId);
+  const title = isCustomPlaylist ? playlistName : (data.title || 'Collection');
+  const description = isCustomPlaylist ? playlistDesc : (data.description || '');
 
   const handlePlayAll = () => {
     if (activeTracks.length > 0) {
@@ -106,6 +134,63 @@ export const DetailViewModal = () => {
     }
   };
 
+  const handleExportCSV = async () => {
+    if (activeTracks.length === 0) {
+      if (showToast) showToast('No tracks to export', 'info');
+      return;
+    }
+    try {
+      const header = '"Track Title","Artist","Album","Duration (s)"\n';
+      const rows = activeTracks.map((t) => {
+        const safeTitle = (t.title || '').replace(/"/g, '""');
+        const safeArtist = (t.artist || '').replace(/"/g, '""');
+        const safeAlbum = (t.album || '').replace(/"/g, '""');
+        const dur = Math.round(t.duration || 0);
+        return `"${safeTitle}","${safeArtist}","${safeAlbum}",${dur}`;
+      }).join('\n');
+      const csvContent = header + rows;
+      await Share.share({
+        title: `${title}.csv`,
+        message: csvContent,
+      });
+      if (showToast) showToast('CSV ready to share or save', 'success');
+    } catch (err) {
+      console.log('Error exporting CSV:', err);
+    }
+  };
+
+  const handleShareCollection = async () => {
+    try {
+      const sample = activeTracks.slice(0, 5).map((t, i) => `${i + 1}. ${t.title} - ${t.artist}`).join('\n');
+      const more = activeTracks.length > 5 ? `\n...and ${activeTracks.length - 5} more tracks` : '';
+      await Share.share({
+        title: `HAZE: ${title}`,
+        message: `🎵 Check out "${title}" on HAZE (${activeTracks.length} tracks):\n\n${sample}${more}`,
+      });
+    } catch (err) {
+      console.log('Error sharing collection:', err);
+    }
+  };
+
+  const handleRemoveTrack = (track) => {
+    if (!isCustomPlaylist || !data.playlistId) return;
+    removeTrackFromPlaylist(data.playlistId, track.id);
+    setActiveTracks((prev) => prev.filter((t) => t.id !== track.id));
+    if (showToast) showToast(`Removed "${track.title}" from playlist`, 'info');
+  };
+
+  const handleSavePlaylistEdit = () => {
+    if (!playlistName.trim()) return;
+    if (updatePlaylist && data.playlistId) {
+      updatePlaylist(data.playlistId, {
+        name: playlistName.trim(),
+        description: playlistDesc.trim(),
+      });
+      setShowEditModal(false);
+      if (showToast) showToast('Playlist updated', 'success');
+    }
+  };
+
   return (
     <Modal
       visible={activeModal === 'detail_view'}
@@ -114,123 +199,218 @@ export const DetailViewModal = () => {
       onRequestClose={closeDetailView}
     >
       <View style={styles.container}>
-      {/* Top Bar with Back Button */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={closeDetailView}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.topBarTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero Header */}
-        <View style={styles.heroSection}>
-          <Image
-            source={{ uri: heroCover || 'https://via.placeholder.com/300' }}
-            style={styles.heroCover}
-          />
-          <Text style={styles.heroTitle}>{title}</Text>
-          {description ? (
-            <Text style={styles.heroSubtitle}>{description}</Text>
-          ) : null}
-          <Text style={styles.trackCountText}>
-            {loading ? 'Loading tracks...' : `${activeTracks.length} ${activeTracks.length === 1 ? 'track' : 'tracks'}`}
+        {/* Top Bar with Back Button */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={closeDetailView}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.topBarTitle} numberOfLines={1}>
+            {title}
           </Text>
-
-          {/* Action Buttons */}
-          <View style={styles.actionButtonsRow}>
+          {isCustomPlaylist ? (
             <TouchableOpacity
-              style={styles.playAllBtn}
-              activeOpacity={0.8}
-              onPress={handlePlayAll}
+              style={styles.topBarActionBtn}
+              onPress={() => setShowEditModal(true)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Play size={18} color="#000000" fill="#000000" style={{ marginRight: 6 }} />
-              <Text style={styles.playAllText}>Play All</Text>
+              <Edit3 size={18} color={accentColor || colors.primary} />
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.shuffleBtn}
-              activeOpacity={0.8}
-              onPress={handleShuffleAll}
-            >
-              <Shuffle size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.shuffleText}>Shuffle</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Tracks List */}
-        <View style={styles.trackList}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Fetching discography...</Text>
-            </View>
-          ) : activeTracks.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Music2 size={36} color={colors.borderLight} />
-              <Text style={styles.emptyText}>No tracks in this collection</Text>
-            </View>
           ) : (
-            activeTracks.map((track, idx) => {
-              const isCurrent = currentTrack?.id === track.id;
-              return (
-                <View
-                  key={`detail_track_${track.id || idx}`}
-                  style={[styles.trackRow, isCurrent && styles.trackRowActive]}
-                >
-                  <TouchableOpacity
-                    style={styles.trackPressable}
-                    activeOpacity={0.7}
-                    onPress={() => playTrack(track, activeTracks)}
-                  >
-                    <Text style={styles.trackIndex}>{idx + 1}</Text>
-                    <Image source={{ uri: track.cover || 'https://via.placeholder.com/150' }} style={styles.trackThumb} />
-                    <View style={styles.trackDetails}>
-                      <Text
-                        style={[styles.trackName, isCurrent && { color: colors.primary }]}
-                        numberOfLines={1}
-                      >
-                        {track.title}
-                      </Text>
-                      <Text style={styles.trackArtist} numberOfLines={1}>
-                        {track.artist}
-                      </Text>
-                    </View>
-
-                    {track.duration > 0 && (
-                      <Text style={styles.durationText}>
-                        {formatDuration(track.duration)}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.moreBtn}
-                    onPress={() => promptAddToPlaylist && promptAddToPlaylist(track)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <MoreVertical size={16} color={colors.textDim} />
-                  </TouchableOpacity>
-                </View>
-              );
-            })
+            <View style={{ width: 40 }} />
           )}
         </View>
-      </ScrollView>
-    </View>
-  </Modal>
+
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero Header */}
+          <View style={styles.heroSection}>
+            <Image
+              source={{ uri: heroCover || 'https://via.placeholder.com/300' }}
+              style={styles.heroCover}
+            />
+            <Text style={styles.heroTitle}>{title}</Text>
+            {description ? (
+              <Text style={styles.heroSubtitle}>{description}</Text>
+            ) : null}
+            <Text style={styles.trackCountText}>
+              {loading ? 'Loading tracks...' : `${activeTracks.length} ${activeTracks.length === 1 ? 'track' : 'tracks'}`}
+            </Text>
+
+            {/* Main Action Buttons */}
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={[styles.playAllBtn, { backgroundColor: accentColor || colors.primary }]}
+                activeOpacity={0.8}
+                onPress={handlePlayAll}
+              >
+                <Play size={18} color="#000000" fill="#000000" style={{ marginRight: 6 }} />
+                <Text style={styles.playAllText}>Play All</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.shuffleBtn}
+                activeOpacity={0.8}
+                onPress={handleShuffleAll}
+              >
+                <Shuffle size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.shuffleText}>Shuffle</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.iconActionBtn}
+                activeOpacity={0.7}
+                onPress={handleExportCSV}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Download size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.iconActionBtn}
+                activeOpacity={0.7}
+                onPress={handleShareCollection}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Share2 size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Tracks List */}
+          <View style={styles.trackList}>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={accentColor || colors.primary} />
+                <Text style={styles.loadingText}>Fetching discography...</Text>
+              </View>
+            ) : activeTracks.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Music2 size={36} color={colors.borderLight} />
+                <Text style={styles.emptyText}>No tracks in this collection</Text>
+              </View>
+            ) : (
+              activeTracks.map((track, idx) => {
+                const isCurrent = currentTrack?.id === track.id;
+                return (
+                  <View
+                    key={`detail_track_${track.id || idx}`}
+                    style={[styles.trackRow, isCurrent && styles.trackRowActive]}
+                  >
+                    <TouchableOpacity
+                      style={styles.trackPressable}
+                      activeOpacity={0.7}
+                      onPress={() => playTrack(track, activeTracks)}
+                    >
+                      <Text style={styles.trackIndex}>{idx + 1}</Text>
+                      <Image source={{ uri: track.cover || 'https://via.placeholder.com/150' }} style={styles.trackThumb} />
+                      <View style={styles.trackDetails}>
+                        <Text
+                          style={[styles.trackName, isCurrent && { color: accentColor || colors.primary }]}
+                          numberOfLines={1}
+                        >
+                          {track.title}
+                        </Text>
+                        <Text style={styles.trackArtist} numberOfLines={1}>
+                          {track.artist}
+                        </Text>
+                      </View>
+
+                      {track.duration > 0 && (
+                        <Text style={styles.durationText}>
+                          {formatDuration(track.duration)}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+
+                    {isCustomPlaylist ? (
+                      <TouchableOpacity
+                        style={styles.removeTrackBtn}
+                        onPress={() => handleRemoveTrack(track)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Trash2 size={16} color={colors.textDim} />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.moreBtn}
+                        onPress={() => promptAddToPlaylist && promptAddToPlaylist(track)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <MoreVertical size={16} color={colors.textDim} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Edit Playlist Modal */}
+        {showEditModal && (
+          <Modal
+            visible={showEditModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowEditModal(false)}
+          >
+            <View style={styles.editBackdrop}>
+              <View style={styles.editCard}>
+                <View style={styles.editHeader}>
+                  <Text style={styles.editTitle}>Edit Playlist</Text>
+                  <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                    <X size={20} color={colors.textDim} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.inputLabel}>PLAYLIST NAME</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={playlistName}
+                  onChangeText={setPlaylistName}
+                  placeholder="Playlist name"
+                  placeholderTextColor={colors.textDim}
+                />
+
+                <Text style={styles.inputLabel}>DESCRIPTION</Text>
+                <TextInput
+                  style={[styles.textInput, { height: 60, textAlignVertical: 'top' }]}
+                  value={playlistDesc}
+                  onChangeText={setPlaylistDesc}
+                  placeholder="Optional description"
+                  placeholderTextColor={colors.textDim}
+                  multiline
+                />
+
+                <View style={styles.editActions}>
+                  <TouchableOpacity
+                    style={styles.cancelEditBtn}
+                    onPress={() => setShowEditModal(false)}
+                  >
+                    <Text style={styles.cancelEditText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.saveEditBtn, { backgroundColor: accentColor || colors.primary }]}
+                    onPress={handleSavePlaylistEdit}
+                  >
+                    <Check size={16} color="#000000" style={{ marginRight: 4 }} />
+                    <Text style={styles.saveEditText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+      </View>
+    </Modal>
   );
 };
 
@@ -248,6 +428,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backBtn: {
+    padding: 6,
+  },
+  topBarActionBtn: {
     padding: 6,
   },
   topBarTitle: {
@@ -303,13 +486,13 @@ const styles = StyleSheet.create({
   actionButtonsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   playAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary,
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 24,
   },
@@ -322,7 +505,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#282828',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 24,
     borderWidth: 1,
@@ -332,6 +515,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  iconActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#282828',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#383838',
   },
   trackList: {
     marginTop: 16,
@@ -388,6 +581,9 @@ const styles = StyleSheet.create({
   moreBtn: {
     padding: 6,
   },
+  removeTrackBtn: {
+    padding: 8,
+  },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 40,
@@ -408,5 +604,77 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textDim,
     marginTop: 8,
+  },
+  editBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  editCard: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#333333',
+  },
+  editHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  editTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textDim,
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  textInput: {
+    backgroundColor: '#262626',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#383838',
+  },
+  editActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 20,
+  },
+  cancelEditBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
+    backgroundColor: '#2A2A2A',
+  },
+  cancelEditText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  saveEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 20,
+  },
+  saveEditText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
