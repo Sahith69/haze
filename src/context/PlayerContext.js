@@ -563,10 +563,8 @@ export const PlayerProvider = ({ children }) => {
       const options = {
         showNextTrack: true,
         showPreviousTrack: true,
-        showSeekForward: true,
-        showSeekBackward: true,
-        seekForwardIntervalSeconds: 10,
-        seekBackwardIntervalSeconds: 10,
+        showSeekForward: false,
+        showSeekBackward: false,
       };
 
       // Call immediately
@@ -1415,12 +1413,12 @@ export const PlayerProvider = ({ children }) => {
   };
 
   // Playlist Management (Isolated per user profile)
-  const createPlaylist = async (name, description = '', initialTracks = []) => {
+  const createPlaylist = async (name, description = '', initialTracks = [], coverImage = null) => {
     if (!name || !name.trim()) return null;
     const tracksArray = Array.isArray(initialTracks) ? initialTracks : (initialTracks ? [initialTracks] : []);
-    const firstCover = tracksArray.length > 0 && tracksArray[0].cover
+    const firstCover = coverImage || (tracksArray.length > 0 && tracksArray[0].cover
       ? tracksArray[0].cover
-      : 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/3d/9d/d0/3d9dd0a3-e5e6-73d3-f938-e2182b810928/190295851286.jpg/600x600bb.jpg';
+      : 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/3d/9d/d0/3d9dd0a3-e5e6-73d3-f938-e2182b810928/190295851286.jpg/600x600bb.jpg');
 
     const newPlaylist = {
       id: `pl_${Date.now()}_${Math.random().toString(36).substring(7)}`,

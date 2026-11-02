@@ -21,8 +21,10 @@ import {
   Trash2,
   Share2,
   Music2,
+  DownloadCloud,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import { ImportPlaylistModal } from '../components/ImportPlaylistModal';
 import { colors } from '../theme/colors';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
@@ -51,6 +53,7 @@ export const LibraryScreen = () => {
 
   const [activeTab, setActiveTab] = useState('Playlists');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
 
   const handleCreatePlaylist = () => {
@@ -66,16 +69,29 @@ export const LibraryScreen = () => {
       return (
         <View style={styles.tabContent}>
           {/* Action Row */}
-          <TouchableOpacity
-            style={styles.createPlaylistBtn}
-            activeOpacity={0.8}
-            onPress={() => setShowCreateModal(true)}
-          >
-            <View style={styles.createIconWrapper}>
-              <Plus size={20} color="#000000" />
-            </View>
-            <Text style={styles.createBtnText}>Create New Playlist</Text>
-          </TouchableOpacity>
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.createPlaylistBtn}
+              activeOpacity={0.8}
+              onPress={() => setShowCreateModal(true)}
+            >
+              <View style={styles.createIconWrapper}>
+                <Plus size={18} color="#000000" />
+              </View>
+              <Text style={styles.createBtnText}>New Playlist</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.importPlaylistBtn}
+              activeOpacity={0.8}
+              onPress={() => setShowImportModal(true)}
+            >
+              <View style={[styles.createIconWrapper, { backgroundColor: colors.primary }]}>
+                <DownloadCloud size={18} color="#000000" />
+              </View>
+              <Text style={styles.createBtnText}>Import Spotify</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Liked Tracks Item */}
           <TouchableOpacity
@@ -370,6 +386,11 @@ export const LibraryScreen = () => {
           </View>
         </View>
       </Modal>
+      {/* Import Spotify & CSV Modal */}
+      <ImportPlaylistModal
+        visible={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
     </View>
   );
 };
@@ -450,25 +471,47 @@ const styles = StyleSheet.create({
   tabContent: {
     paddingTop: 4,
   },
-  createPlaylistBtn: {
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  createPlaylistBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1E1E',
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#303030',
+  },
+  importPlaylistBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1E1E',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 215, 96, 0.4)',
   },
   createIconWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: 6,
-    backgroundColor: colors.primary,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   createBtnText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginLeft: 14,
+    marginLeft: 10,
   },
   playlistRow: {
     flexDirection: 'row',

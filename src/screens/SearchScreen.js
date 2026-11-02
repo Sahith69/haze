@@ -12,7 +12,7 @@ import {
   StatusBar as RNStatusBar,
   Platform,
 } from 'react-native';
-import { Search as SearchIcon, X, Play, MoreVertical, Disc3, Mic2, ListMusic } from 'lucide-react-native';
+import { Search as SearchIcon, X, Play, MoreVertical, Disc3, Mic2, ListMusic, Clock } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { searchTracks, searchMusic } from '../services/api';
 import { colors } from '../theme/colors';
@@ -37,6 +37,10 @@ export const SearchScreen = () => {
     openArtistView,
     openAlbumView,
     promptAddToPlaylist,
+    searchHistory,
+    addSearchHistory,
+    removeSearchHistory,
+    clearSearchHistory,
   } = usePlayer();
 
   const queryValue = typeof searchQuery === 'string' ? searchQuery : '';
@@ -51,6 +55,10 @@ export const SearchScreen = () => {
       setResults([]);
       setLoading(false);
       return;
+    }
+    const clean = text.trim();
+    if (addSearchHistory) {
+      addSearchHistory(clean);
     }
     setLoading(true);
     try {
@@ -298,6 +306,41 @@ export const SearchScreen = () => {
             Try searching for another artist, album, or track
           </Text>
         </View>
+      ) : searchHistory && searchHistory.length > 0 ? (
+        <ScrollView style={styles.historyContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.historyHeader}>
+            <Text style={styles.historySectionTitle}>Recent Searches</Text>
+            <TouchableOpacity onPress={clearSearchHistory} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.clearHistoryText}>Clear All</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.historyList}>
+            {searchHistory.map((query, idx) => (
+              <View key={`hist_${idx}`} style={styles.historyItemRow}>
+                <TouchableOpacity
+                  style={styles.historyItemMain}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (setSearchQuery) setSearchQuery(query);
+                    executeSearch(query);
+                  }}
+                >
+                  <Clock size={16} color={colors.textDim} style={{ marginRight: 12 }} />
+                  <Text style={styles.historyItemText} numberOfLines={1}>
+                    {query}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.removeHistoryBtn}
+                  onPress={() => removeSearchHistory && removeSearchHistory(query)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <X size={16} color={colors.textDim} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       ) : (
         <View style={styles.centerContainer}>
           <SearchIcon size={48} color={colors.borderLight} />
@@ -440,5 +483,53 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  historyContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#282828',
+    marginBottom: 6,
+  },
+  historySectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  clearHistoryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  historyList: {
+    paddingBottom: 150,
+  },
+  historyItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  historyItemMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#E0E0E0',
+  },
+  removeHistoryBtn: {
+    padding: 6,
   },
 });

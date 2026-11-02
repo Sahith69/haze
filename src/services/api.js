@@ -670,3 +670,81 @@ export async function fetchAlbumDetails(albumTitle, artistName) {
 
   return null;
 }
+
+/**
+ * Import a Spotify public playlist via backend endpoint or direct embed scraper fallback
+ */
+export async function importSpotifyPlaylist(playlistUrl) {
+  if (!playlistUrl || !playlistUrl.trim()) {
+    throw new Error('Please enter a valid Spotify playlist URL');
+  }
+
+  const cleanUrl = playlistUrl.trim();
+
+  // 1. Try via HAZE backend endpoint
+  try {
+    const backendRes = await fetch(`${API_BASE_URL}/api/spotify/playlist?url=${encodeURIComponent(cleanUrl)}`);
+    if (backendRes.ok) {
+      const data = await backendRes.json();
+      if (data && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        return {
+          name: data.name || 'Imported Spotify Playlist',
+          cover: data.cover || '',
+          trackCount: data.tracks.length,
+          tracks: data.tracks,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Spotify Import] Backend scrape error, attempting direct embed parse:', err.message);
+  }
+
+  // 2. Direct edge embed scrape fallback
+  try {
+    const match = cleanUrl.match(/playlist[/:]([a-zA-Z0-9]+)/);
+    const playlistId = match ? match[1] : cleanUrl.replace(/[^a-zA-Z0-9]/g, '');
+    if (!playlistId) throw new Error('Invalid Spotify playlist ID');
+
+    const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}`;
+    const response = await fetch(embedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+
+    if (!response.ok) throw new Error(`Spotify HTTP ${response.status}`);
+    const html = await response.text();
+    const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/s);
+    if (!nextDataMatch) throw new Error('Could not parse Spotify playlist structure');
+
+    const parsed = JSON.parse(nextDataMatch[1]);
+    const entity = parsed.props?.pageProps?.state?.data?.entity;
+    if (!entity) throw new Error('Playlist data entity not found');
+
+    const playlistName = entity.name || 'Imported Spotify Playlist';
+    const coverArt = entity.coverArt?.sources?.[0]?.url || '';
+    const rawTracks = entity.trackList || [];
+
+    const tracks = rawTracks.map((t, idx) => ({
+      id: `sp-${playlistId}-${idx}`,
+      title: t.title || 'Unknown Track',
+      artist: t.subtitle || 'Unknown Artist',
+      album: playlistName,
+      cover: coverArt || 'https://via.placeholder.com/300',
+      duration: Math.round((t.duration || 210000) / 1000),
+      isHiRes: true,
+      qualityLabel: '320 kbps · Studio Master',
+    }));
+
+    return {
+      name: playlistName,
+      cover: coverArt,
+      trackCount: tracks.length,
+      tracks,
+    };
+  } catch (directErr) {
+    console.error('[Spotify Import] Direct fallback error:', directErr);
+    throw new Error(directErr.message || 'Failed to import Spotify playlist');
+  }
+}
