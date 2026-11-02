@@ -42,6 +42,8 @@ export const LibraryScreen = () => {
     currentTrack,
     isPlaying,
     showToast,
+    currentUser,
+    setShowUserModal,
   } = usePlayer();
 
   const activePlaylists = playlists || userPlaylists || [];
@@ -284,6 +286,14 @@ export const LibraryScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Library</Text>
+        <TouchableOpacity
+          style={styles.profileBadge}
+          activeOpacity={0.7}
+          onPress={() => setShowUserModal(true)}
+        >
+          <Text style={styles.profileEmoji}>{currentUser?.avatar || '⚡'}</Text>
+          <Text style={styles.profileName}>{currentUser?.name || 'Sahith'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Spotube Sub-Tabs */}
@@ -373,6 +383,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: STATUS_BAR_HEIGHT + 10,
     paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  profileBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#242424',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#383838',
+    gap: 6,
+  },
+  profileEmoji: {
+    fontSize: 14,
+  },
+  profileName: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   headerTitle: {
     fontSize: 24,

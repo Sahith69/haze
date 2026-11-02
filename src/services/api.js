@@ -529,11 +529,25 @@ export async function fetchArtistDetails(artistName) {
       } catch (e) {}
     }
 
+    // If iTunes and JioSaavn both had 0 songs, search tracks directly as fallback
+    if (songs.length === 0) {
+      try {
+        const fallbackSongs = await searchTracks(cleanA);
+        if (fallbackSongs && fallbackSongs.length > 0) {
+          songs.push(...fallbackSongs);
+          if (!artistImage) artistImage = fallbackSongs[0].coverLarge || fallbackSongs[0].cover;
+        }
+      } catch (e) {}
+    }
+
     return {
       name: artistName,
       cover: artistImage || 'https://via.placeholder.com/500',
+      image: artistImage || 'https://via.placeholder.com/500',
       genre: songs[0]?.genre || 'Music',
       topSongs: songs,
+      songs,
+      tracks: songs,
       albums,
     };
   } catch (err) {
@@ -629,8 +643,27 @@ export async function fetchAlbumDetails(albumTitle, artistName) {
         trackCount: tracks.length,
         totalDuration: totalSec,
         tracks,
+        songs: tracks,
       };
     }
+
+    // 3. Guaranteed fallback: search tracks by album and artist
+    try {
+      const fallbackTracks = await searchTracks(`${cleanAlb} ${cleanArt}`.trim() || cleanAlb);
+      if (fallbackTracks && fallbackTracks.length > 0) {
+        return {
+          title: albumTitle,
+          artist: artistName || fallbackTracks[0].artist,
+          cover: fallbackTracks[0].coverLarge || fallbackTracks[0].cover,
+          year: fallbackTracks[0].year || '2026',
+          genre: fallbackTracks[0].genre || 'Music',
+          trackCount: fallbackTracks.length,
+          totalDuration: fallbackTracks.reduce((acc, t) => acc + (t.duration || 0), 0),
+          tracks: fallbackTracks,
+          songs: fallbackTracks,
+        };
+      }
+    } catch (e) {}
   } catch (err) {
     console.warn('[API] fetchAlbumDetails error:', err.message);
   }

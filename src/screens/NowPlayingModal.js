@@ -174,14 +174,18 @@ export const NowPlayingModal = () => {
     ? formatTime(scrubRatio * duration)
     : formatTime(position);
 
-  const currentQualityLabel =
-    streamingQuality === '1411k'
-      ? '1,411 kbps FLAC'
-      : streamingQuality === '320k'
-      ? '320 kbps Studio'
-      : streamingQuality === '256k'
-      ? '256 kbps HD'
-      : '128 kbps Saver';
+  // Accurate sound quality pill reflecting the REAL active playback audio
+  const isActualFlac = Boolean(currentTrack?.isFlac || (currentTrack?.qualityLabel && currentTrack.qualityLabel.includes('FLAC')));
+  const isDownloaded = Boolean(currentTrack?.isDownloaded);
+  const currentQualityLabel = isDownloaded
+    ? (isActualFlac ? '1,411 kbps FLAC (Offline)' : '320 kbps Studio (Offline)')
+    : isActualFlac
+    ? '1,411 kbps FLAC'
+    : streamingQuality === '256k'
+    ? '256 kbps HD'
+    : streamingQuality === '128k'
+    ? '128 kbps Saver'
+    : '320 kbps Studio';
 
   return (
     <Modal

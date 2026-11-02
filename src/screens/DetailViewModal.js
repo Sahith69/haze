@@ -58,19 +58,25 @@ export const DetailViewModal = () => {
 
     let isCurrent = true;
     const fetchDetails = async () => {
+      setActiveTracks([]);
+      setHeroCover(data.cover || '');
       setLoading(true);
       try {
         if (data.type === 'artist' && data.title) {
           const res = await fetchArtistDetails(data.title);
           if (isCurrent && res) {
-            if (res.songs && res.songs.length > 0) setActiveTracks(res.songs);
-            if (res.image) setHeroCover(res.image);
+            const list = res.tracks || res.songs || res.topSongs || [];
+            if (list.length > 0) setActiveTracks(list);
+            const img = res.cover || res.image;
+            if (img) setHeroCover(img);
           }
         } else if (data.type === 'album' && data.title) {
           const res = await fetchAlbumDetails(data.title, data.artist);
           if (isCurrent && res) {
-            if (res.tracks && res.tracks.length > 0) setActiveTracks(res.tracks);
-            if (res.cover) setHeroCover(res.cover);
+            const list = res.tracks || res.songs || [];
+            if (list.length > 0) setActiveTracks(list);
+            const img = res.cover || res.image;
+            if (img) setHeroCover(img);
           }
         }
       } catch (e) {

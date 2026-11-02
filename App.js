@@ -16,6 +16,7 @@ import { EqualizerModal } from './src/screens/EqualizerModal';
 import { DetailViewModal } from './src/screens/DetailViewModal';
 import { AudioQualityModal } from './src/components/AudioQualityModal';
 import { AddToPlaylistModal } from './src/components/AddToPlaylistModal';
+import { UserSwitchModal } from './src/components/UserSwitchModal';
 import { colors } from './src/theme/colors';
 
 const ToastBanner = ({ message }) => {
@@ -110,6 +111,8 @@ const MainNavigator = () => {
     setStreamingQuality,
     setDownloadQuality,
     toastMessage,
+    showUserModal,
+    setShowUserModal,
     showAddToPlaylistModal,
     setShowAddToPlaylistModal,
   } = usePlayer();
@@ -117,7 +120,13 @@ const MainNavigator = () => {
   // Android Hardware Back Button Handler
   useEffect(() => {
     const onBackPress = () => {
-      // 0. If AddToPlaylist modal open -> close it
+      // 0. If UserSwitchModal is open -> close it
+      if (showUserModal) {
+        setShowUserModal(false);
+        return true;
+      }
+
+      // 0.2 If AddToPlaylist modal open -> close it
       if (showAddToPlaylistModal) {
         setShowAddToPlaylistModal(false);
         return true;
@@ -160,6 +169,8 @@ const MainNavigator = () => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backHandler.remove();
   }, [
+    showUserModal,
+    setShowUserModal,
     showAddToPlaylistModal,
     setShowAddToPlaylistModal,
     showQualityModal,
@@ -223,6 +234,9 @@ const MainNavigator = () => {
 
         {/* Add to Playlist Bottom Sheet Modal */}
         <AddToPlaylistModal />
+
+        {/* Dual Profile Switcher Modal */}
+        <UserSwitchModal />
       </AmbientBackground>
     </View>
   );

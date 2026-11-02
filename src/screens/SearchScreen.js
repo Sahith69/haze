@@ -83,14 +83,58 @@ export const SearchScreen = () => {
     setResults([]);
   };
 
+  // Extract unique artists from search results
+  const uniqueArtists = React.useMemo(() => {
+    const map = new Map();
+    for (const track of results) {
+      const art = (track.artist || '').trim();
+      if (!art) continue;
+      const primary = art.split(/[,&]/)[0].trim();
+      if (!map.has(primary)) {
+        map.set(primary, {
+          id: `artist-${primary}`,
+          name: primary,
+          cover: track.coverLarge || track.cover,
+          genre: track.genre || 'Artist',
+          trackCount: 1,
+        });
+      } else {
+        const item = map.get(primary);
+        item.trackCount += 1;
+      }
+    }
+    return Array.from(map.values());
+  }, [results]);
+
+  // Extract unique albums from search results
+  const uniqueAlbums = React.useMemo(() => {
+    const map = new Map();
+    for (const track of results) {
+      const alb = (track.album || '').trim();
+      if (!alb || alb.toLowerCase() === 'single' || alb.toLowerCase() === 'unknown') continue;
+      if (!map.has(alb)) {
+        map.set(alb, {
+          id: `album-${alb}`,
+          title: alb,
+          artist: track.artist,
+          cover: track.coverLarge || track.cover,
+          year: track.year || '2026',
+          trackCount: 1,
+        });
+      } else {
+        const item = map.get(alb);
+        item.trackCount += 1;
+      }
+    }
+    return Array.from(map.values());
+  }, [results]);
+
   // Filter results according to active category
-  const filteredResults = results.filter((item) => {
-    if (activeCategory === 'All') return true;
-    if (activeCategory === 'Tracks') return true; // Most API items are tracks
-    if (activeCategory === 'Artists') return item.isArtist || false;
-    if (activeCategory === 'Albums') return item.isAlbum || false;
-    return true;
-  });
+  const filteredResults = activeCategory === 'Artists'
+    ? uniqueArtists
+    : activeCategory === 'Albums'
+    ? uniqueAlbums
+    : results;
 
   return (
     <View style={styles.container}>
@@ -145,13 +189,61 @@ export const SearchScreen = () => {
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : results.length > 0 ? (
+      ) : filteredResults.length > 0 ? (
         <FlatList
           data={filteredResults}
           keyExtractor={(item, index) => `${item.id || index}`}
           contentContainerStyle={styles.resultsList}
           showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => {
+            if (activeCategory === 'Artists') {
+              return (
+                <TouchableOpacity
+                  key={`artist_${item.id || index}`}
+                  style={styles.resultRow}
+                  activeOpacity={0.7}
+                  onPress={() => openArtistView(item.name, item.cover)}
+                >
+                  <Image
+                    source={{ uri: item.cover || 'https://via.placeholder.com/150' }}
+                    style={[styles.resultCover, { borderRadius: 23 }]}
+                  />
+                  <View style={styles.resultDetails}>
+                    <Text style={styles.resultTitle} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.resultSubtitle} numberOfLines={1}>
+                      Artist · {item.trackCount} {item.trackCount === 1 ? 'song' : 'songs'} in results
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }
+
+            if (activeCategory === 'Albums') {
+              return (
+                <TouchableOpacity
+                  key={`album_${item.id || index}`}
+                  style={styles.resultRow}
+                  activeOpacity={0.7}
+                  onPress={() => openAlbumView(item.title, item.artist, item.cover)}
+                >
+                  <Image
+                    source={{ uri: item.cover || 'https://via.placeholder.com/150' }}
+                    style={styles.resultCover}
+                  />
+                  <View style={styles.resultDetails}>
+                    <Text style={styles.resultTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.resultSubtitle} numberOfLines={1}>
+                      {item.artist} · Album
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }
+
             const isCurrent = currentTrack?.id === item.id;
             return (
               <View style={[styles.resultRow, isCurrent && styles.resultRowActive]}>
@@ -171,9 +263,15 @@ export const SearchScreen = () => {
                     >
                       {item.title}
                     </Text>
-                    <Text style={styles.resultSubtitle} numberOfLines={1}>
-                      {item.artist}
-                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 4, bottom: 4, left: 0, right: 8 }}
+                      onPress={() => openArtistView && openArtistView(item.artist, item.cover)}
+                    >
+                      <Text style={styles.resultSubtitle} numberOfLines={1}>
+                        {item.artist}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
                   {item.duration > 0 && (
@@ -192,6 +290,14 @@ export const SearchScreen = () => {
             );
           }}
         />
+      ) : results.length > 0 ? (
+        <View style={styles.centerContainer}>
+          <SearchIcon size={48} color={colors.borderLight} />
+          <Text style={styles.emptyPromptTitle}>No {activeCategory} Found</Text>
+          <Text style={styles.emptyPromptSub}>
+            Try searching for another artist, album, or track
+          </Text>
+        </View>
       ) : (
         <View style={styles.centerContainer}>
           <SearchIcon size={48} color={colors.borderLight} />

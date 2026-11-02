@@ -53,6 +53,8 @@ export const HomeScreen = () => {
     performSearch,
     setShowQualityModal,
     setQualityModalMode,
+    currentUser,
+    setShowUserModal,
   } = usePlayer();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -108,6 +110,15 @@ export const HomeScreen = () => {
         </View>
 
         <View style={styles.topBarActions}>
+          <TouchableOpacity
+            style={styles.userProfilePill}
+            activeOpacity={0.7}
+            onPress={() => setShowUserModal(true)}
+          >
+            <Text style={styles.userAvatarEmoji}>{currentUser?.avatar || '⚡'}</Text>
+            <Text style={styles.userNameText}>{currentUser?.name || 'Sahith'}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => {
@@ -292,6 +303,26 @@ const styles = StyleSheet.create({
   topBarActions: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  userProfilePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#242424',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#383838',
+    marginRight: 6,
+    gap: 6,
+  },
+  userAvatarEmoji: {
+    fontSize: 14,
+  },
+  userNameText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   iconButton: {
     width: 38,

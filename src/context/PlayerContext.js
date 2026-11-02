@@ -149,6 +149,9 @@ export const PlayerProvider = ({ children }) => {
   const [downloadProgress, setDownloadProgress] = useState({});
   const [searchHistory, setSearchHistory] = useState([]);
 
+  // User Profile Switcher modal state
+  const [showUserModal, setShowUserModal] = useState(false);
+
   // In-app Toast message system
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -560,8 +563,8 @@ export const PlayerProvider = ({ children }) => {
       const options = {
         showNextTrack: true,
         showPreviousTrack: true,
-        showSeekForward: false,
-        showSeekBackward: false,
+        showSeekForward: true,
+        showSeekBackward: true,
         seekForwardIntervalSeconds: 10,
         seekBackwardIntervalSeconds: 10,
       };
@@ -872,12 +875,12 @@ export const PlayerProvider = ({ children }) => {
           if (currentReqId !== playbackRequestIdRef.current) return;
 
           // 1. Handle remote lock screen / notification next and previous actions
-          if (status.playbackAction === 'nextTrack') {
+          if (status.playbackAction === 'nextTrack' || status.playbackAction === 'seekForward') {
             console.log('[PlayerContext] Remote nextTrack action received (earphones / lock screen / notification)');
             nextTrackRef.current?.();
             return;
           }
-          if (status.playbackAction === 'previousTrack') {
+          if (status.playbackAction === 'previousTrack' || status.playbackAction === 'seekBackward') {
             console.log('[PlayerContext] Remote previousTrack action received (earphones / lock screen / notification)');
             previousTrackRef.current?.();
             return;
@@ -1830,6 +1833,8 @@ export const PlayerProvider = ({ children }) => {
       value={{
         currentUser,
         switchUser,
+        showUserModal,
+        setShowUserModal,
         flacEnabled,
         toggleFlac,
         streamingQuality,
