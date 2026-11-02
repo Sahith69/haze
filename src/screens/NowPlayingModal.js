@@ -7,6 +7,8 @@ import {
   Dimensions,
   Image,
   Modal,
+  StatusBar as RNStatusBar,
+  Platform,
 } from 'react-native';
 import {
   ChevronDown,
@@ -27,6 +29,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 
 function formatTime(seconds) {
   if (!seconds || isNaN(seconds)) return '0:00';
@@ -37,6 +40,7 @@ function formatTime(seconds) {
 
 export const NowPlayingModal = () => {
   const {
+    activeModal,
     currentTrack,
     isPlaying,
     isLoadingAudio,
@@ -75,7 +79,13 @@ export const NowPlayingModal = () => {
   };
 
   return (
-    <View style={styles.fullscreenContainer}>
+    <Modal
+      visible={activeModal === 'now_playing'}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={closeModal}
+    >
+      <View style={styles.fullscreenContainer}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -245,17 +255,17 @@ export const NowPlayingModal = () => {
         </View>
       </View>
     </View>
+  </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   fullscreenContainer: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: '#121212',
-    zIndex: 1000,
     paddingHorizontal: 24,
-    paddingTop: 48,
-    paddingBottom: 32,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
+    paddingBottom: 28,
     justifyContent: 'space-between',
   },
   header: {

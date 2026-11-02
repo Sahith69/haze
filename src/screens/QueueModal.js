@@ -6,13 +6,19 @@ import {
   ScrollView,
   StyleSheet,
   Image,
+  Modal,
+  StatusBar as RNStatusBar,
+  Platform,
 } from 'react-native';
 import { ChevronDown, Trash2, Play, Music } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
+
 export const QueueModal = () => {
   const {
+    activeModal,
     currentTrack,
     queue,
     playTrack,
@@ -24,7 +30,13 @@ export const QueueModal = () => {
   const upNextTracks = (queue || []).filter((t) => t.id !== currentTrack?.id);
 
   return (
-    <View style={styles.container}>
+    <Modal
+      visible={activeModal === 'queue'}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={() => setActiveModal('now_playing')}
+    >
+      <View style={styles.container}>
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -125,15 +137,15 @@ export const QueueModal = () => {
         </View>
       </ScrollView>
     </View>
+  </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: '#121212',
-    zIndex: 1050,
-    paddingTop: 48,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
   },
   header: {
     flexDirection: 'row',

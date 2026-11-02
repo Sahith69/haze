@@ -7,12 +7,16 @@ import {
   StyleSheet,
   Image,
   Dimensions,
+  Modal,
+  StatusBar as RNStatusBar,
+  Platform,
 } from 'react-native';
 import { ArrowLeft, Play, Shuffle, MoreVertical, Music2 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 
 function formatDuration(seconds) {
   if (!seconds || isNaN(seconds)) return '--:--';
@@ -23,6 +27,7 @@ function formatDuration(seconds) {
 
 export const DetailViewModal = () => {
   const {
+    activeModal,
     detailViewData,
     detailModalData,
     closeDetailView,
@@ -51,7 +56,13 @@ export const DetailViewModal = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <Modal
+      visible={activeModal === 'detail_view'}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={closeDetailView}
+    >
+      <View style={styles.container}>
       {/* Top Bar with Back Button */}
       <View style={styles.topBar}>
         <TouchableOpacity
@@ -159,15 +170,15 @@ export const DetailViewModal = () => {
         </View>
       </ScrollView>
     </View>
+  </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: '#121212',
-    zIndex: 1020,
-    paddingTop: 48,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
   },
   topBar: {
     flexDirection: 'row',

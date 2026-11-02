@@ -6,15 +6,19 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
+  Modal,
+  StatusBar as RNStatusBar,
+  Platform,
 } from 'react-native';
 import { ChevronDown, Mic2 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 
 export const SyncedLyricsModal = () => {
-  const { currentTrack, position, duration, liveLyrics, seekTo, setActiveModal } = usePlayer();
+  const { activeModal, currentTrack, position, duration, liveLyrics, seekTo, setActiveModal } = usePlayer();
   const scrollViewRef = useRef(null);
 
   const lyricsList = useMemo(() => {
@@ -62,72 +66,78 @@ export const SyncedLyricsModal = () => {
   }, [activeLineIndex]);
 
   return (
-    <View style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={() => setActiveModal('now_playing')}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <ChevronDown size={28} color="#FFFFFF" />
-        </TouchableOpacity>
+    <Modal
+      visible={activeModal === 'lyrics'}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={() => setActiveModal('now_playing')}
+    >
+      <View style={styles.container}>
+        {/* Top Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() => setActiveModal('now_playing')}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ChevronDown size={28} color="#FFFFFF" />
+          </TouchableOpacity>
 
-        <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {currentTrack?.title || 'Lyrics'}
-          </Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {currentTrack?.artist || 'Spotube LRCLIB Sync'}
-          </Text>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {currentTrack?.title || 'Lyrics'}
+            </Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              {currentTrack?.artist || 'Spotube LRCLIB Sync'}
+            </Text>
+          </View>
+
+          <View style={{ width: 40 }} />
         </View>
 
-        <View style={{ width: 40 }} />
+        {/* Lyrics Scrollable Area */}
+        {lyricsList.length > 0 ? (
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.lyricsScroll}
+            contentContainerStyle={styles.lyricsContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {lyricsList.map((item, idx) => {
+              const isActive = idx === activeLineIndex;
+              return (
+                <TouchableOpacity
+                  key={`lyric_${idx}`}
+                  style={styles.lineTouchable}
+                  activeOpacity={0.7}
+                  onPress={() => seekTo(item.time)}
+                >
+                  <Text style={[styles.lineText, isActive && styles.lineTextActive]}>
+                    {item.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Mic2 size={48} color={colors.borderLight} />
+            <Text style={styles.emptyTitle}>No Synced Lyrics Found</Text>
+            <Text style={styles.emptySubtitle}>
+              Lyrics could not be found on LRCLIB for this track
+            </Text>
+          </View>
+        )}
       </View>
-
-      {/* Lyrics Scrollable Area */}
-      {lyricsList.length > 0 ? (
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.lyricsScroll}
-          contentContainerStyle={styles.lyricsContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {lyricsList.map((item, idx) => {
-            const isActive = idx === activeLineIndex;
-            return (
-              <TouchableOpacity
-                key={`lyric_${idx}`}
-                style={styles.lineTouchable}
-                activeOpacity={0.7}
-                onPress={() => seekTo(item.time)}
-              >
-                <Text style={[styles.lineText, isActive && styles.lineTextActive]}>
-                  {item.text}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Mic2 size={48} color={colors.borderLight} />
-          <Text style={styles.emptyTitle}>No Synced Lyrics Found</Text>
-          <Text style={styles.emptySubtitle}>
-            Lyrics could not be found on LRCLIB for this track
-          </Text>
-        </View>
-      )}
-    </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: '#121212',
-    zIndex: 1050,
-    paddingTop: 48,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
   },
   header: {
     flexDirection: 'row',

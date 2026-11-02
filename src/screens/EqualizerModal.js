@@ -1,11 +1,23 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Modal,
+  StatusBar as RNStatusBar,
+  Platform,
+} from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
+
 export const EqualizerModal = () => {
   const {
+    activeModal,
     eqPreset,
     setEqPreset,
     eqBands,
@@ -71,18 +83,24 @@ export const EqualizerModal = () => {
   };
 
   return (
-    <View style={styles.modalOverlay}>
-      <View style={styles.content}>
-        {/* Top Header */}
-        <View style={styles.headerBar}>
-          <TouchableOpacity style={styles.iconBtn} onPress={closeModal}>
-            <ChevronDown size={26} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Equalizer</Text>
-          <View style={{ width: 44 }} />
-        </View>
+    <Modal
+      visible={activeModal === 'equalizer'}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={closeModal}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.content}>
+          {/* Top Header */}
+          <View style={styles.headerBar}>
+            <TouchableOpacity style={styles.iconBtn} onPress={closeModal}>
+              <ChevronDown size={26} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Equalizer</Text>
+            <View style={{ width: 44 }} />
+          </View>
 
-        {/* Preset Selector Pills */}
+          {/* Preset Selector Pills */}
         <View style={styles.presetsRow}>
           {presets.map((preset) => {
             const isActive = eqPreset === preset;
@@ -160,18 +178,18 @@ export const EqualizerModal = () => {
         </View>
       </View>
     </View>
+  </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.bg,
-    zIndex: 110,
+    flex: 1,
+    backgroundColor: '#121212',
   },
   content: {
     flex: 1,
-    paddingTop: 52,
+    paddingTop: STATUS_BAR_HEIGHT + 10,
     paddingHorizontal: 20,
   },
   headerBar: {

@@ -13,6 +13,7 @@ export const MiniPlayer = () => {
     nextTrack,
     previousTrack,
     openModal,
+    setActiveModal,
     position,
     duration,
     toggleLike,
@@ -26,6 +27,7 @@ export const MiniPlayer = () => {
 
   const handleOpenNowPlaying = () => {
     if (openModal) openModal();
+    else if (setActiveModal) setActiveModal('now_playing');
   };
 
   return (
