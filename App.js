@@ -198,11 +198,11 @@ const MainNavigator = () => {
           {renderActiveScreen()}
         </ScreenTransition>
 
-        {/* Floating Mini Player (visible unless a full-screen modal is active) */}
-        {!activeModal && <MiniPlayer />}
+        {/* Floating Mini Player (visible unless a full-screen player modal is active) */}
+        {(!activeModal || activeModal === 'detail_view') && <MiniPlayer />}
 
-        {/* Bottom Tab Bar */}
-        <BottomNavBar />
+        {/* Bottom Tab Bar (hidden when detail view is active) */}
+        {activeModal !== 'detail_view' && <BottomNavBar />}
 
         {/* Modals & Overlays */}
         {activeModal === 'now_playing' && <NowPlayingModal />}

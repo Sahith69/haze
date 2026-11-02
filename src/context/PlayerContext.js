@@ -171,6 +171,7 @@ export const PlayerProvider = ({ children }) => {
   const [activeModal, setActiveModal] = useState(null);
   const [detailModalData, setDetailModalData] = useState(null);
   const previousModalRef = useRef(null);
+  const detailHistoryRef = useRef([]);
   const [shuffleMode, setShuffleMode] = useState('off'); // 'off' | 'on' | 'endless'
   const isShuffle = shuffleMode !== 'off';
   const isEndlessShuffle = shuffleMode === 'endless';
@@ -1723,7 +1724,14 @@ export const PlayerProvider = ({ children }) => {
 
   const openArtistView = useCallback((artistName, artistCover = '') => {
     if (!artistName) return;
-    previousModalRef.current = activeModal;
+    if (activeModal === 'detail_view') {
+      if (detailModalData) {
+        detailHistoryRef.current.push(detailModalData);
+      }
+    } else {
+      previousModalRef.current = activeModal;
+      detailHistoryRef.current = [];
+    }
     setDetailModalData({
       type: 'artist',
       title: artistName,
@@ -1731,11 +1739,18 @@ export const PlayerProvider = ({ children }) => {
       cover: artistCover,
     });
     setActiveModal('detail_view');
-  }, [activeModal]);
+  }, [activeModal, detailModalData]);
 
   const openAlbumView = useCallback((albumTitle, artistName = '', albumCover = '') => {
     if (!albumTitle) return;
-    previousModalRef.current = activeModal;
+    if (activeModal === 'detail_view') {
+      if (detailModalData) {
+        detailHistoryRef.current.push(detailModalData);
+      }
+    } else {
+      previousModalRef.current = activeModal;
+      detailHistoryRef.current = [];
+    }
     setDetailModalData({
       type: 'album',
       title: albumTitle,
@@ -1743,11 +1758,18 @@ export const PlayerProvider = ({ children }) => {
       cover: albumCover,
     });
     setActiveModal('detail_view');
-  }, [activeModal]);
+  }, [activeModal, detailModalData]);
 
   const closeDetailView = useCallback(() => {
-    setActiveModal(previousModalRef.current || null);
-    previousModalRef.current = null;
+    if (detailHistoryRef.current.length > 0) {
+      const prev = detailHistoryRef.current.pop();
+      setDetailModalData(prev);
+    } else {
+      setDetailModalData(null);
+      const targetModal = previousModalRef.current === 'detail_view' ? null : (previousModalRef.current || null);
+      setActiveModal(targetModal);
+      previousModalRef.current = null;
+    }
   }, []);
 
   return (
@@ -1792,6 +1814,7 @@ export const PlayerProvider = ({ children }) => {
         activeTab,
         activeModal,
         detailModalData,
+        hasDetailHistory: detailHistoryRef.current.length > 0,
         openArtistView,
         openAlbumView,
         closeDetailView,

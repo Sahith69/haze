@@ -284,7 +284,7 @@ export const NowPlayingModal = () => {
   const isDownloaded = isTrackDownloaded(currentTrack.id);
   const isDownloading = downloadProgress[currentTrack.id]?.status === 'downloading';
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
-  const artSize = Math.min(width - 56, 275);
+  const artSize = Math.min(width - 56, height < 750 ? 215 : 275);
 
   const getQualityBadgeText = () => {
     if (isDownloaded) {
@@ -772,8 +772,7 @@ export const NowPlayingModal = () => {
 
 const styles = StyleSheet.create({
   modalOverlay: {
-    position: 'absolute',
-    inset: 0,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#000000',
     zIndex: 100,
   },

@@ -719,10 +719,7 @@ export const LibraryScreen = () => {
               <TouchableOpacity
                 key={idx}
                 style={styles.gridArtistCard}
-                onPress={() => {
-                  setSelectedArtist(art);
-                  setActiveSubView('artist_detail');
-                }}
+                onPress={() => openArtistView(art.artist, art.cover)}
               >
                 {art.cover ? (
                   <Image source={{ uri: art.cover }} style={styles.gridArtistAvatar} />
@@ -753,10 +750,7 @@ export const LibraryScreen = () => {
               <TouchableOpacity
                 key={idx}
                 style={styles.gridAlbumCard}
-                onPress={() => {
-                  setSelectedAlbum(alb);
-                  setActiveSubView('album_detail');
-                }}
+                onPress={() => openAlbumView(alb.album, alb.artist, alb.cover)}
               >
                 <Image source={{ uri: alb.cover || 'https://via.placeholder.com/100' }} style={styles.gridAlbumCover} />
                 <Text style={styles.gridAlbumName} numberOfLines={1}>{alb.album}</Text>
@@ -823,6 +817,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 20,
     paddingTop: 56,
+    paddingBottom: 160,
   },
   topRow: {
     flexDirection: 'row',

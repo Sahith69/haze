@@ -234,6 +234,7 @@ export const HomeScreen = () => {
         </View>
         <ScrollView
           horizontal
+          nestedScrollEnabled={true}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.artistsRail}
         >
@@ -273,46 +274,56 @@ export const HomeScreen = () => {
           const isDownloading = downloadProgress[track.id]?.status === 'downloading';
 
           return (
-            <TouchableOpacity
+            <View
               key={`${track.id}-${idx}`}
-              activeOpacity={0.7}
               style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
-              onPress={() => playTrack(track, activeTrendingTracks)}
             >
-              {isThisPlaying ? (
-                <View style={styles.playingIndexBox}>
-                  <Text style={styles.playingIndexText}>▶</Text>
-                </View>
-              ) : (
-                <Text style={styles.trackIndex}>{idx + 1}</Text>
-              )}
-              <Image
-                source={{ uri: track.cover || 'https://via.placeholder.com/44' }}
-                style={styles.trackCover}
-              />
-              <View style={styles.trackDetails}>
-                <View style={styles.trackTitleRow}>
-                  <Text
-                    style={[styles.trackTitle, isThisPlaying && styles.trackTitlePlaying]}
-                    numberOfLines={1}
-                  >
-                    {track.title}
-                  </Text>
-                  <View style={[styles.flacBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
-                    <Text style={[styles.flacBadgeText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
-                      {isDownloaded
-                        ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
-                        : '✨ 320k'}
-                    </Text>
+              {/* Left Play Tap Area: Index & Artwork */}
+              <TouchableOpacity
+                style={styles.trackLeftTouch}
+                activeOpacity={0.7}
+                onPress={() => playTrack(track, activeTrendingTracks)}
+              >
+                {isThisPlaying ? (
+                  <View style={styles.playingIndexBox}>
+                    <Text style={styles.playingIndexText}>▶</Text>
                   </View>
-                </View>
+                ) : (
+                  <Text style={styles.trackIndex}>{idx + 1}</Text>
+                )}
+                <Image
+                  source={{ uri: track.cover || 'https://via.placeholder.com/44' }}
+                  style={styles.trackCover}
+                />
+              </TouchableOpacity>
+
+              {/* Middle Area: Title (tap to play) & Artist (tap for artist catalog) */}
+              <View style={styles.trackDetails}>
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  hitSlop={{ top: 4, bottom: 4, left: 0, right: 8 }}
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    openArtistView(track.artist, track.cover);
-                  }}
+                  onPress={() => playTrack(track, activeTrendingTracks)}
+                >
+                  <View style={styles.trackTitleRow}>
+                    <Text
+                      style={[styles.trackTitle, isThisPlaying && styles.trackTitlePlaying]}
+                      numberOfLines={1}
+                    >
+                      {track.title}
+                    </Text>
+                    <View style={[styles.flacBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
+                      <Text style={[styles.flacBadgeText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
+                        {isDownloaded
+                          ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
+                          : '✨ 320k'}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 2, bottom: 6, left: 0, right: 12 }}
+                  onPress={() => openArtistView(track.artist, track.cover)}
                 >
                   <Text style={styles.trackArtist} numberOfLines={1}>
                     {track.artist}
@@ -343,7 +354,7 @@ export const HomeScreen = () => {
               <Text style={styles.trackDuration}>
                 {formatDuration(track.duration || 215)}
               </Text>
-            </TouchableOpacity>
+            </View>
           );
         })}
       </View>
@@ -362,6 +373,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingTop: 54,
     paddingHorizontal: 16,
+    paddingBottom: 160,
   },
   brandRow: {
     flexDirection: 'row',
@@ -592,6 +604,10 @@ const styles = StyleSheet.create({
   },
   trackRowPlaying: {
     backgroundColor: '#121212',
+  },
+  trackLeftTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   trackIndex: {
     width: 22,

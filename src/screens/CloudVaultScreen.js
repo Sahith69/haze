@@ -113,6 +113,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingTop: 54,
     paddingHorizontal: 16,
+    paddingBottom: 160,
   },
   headerTitle: {
     fontSize: 24,

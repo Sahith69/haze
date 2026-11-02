@@ -17,5 +17,5 @@ export const colors = {
   badgeBorder: '#2E2E2E',
   navBg: '#080808',
   accentPink: '#EF4444',
-  gold: '#FFFFFF',
+  gold: '#F5C451',
 };

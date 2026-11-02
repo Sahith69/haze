@@ -431,48 +431,55 @@ export const SearchScreen = () => {
               const isDownloading = downloadProgress[track.id]?.status === 'downloading';
 
               return (
-                <TouchableOpacity
+                <View
                   key={`pop-${track.id}-${idx}`}
                   style={[styles.trackRow, isPlayingCurrent && styles.trackRowActive]}
-                  activeOpacity={0.7}
-                  onPress={() => handleTrackPress(track)}
                 >
-                  <Text style={[styles.trackRankNumber, isPlayingCurrent && styles.trackRankNumberActive]}>
-                    {idx + 1}
-                  </Text>
+                  {/* Left Tap Area: Rank & Cover */}
+                  <TouchableOpacity
+                    style={styles.trackLeftTouch}
+                    activeOpacity={0.7}
+                    onPress={() => handleTrackPress(track)}
+                  >
+                    <Text style={[styles.trackRankNumber, isPlayingCurrent && styles.trackRankNumberActive]}>
+                      {idx + 1}
+                    </Text>
 
-                  {track.cover ? (
-                    <Image source={{ uri: track.cover }} style={styles.trackArt} />
-                  ) : (
-                    <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
-                      <Music size={16} color="#888888" />
-                    </View>
-                  )}
+                    {track.cover ? (
+                      <Image source={{ uri: track.cover }} style={styles.trackArt} />
+                    ) : (
+                      <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
+                        <Music size={16} color="#888888" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
 
                   <View style={styles.trackInfo}>
-                    <View style={styles.titleRow}>
-                      <Text
-                        style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
-                        numberOfLines={1}
-                      >
-                        {track.title}
-                      </Text>
-                      <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
-                        <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
-                          {isDownloaded
-                            ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
-                            : '✨ 320k'}
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleTrackPress(track)}
+                    >
+                      <View style={styles.titleRow}>
+                        <Text
+                          style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
+                          numberOfLines={1}
+                        >
+                          {track.title}
                         </Text>
+                        <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
+                          <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
+                            {isDownloaded
+                              ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
+                              : '✨ 320k'}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                     <View style={styles.trackSubtitleRow}>
                       <TouchableOpacity
-                        hitSlop={{ top: 6, bottom: 6, left: 0, right: 4 }}
+                        hitSlop={{ top: 4, bottom: 6, left: 0, right: 6 }}
                         activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation?.();
-                          openArtistView(track.artist, track.cover);
-                        }}
+                        onPress={() => openArtistView(track.artist, track.cover)}
                       >
                         <Text style={styles.trackArtistLink} numberOfLines={1}>
                           {track.artist}
@@ -482,12 +489,9 @@ export const SearchScreen = () => {
                         <>
                           <Text style={styles.trackDotSep}>·</Text>
                           <TouchableOpacity
-                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            hitSlop={{ top: 4, bottom: 6, left: 4, right: 6 }}
                             activeOpacity={0.7}
-                            onPress={(e) => {
-                              e.stopPropagation?.();
-                              openAlbumView(track.album, track.artist, track.cover);
-                            }}
+                            onPress={() => openAlbumView(track.album, track.artist, track.cover)}
                           >
                             <Text style={styles.trackAlbumLink} numberOfLines={1}>
                               {track.album}
@@ -503,10 +507,7 @@ export const SearchScreen = () => {
                   {/* Download Button */}
                   <TouchableOpacity
                     style={styles.downloadBtn}
-                    onPress={(e) => {
-                      e.stopPropagation?.();
-                      downloadTrack(track);
-                    }}
+                    onPress={() => downloadTrack(track)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     {isDownloading ? (
@@ -517,7 +518,7 @@ export const SearchScreen = () => {
                       <ArrowDownToLine size={18} color="#71717A" />
                     )}
                   </TouchableOpacity>
-                </TouchableOpacity>
+                </View>
               );
             })}
           </View>
@@ -528,7 +529,12 @@ export const SearchScreen = () => {
       {(selectedCategory === 'all' || selectedCategory === 'artists') && uniqueArtists.length > 0 && hasSearched && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Artists</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.artistsRow}>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.artistsRow}
+          >
             {uniqueArtists.slice(0, 10).map((art, idx) => (
               <TouchableOpacity
                 key={idx}
@@ -559,7 +565,12 @@ export const SearchScreen = () => {
       {(selectedCategory === 'all' || selectedCategory === 'albums') && uniqueAlbums.length > 0 && hasSearched && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Albums</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.albumsRow}>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.albumsRow}
+          >
             {uniqueAlbums.slice(0, 10).map((alb, idx) => (
               <TouchableOpacity
                 key={idx}
@@ -602,44 +613,50 @@ export const SearchScreen = () => {
               const isDownloading = downloadProgress[track.id]?.status === 'downloading';
 
               return (
-                <TouchableOpacity
+                <View
                   key={`other-${track.id}-${idx}`}
                   style={[styles.trackRow, isPlayingCurrent && styles.trackRowActive]}
-                  activeOpacity={0.7}
-                  onPress={() => handleTrackPress(track)}
                 >
-                  {track.cover ? (
-                    <Image source={{ uri: track.cover }} style={styles.trackArt} />
-                  ) : (
-                    <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
-                      <Music size={16} color="#888888" />
-                    </View>
-                  )}
+                  <TouchableOpacity
+                    style={styles.trackLeftTouch}
+                    activeOpacity={0.7}
+                    onPress={() => handleTrackPress(track)}
+                  >
+                    {track.cover ? (
+                      <Image source={{ uri: track.cover }} style={styles.trackArt} />
+                    ) : (
+                      <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
+                        <Music size={16} color="#888888" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
 
                   <View style={styles.trackInfo}>
-                    <View style={styles.titleRow}>
-                      <Text
-                        style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
-                        numberOfLines={1}
-                      >
-                        {track.title}
-                      </Text>
-                      <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
-                        <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
-                          {isDownloaded
-                            ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
-                            : '✨ 320k'}
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleTrackPress(track)}
+                    >
+                      <View style={styles.titleRow}>
+                        <Text
+                          style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
+                          numberOfLines={1}
+                        >
+                          {track.title}
                         </Text>
+                        <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
+                          <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
+                            {isDownloaded
+                              ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
+                              : '✨ 320k'}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                     <View style={styles.trackSubtitleRow}>
                       <TouchableOpacity
-                        hitSlop={{ top: 6, bottom: 6, left: 0, right: 4 }}
+                        hitSlop={{ top: 4, bottom: 6, left: 0, right: 6 }}
                         activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation?.();
-                          openArtistView(track.artist, track.cover);
-                        }}
+                        onPress={() => openArtistView(track.artist, track.cover)}
                       >
                         <Text style={styles.trackArtistLink} numberOfLines={1}>
                           {track.artist}
@@ -649,12 +666,9 @@ export const SearchScreen = () => {
                         <>
                           <Text style={styles.trackDotSep}>·</Text>
                           <TouchableOpacity
-                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            hitSlop={{ top: 4, bottom: 6, left: 4, right: 6 }}
                             activeOpacity={0.7}
-                            onPress={(e) => {
-                              e.stopPropagation?.();
-                              openAlbumView(track.album, track.artist, track.cover);
-                            }}
+                            onPress={() => openAlbumView(track.album, track.artist, track.cover)}
                           >
                             <Text style={styles.trackAlbumLink} numberOfLines={1}>
                               {track.album}
@@ -670,10 +684,7 @@ export const SearchScreen = () => {
                   {/* Download Button */}
                   <TouchableOpacity
                     style={styles.downloadBtn}
-                    onPress={(e) => {
-                      e.stopPropagation?.();
-                      downloadTrack(track);
-                    }}
+                    onPress={() => downloadTrack(track)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     {isDownloading ? (
@@ -684,7 +695,7 @@ export const SearchScreen = () => {
                       <ArrowDownToLine size={18} color="#71717A" />
                     )}
                   </TouchableOpacity>
-                </TouchableOpacity>
+                </View>
               );
             })}
           </View>
@@ -703,44 +714,50 @@ export const SearchScreen = () => {
               const isDownloading = downloadProgress[track.id]?.status === 'downloading';
 
               return (
-                <TouchableOpacity
+                <View
                   key={track.id}
                   style={[styles.trackRow, isPlayingCurrent && styles.trackRowActive]}
-                  activeOpacity={0.7}
-                  onPress={() => handleTrackPress(track)}
                 >
-                  {track.cover ? (
-                    <Image source={{ uri: track.cover }} style={styles.trackArt} />
-                  ) : (
-                    <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
-                      <Music size={16} color="#888888" />
-                    </View>
-                  )}
+                  <TouchableOpacity
+                    style={styles.trackLeftTouch}
+                    activeOpacity={0.7}
+                    onPress={() => handleTrackPress(track)}
+                  >
+                    {track.cover ? (
+                      <Image source={{ uri: track.cover }} style={styles.trackArt} />
+                    ) : (
+                      <View style={[styles.trackArt, { backgroundColor: '#1E1E24' }]}>
+                        <Music size={16} color="#888888" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
 
                   <View style={styles.trackInfo}>
-                    <View style={styles.titleRow}>
-                      <Text
-                        style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
-                        numberOfLines={1}
-                      >
-                        {track.title}
-                      </Text>
-                      <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
-                        <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
-                          {isDownloaded
-                            ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
-                            : '✨ 320k'}
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleTrackPress(track)}
+                    >
+                      <View style={styles.titleRow}>
+                        <Text
+                          style={[styles.trackTitle, isPlayingCurrent && styles.trackTitleActive]}
+                          numberOfLines={1}
+                        >
+                          {track.title}
                         </Text>
+                        <View style={[styles.hiResBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
+                          <Text style={[styles.hiResText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
+                            {isDownloaded
+                              ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
+                              : '✨ 320k'}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                     <View style={styles.trackSubtitleRow}>
                       <TouchableOpacity
-                        hitSlop={{ top: 6, bottom: 6, left: 0, right: 4 }}
+                        hitSlop={{ top: 4, bottom: 6, left: 0, right: 6 }}
                         activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation?.();
-                          openArtistView(track.artist, track.cover);
-                        }}
+                        onPress={() => openArtistView(track.artist, track.cover)}
                       >
                         <Text style={styles.trackArtistLink} numberOfLines={1}>
                           {track.artist}
@@ -750,12 +767,9 @@ export const SearchScreen = () => {
                         <>
                           <Text style={styles.trackDotSep}>·</Text>
                           <TouchableOpacity
-                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            hitSlop={{ top: 4, bottom: 6, left: 4, right: 6 }}
                             activeOpacity={0.7}
-                            onPress={(e) => {
-                              e.stopPropagation?.();
-                              openAlbumView(track.album, track.artist, track.cover);
-                            }}
+                            onPress={() => openAlbumView(track.album, track.artist, track.cover)}
                           >
                             <Text style={styles.trackAlbumLink} numberOfLines={1}>
                               {track.album}
@@ -771,10 +785,7 @@ export const SearchScreen = () => {
                   {/* Download Button */}
                   <TouchableOpacity
                     style={styles.downloadBtn}
-                    onPress={(e) => {
-                      e.stopPropagation?.();
-                      downloadTrack(track);
-                    }}
+                    onPress={() => downloadTrack(track)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     {isDownloading ? (
@@ -785,7 +796,7 @@ export const SearchScreen = () => {
                       <ArrowDownToLine size={18} color="#71717A" />
                     )}
                   </TouchableOpacity>
-                </TouchableOpacity>
+                </View>
               );
             })}
           </View>
@@ -1032,6 +1043,11 @@ const styles = StyleSheet.create({
   },
   trackRowActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  trackLeftTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   trackArt: {
     width: 44,

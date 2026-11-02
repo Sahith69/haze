@@ -165,8 +165,7 @@ export const EqualizerModal = () => {
 
 const styles = StyleSheet.create({
   modalOverlay: {
-    position: 'absolute',
-    inset: 0,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.bg,
     zIndex: 110,
   },

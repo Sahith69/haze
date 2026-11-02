@@ -14,15 +14,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronDown,
+  ArrowLeft,
   Play,
   Shuffle,
-  Disc3,
-  Clock,
-  Sparkles,
   Music2,
   CheckCircle2,
   MoreHorizontal,
-  ChevronRight,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
@@ -52,6 +49,7 @@ function formatTrackTime(seconds) {
 export const DetailViewModal = () => {
   const {
     detailModalData,
+    hasDetailHistory,
     closeDetailView,
     openArtistView,
     openAlbumView,
@@ -78,6 +76,10 @@ export const DetailViewModal = () => {
 
   const handleSmoothClose = () => {
     if (isClosingRef.current) return;
+    if (hasDetailHistory) {
+      closeDetailView();
+      return;
+    }
     isClosingRef.current = true;
     Animated.timing(modalAnim, {
       toValue: height,
@@ -152,7 +154,11 @@ export const DetailViewModal = () => {
             onPress={handleSmoothClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <ChevronDown size={24} color="#FFFFFF" />
+            {hasDetailHistory ? (
+              <ArrowLeft size={22} color="#FFFFFF" />
+            ) : (
+              <ChevronDown size={24} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
           <Text style={styles.headerCategory} numberOfLines={1}>
             {isArtist ? 'ARTIST' : 'ALBUM'}
@@ -441,6 +447,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 100,
     paddingHorizontal: 20,
+    paddingBottom: 140,
   },
   heroSection: {
     marginBottom: 28,
