@@ -6,12 +6,11 @@ import { colors } from '../theme/colors';
 export const AmbientBackground = ({ children }) => {
   return (
     <View style={styles.container}>
-      {/* Subtle HAZE Dark Vignette */}
       <LinearGradient
-        colors={['#0D0D0D', '#000000', '#000000']}
+        colors={['#181818', '#121212', '#121212']}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.6 }}
+        end={{ x: 0.5, y: 0.5 }}
       />
       {children}
     </View>

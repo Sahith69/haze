@@ -1,34 +1,36 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal, RefreshControl } from 'react-native';
-import { Play, Sparkles, Music2, ChevronDown, Check, ArrowDownToLine, CheckCircle2 } from 'lucide-react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  RefreshControl,
+} from 'react-native';
+import { Play, Settings, Cast, Music, Disc3, Sparkles } from 'lucide-react-native';
 import { usePlayer, INITIAL_TRACKS } from '../context/PlayerContext';
 import { fetchTrending, fetchVaultList } from '../services/api';
 import { colors } from '../theme/colors';
 
-function formatDuration(seconds) {
-  if (!seconds || isNaN(seconds)) return '--:--';
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-}
-
-function getGreeting() {
-  const hr = new Date().getHours();
-  if (hr < 12) return 'Good morning';
-  if (hr < 18) return 'Good afternoon';
-  return 'Good evening';
-}
+const GENRES = [
+  { id: 'pop', name: 'Pop', color: '#E13300' },
+  { id: 'hiphop', name: 'Hip-Hop', color: '#BA5D07' },
+  { id: 'indie', name: 'Indie & Alt', color: '#608108' },
+  { id: 'rock', name: 'Rock', color: '#E91429' },
+  { id: 'chill', name: 'Chill & Lo-Fi', color: '#477D95' },
+  { id: 'telugu', name: 'Telugu Hits', color: '#8D67AB' },
+  { id: 'bollywood', name: 'Bollywood', color: '#D84000' },
+  { id: 'dance', name: 'Electronic', color: '#1E3264' },
+];
 
 const POPULAR_ARTISTS = [
   { name: 'The Weeknd', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b5/92/bb/b592bb72-52e3-e756-9b26-9f56d08f47ab/16UMGIM67864.rgb.jpg/600x600bb.jpg', genre: 'R&B / Pop' },
   { name: 'Billie Eilish', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/bf/82/53/bf82531e-b8eb-4e68-07dd-b5cb88764835/24UMGIM41846.rgb.jpg/600x600bb.jpg', genre: 'Alternative' },
-  { name: 'Taylor Swift', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/37/64/98/376498bb-4a56-82ae-eb01-389f4172cebe/24UMGIM28639.rgb.jpg/600x600bb.jpg', genre: 'Pop' },
-  { name: 'Arijit Singh', cover: 'https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg', genre: 'Bollywood' },
   { name: 'Kendrick Lamar', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/58/05/27/58052723-5e93-c40b-741a-a0f5a7066d74/22UMGIM47895.rgb.jpg/600x600bb.jpg', genre: 'Hip-Hop' },
-  { name: 'Sai Abhyankkar', cover: 'https://c.saavncdn.com/editorial/SaiAbhyankkarHits_20240722100808_500x500.jpg', genre: 'Indie / Pop' },
-  { name: 'Drake', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/4e/c5/42/4ec54284-be47-7561-c8b8-d4218eb8548c/23UMGIM95147.rgb.jpg/600x600bb.jpg', genre: 'Hip-Hop' },
+  { name: 'Arijit Singh', cover: 'https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg', genre: 'Bollywood' },
   { name: 'Anirudh Ravichander', cover: 'https://c.saavncdn.com/artists/Anirudh_Ravichander_004_20231019114757_500x500.jpg', genre: 'Soundtrack' },
-  { name: 'Dua Lipa', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/ea/98/86/ea988636-24e6-d98c-ec0c-dcfa328b9d31/190295286101.jpg/600x600bb.jpg', genre: 'Dance / Pop' },
+  { name: 'Taylor Swift', cover: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/37/64/98/376498bb-4a56-82ae-eb01-389f4172cebe/24UMGIM28639.rgb.jpg/600x600bb.jpg', genre: 'Pop' },
 ];
 
 export const HomeScreen = () => {
@@ -40,25 +42,18 @@ export const HomeScreen = () => {
     trendingTracks,
     setTrendingTracks,
     setVaultTracks,
-    currentUser,
-    switchUser,
-    flacEnabled,
-    USERS,
-    downloadTrack,
-    isTrackDownloaded,
-    downloadProgress,
-    streamingQuality,
-    setShowQualityModal,
-    setQualityModalMode,
     openArtistView,
     openAlbumView,
+    setActiveTab,
+    setSearchQuery,
+    performSearch,
+    setShowQualityModal,
+    setQualityModalMode,
   } = usePlayer();
-  const [showUserModal, setShowUserModal] = useState(false);
+
   const [refreshing, setRefreshing] = useState(false);
 
-  const activeTrendingTracks = (trendingTracks && trendingTracks.length > 0)
-    ? trendingTracks
-    : (queue && queue.length > 0 ? queue : INITIAL_TRACKS);
+  const activeTracks = trendingTracks && trendingTracks.length > 0 ? trendingTracks : queue && queue.length > 0 ? queue : INITIAL_TRACKS;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -79,6 +74,12 @@ export const HomeScreen = () => {
     }
   };
 
+  const handleGenrePress = (genreName) => {
+    if (setSearchQuery) setSearchQuery(genreName);
+    if (performSearch) performSearch(genreName);
+    setActiveTab('search');
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -88,284 +89,157 @@ export const HomeScreen = () => {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor="#FFFFFF"
-          colors={['#FFFFFF']}
+          tintColor={colors.primary}
+          colors={[colors.primary]}
         />
       }
     >
-      {/* Spotube Header Bar */}
-      <View style={styles.brandRow}>
-        <View style={styles.brandLeft}>
-          <Text style={styles.greetingText}>{getGreeting()}</Text>
-          <Text style={styles.subGreetingText}>HAZE STUDIO · HI-FI AUDIO</Text>
+      {/* Spotube Top Bar */}
+      <View style={styles.topBar}>
+        <View style={styles.brandingLeft}>
+          <Text style={styles.brandTitle}>HAZE</Text>
+          <View style={styles.spotubeEnginePill}>
+            <Text style={styles.spotubeEngineText}>Spotube UI</Text>
+          </View>
         </View>
 
-        <View style={styles.brandRight}>
-          {/* Quality Mode Pill */}
+        <View style={styles.topBarActions}>
           <TouchableOpacity
-            activeOpacity={0.8}
-            style={[
-              styles.qualityBadgePill,
-              streamingQuality === '1411k' && styles.qualityBadgePillFlac,
-            ]}
+            style={styles.iconButton}
             onPress={() => {
-              setQualityModalMode('streaming');
+              setQualityModalMode('stream');
               setShowQualityModal(true);
             }}
           >
-            <Text
-              style={[
-                styles.qualityBadgePillText,
-                streamingQuality === '1411k' && { color: colors.gold },
-              ]}
+            <Settings size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Section 1: Recently Played / Top Picks */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recently Played</Text>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalScroll}
+      >
+        {activeTracks.slice(0, 8).map((track, idx) => {
+          const isCurrent = currentTrack?.id === track.id;
+          return (
+            <TouchableOpacity
+              key={`${track.id || idx}`}
+              style={styles.recentCard}
+              activeOpacity={0.8}
+              onPress={() => playTrack(track, activeTracks)}
             >
-              {streamingQuality === '1411k'
-                ? '⚡ FLAC'
-                : streamingQuality === '320k'
-                ? '✨ 320k'
-                : streamingQuality === '256k'
-                ? 'HD'
-                : 'SAVER'}
+              <View style={styles.cardImageContainer}>
+                <Image
+                  source={{ uri: track.cover || 'https://via.placeholder.com/150' }}
+                  style={styles.cardCover}
+                />
+                {isCurrent && isPlaying && (
+                  <View style={styles.playingOverlay}>
+                    <Play size={20} color={colors.primary} fill={colors.primary} />
+                  </View>
+                )}
+              </View>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {track.title}
+              </Text>
+              <Text style={styles.cardSubtitle} numberOfLines={1}>
+                {track.artist}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Section 2: Popular Artists */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Popular Artists</Text>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalScroll}
+      >
+        {POPULAR_ARTISTS.map((artist, idx) => (
+          <TouchableOpacity
+            key={`artist_${idx}`}
+            style={styles.artistCard}
+            activeOpacity={0.8}
+            onPress={() => {
+              if (openArtistView) {
+                openArtistView({ name: artist.name, cover: artist.cover });
+              }
+            }}
+          >
+            <Image source={{ uri: artist.cover }} style={styles.artistAvatar} />
+            <Text style={styles.artistName} numberOfLines={1}>
+              {artist.name}
+            </Text>
+            <Text style={styles.artistGenre} numberOfLines={1}>
+              {artist.genre}
             </Text>
           </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-          {/* Profile Switcher Pill */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.profilePill}
-            onPress={() => setShowUserModal(true)}
-          >
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>{currentUser.avatar}</Text>
-            </View>
-            <Text style={styles.profileName}>{currentUser.name}</Text>
-            <ChevronDown size={14} color="#888888" />
-          </TouchableOpacity>
-        </View>
+      {/* Section 3: Trending Hits */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Trending Worldwide</Text>
       </View>
-
-      {/* Spotube 2-Column Quick Picks Grid */}
-      <View style={styles.quickPicksGrid}>
-        {activeTrendingTracks.slice(0, 6).map((track, idx) => {
-          const isThisPlaying = currentTrack?.id === track.id && isPlaying;
+      <View style={styles.trackListContainer}>
+        {activeTracks.slice(0, 6).map((track, idx) => {
+          const isCurrent = currentTrack?.id === track.id;
           return (
             <TouchableOpacity
-              key={`quick-${track.id}-${idx}`}
-              style={[styles.quickPickCard, isThisPlaying && styles.quickPickCardActive]}
-              activeOpacity={0.75}
-              onPress={() => playTrack(track, activeTrendingTracks)}
+              key={`trending_${track.id || idx}`}
+              style={[styles.trackRow, isCurrent && styles.trackRowActive]}
+              activeOpacity={0.7}
+              onPress={() => playTrack(track, activeTracks)}
             >
-              <Image
-                source={{ uri: track.cover || 'https://via.placeholder.com/60' }}
-                style={styles.quickPickCover}
-              />
-              <View style={styles.quickPickTextWrap}>
-                <Text style={[styles.quickPickTitle, isThisPlaying && styles.quickPickTitleActive]} numberOfLines={2}>
+              <Text style={styles.trackIndex}>{idx + 1}</Text>
+              <Image source={{ uri: track.cover }} style={styles.trackThumb} />
+              <View style={styles.trackDetails}>
+                <Text
+                  style={[styles.trackName, isCurrent && { color: colors.primary }]}
+                  numberOfLines={1}
+                >
                   {track.title}
                 </Text>
+                <Text style={styles.trackArtist} numberOfLines={1}>
+                  {track.artist}
+                </Text>
               </View>
-              {isThisPlaying && (
-                <View style={styles.quickPickPlayDot}>
-                  <Play size={10} color="#000000" fill="#000000" />
-                </View>
-              )}
+              <Play
+                size={16}
+                color={isCurrent ? colors.primary : colors.textDim}
+                fill={isCurrent ? colors.primary : 'transparent'}
+              />
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* User Switcher Modal */}
-      <Modal
-        visible={showUserModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowUserModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowUserModal(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Listener Profile</Text>
-            <Text style={styles.modalSubtitle}>Configure listening preferences</Text>
-
-            {Object.values(USERS).map((user) => {
-              const isSelected = currentUser.id === user.id;
-              return (
-                <TouchableOpacity
-                  key={user.id}
-                  activeOpacity={0.8}
-                  style={[styles.userCard, isSelected && styles.userCardSelected]}
-                  onPress={() => {
-                    switchUser(user.id);
-                    setShowUserModal(false);
-                  }}
-                >
-                  <View style={styles.userCardAvatar}>
-                    <Text style={styles.userCardAvatarText}>{user.avatar}</Text>
-                  </View>
-
-                  <View style={styles.userCardInfo}>
-                    <View style={styles.userCardNameRow}>
-                      <Text style={styles.userCardName}>{user.name}</Text>
-                      <View style={[styles.userBadgePill, isSelected && styles.userBadgePillActive]}>
-                        <Text style={styles.userBadgeText}>{user.badge}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.userCardDesc}>{user.description}</Text>
-                  </View>
-
-                  {isSelected && (
-                    <View style={styles.checkCircle}>
-                      <Check size={14} color="#000000" strokeWidth={3} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Popular Artists Horizontal Rail */}
-      <View style={styles.artistsSection}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <Sparkles size={16} color={colors.primary} />
-            <Text style={styles.sectionTitle}>Popular Artists</Text>
-          </View>
-          <Text style={styles.sectionBadge}>Catalog</Text>
-        </View>
-        <ScrollView
-          horizontal
-          nestedScrollEnabled={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.artistsRail}
-        >
-          {POPULAR_ARTISTS.map((artist, idx) => (
-            <TouchableOpacity
-              key={idx}
-              style={styles.artistCard}
-              activeOpacity={0.7}
-              onPress={() => openArtistView(artist.name, artist.cover)}
-            >
-              <Image source={{ uri: artist.cover }} style={styles.artistAvatar} />
-              <Text style={styles.artistName} numberOfLines={1}>
-                {artist.name}
-              </Text>
-              <Text style={styles.artistGenre} numberOfLines={1}>
-                {artist.genre}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Trending Now Section Header */}
+      {/* Section 4: Browse Categories */}
       <View style={styles.sectionHeader}>
-        <View style={styles.sectionTitleRow}>
-          <Music2 size={16} color={colors.primary} />
-          <Text style={styles.sectionTitle}>Top Charts & Trending</Text>
-        </View>
-        <Text style={styles.sectionBadge}>Hi-Fi</Text>
+        <Text style={styles.sectionTitle}>Browse Categories</Text>
       </View>
-
-      {/* Spotube Track List */}
-      <View style={styles.trackList}>
-        {activeTrendingTracks.map((track, idx) => {
-          const isThisPlaying = currentTrack?.id === track.id;
-          const isDownloaded = isTrackDownloaded(track.id);
-          const isDownloading = downloadProgress[track.id]?.status === 'downloading';
-
-          return (
-            <View
-              key={`${track.id}-${idx}`}
-              style={[styles.trackRow, isThisPlaying && styles.trackRowPlaying]}
-            >
-              {/* Left Play Tap Area: Index & Artwork */}
-              <TouchableOpacity
-                style={styles.trackLeftTouch}
-                activeOpacity={0.7}
-                onPress={() => playTrack(track, activeTrendingTracks)}
-              >
-                {isThisPlaying ? (
-                  <View style={styles.playingIndexBox}>
-                    <Text style={styles.playingIndexText}>▶</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.trackIndex}>{idx + 1}</Text>
-                )}
-                <Image
-                  source={{ uri: track.cover || 'https://via.placeholder.com/44' }}
-                  style={styles.trackCover}
-                />
-              </TouchableOpacity>
-
-              {/* Middle Area: Title (tap to play) & Artist (tap for artist catalog) */}
-              <View style={styles.trackDetails}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => playTrack(track, activeTrendingTracks)}
-                >
-                  <View style={styles.trackTitleRow}>
-                    <Text
-                      style={[styles.trackTitle, isThisPlaying && styles.trackTitlePlaying]}
-                      numberOfLines={1}
-                    >
-                      {track.title}
-                    </Text>
-                    <View style={[styles.flacBadge, (!isDownloaded || !track.isFlac) && styles.badge320]}>
-                      <Text style={[styles.flacBadgeText, (!isDownloaded || !track.isFlac) && styles.badgeText320]}>
-                        {isDownloaded
-                          ? (track.isFlac ? '⚡ FLAC' : '✨ 320k')
-                          : '✨ 320k'}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 2, bottom: 6, left: 0, right: 12 }}
-                  onPress={() => openArtistView(track.artist, track.cover)}
-                >
-                  <Text style={styles.trackArtist} numberOfLines={1}>
-                    {track.artist}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Quick Download Button */}
-              <TouchableOpacity
-                style={styles.downloadIconBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                onPress={() => downloadTrack(track)}
-                onLongPress={() => {
-                  setQualityModalMode('download');
-                  setShowQualityModal(true);
-                }}
-                delayLongPress={400}
-              >
-                {isDownloaded ? (
-                  <CheckCircle2 size={16} color={colors.primary} />
-                ) : isDownloading ? (
-                  <Text style={styles.downloadingText}>...</Text>
-                ) : (
-                  <ArrowDownToLine size={15} color="#666666" />
-                )}
-              </TouchableOpacity>
-
-              <Text style={styles.trackDuration}>
-                {formatDuration(track.duration || 215)}
-              </Text>
-            </View>
-          );
-        })}
+      <View style={styles.genreGrid}>
+        {GENRES.map((genre) => (
+          <TouchableOpacity
+            key={genre.id}
+            style={[styles.genreCard, { backgroundColor: genre.color }]}
+            activeOpacity={0.8}
+            onPress={() => handleGenrePress(genre.name)}
+          >
+            <Text style={styles.genreTitle}>{genre.name}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
-
-      {/* Bottom spacer */}
-      <View style={{ height: 160 }} />
     </ScrollView>
   );
 };
@@ -376,399 +250,184 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   contentContainer: {
-    paddingTop: 52,
-    paddingHorizontal: 16,
-    paddingBottom: 160,
+    paddingTop: 16,
+    paddingBottom: 150,
   },
-  brandRow: {
+  topBar: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 20,
+    marginTop: 8,
   },
-  brandLeft: {
-    flexDirection: 'column',
+  brandingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  greetingText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.4,
-  },
-  subGreetingText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.textDim,
+  brandTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
     letterSpacing: 1.2,
-    marginTop: 2,
-    fontFamily: 'monospace',
   },
-  brandRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  qualityBadgePill: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qualityBadgePillFlac: {
-    borderColor: 'rgba(245, 196, 81, 0.4)',
-    backgroundColor: 'rgba(245, 196, 81, 0.08)',
-  },
-  qualityBadgePillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#CCCCCC',
-    fontFamily: 'monospace',
-    letterSpacing: 0.5,
-  },
-  profilePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    gap: 6,
-  },
-  profileAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileAvatarText: {
-    fontSize: 10,
-  },
-  profileName: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  quickPicksGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 24,
-  },
-  quickPickCard: {
-    width: '48.5%',
-    height: 52,
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  quickPickCardActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.cardHover,
-  },
-  quickPickCover: {
-    width: 52,
-    height: 52,
-    backgroundColor: '#1E2130',
-  },
-  quickPickTextWrap: {
-    flex: 1,
+  spotubeEnginePill: {
+    backgroundColor: 'rgba(30, 215, 96, 0.15)',
     paddingHorizontal: 8,
-    justifyContent: 'center',
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 215, 96, 0.3)',
   },
-  quickPickTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.text,
-    lineHeight: 14,
-  },
-  quickPickTitleActive: {
+  spotubeEngineText: {
     color: colors.primary,
+    fontSize: 10,
+    fontWeight: '700',
   },
-  quickPickPlayDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary,
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
-  },
-  artistsSection: {
-    marginBottom: 24,
-  },
-  artistsRail: {
-    gap: 16,
-    paddingVertical: 4,
-    paddingRight: 16,
-  },
-  artistCard: {
-    alignItems: 'center',
-    width: 76,
-  },
-  artistAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#1E2130',
-    marginBottom: 8,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  artistName: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-    width: '100%',
-  },
-  artistGenre: {
-    fontSize: 10,
-    color: colors.textDim,
-    textAlign: 'center',
-    width: '100%',
-    marginTop: 2,
+    marginLeft: 8,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 18,
     marginBottom: 12,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.3,
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
-  sectionBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primary,
-    backgroundColor: 'rgba(30, 215, 96, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(30, 215, 96, 0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    fontFamily: 'monospace',
+  horizontalScroll: {
+    paddingHorizontal: 16,
+    gap: 14,
   },
-  trackList: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+  recentCard: {
+    width: 135,
+  },
+  cardImageContainer: {
+    width: 135,
+    height: 135,
+    borderRadius: 8,
     overflow: 'hidden',
+    backgroundColor: colors.surfaceElevated,
+    marginBottom: 8,
+  },
+  cardCover: {
+    width: '100%',
+    height: '100%',
+  },
+  playingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  cardSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  artistCard: {
+    width: 105,
+    alignItems: 'center',
+  },
+  artistAvatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: colors.surfaceElevated,
+    marginBottom: 8,
+  },
+  artistName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  artistGenre: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: colors.textDim,
+    textAlign: 'center',
+    marginTop: 1,
+  },
+  trackListContainer: {
+    paddingHorizontal: 16,
   },
   trackRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginBottom: 2,
   },
-  trackRowPlaying: {
-    backgroundColor: colors.cardHover,
-  },
-  trackLeftTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  trackRowActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   trackIndex: {
-    width: 22,
-    fontSize: 12,
+    width: 24,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textDim,
-    fontFamily: 'monospace',
-    textAlign: 'center',
   },
-  playingIndexBox: {
-    width: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playingIndexText: {
-    fontSize: 11,
-    color: colors.primary,
-  },
-  trackCover: {
-    width: 40,
-    height: 40,
+  trackThumb: {
+    width: 44,
+    height: 44,
     borderRadius: 6,
-    backgroundColor: '#1E2130',
-    marginLeft: 8,
+    backgroundColor: colors.surfaceElevated,
   },
   trackDetails: {
     flex: 1,
     marginLeft: 12,
-    paddingRight: 8,
+    marginRight: 8,
   },
-  trackTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  trackTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    flexShrink: 1,
-  },
-  trackTitlePlaying: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  flacBadge: {
-    backgroundColor: colors.badgeBg,
-    borderWidth: 0.5,
-    borderColor: colors.badgeBorder,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 3,
-  },
-  badge320: {
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderColor: 'rgba(56, 189, 248, 0.25)',
-  },
-  flacBadgeText: {
-    fontSize: 8,
-    fontWeight: '700',
-    color: colors.badgeText,
-    fontFamily: 'monospace',
-  },
-  badgeText320: {
-    color: colors.cyan,
-  },
-  trackArtist: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  trackDuration: {
-    fontSize: 11,
-    color: colors.textDim,
-    fontFamily: 'monospace',
-  },
-  downloadIconBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  downloadingText: {
-    fontSize: 12,
-    color: colors.gold,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  modalContent: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 18,
-  },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#11131C',
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 10,
-    gap: 12,
-  },
-  userCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: '#161928',
-  },
-  userCardAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userCardAvatarText: {
-    fontSize: 18,
-  },
-  userCardInfo: {
-    flex: 1,
-  },
-  userCardNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  userCardName: {
+  trackName: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.text,
+    color: '#FFFFFF',
+    marginBottom: 2,
   },
-  userBadgePill: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    backgroundColor: colors.borderLight,
-  },
-  userBadgePillActive: {
-    backgroundColor: colors.primary,
-  },
-  userBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#E5E5E5',
-    fontFamily: 'monospace',
-  },
-  userCardDesc: {
-    fontSize: 11,
+  trackArtist: {
+    fontSize: 12,
+    fontWeight: '500',
     color: colors.textSecondary,
   },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  genreGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  genreCard: {
+    width: '48%',
+    height: 80,
+    borderRadius: 8,
+    padding: 12,
+    justifyContent: 'flex-start',
+  },
+  genreTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

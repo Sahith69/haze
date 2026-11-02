@@ -1,91 +1,22 @@
-import React, { useRef, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Image,
   Dimensions,
-  Animated,
-  Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  ChevronDown,
-  SkipBack,
-  Play,
-  Pause,
-  SkipForward,
-  Music2,
-  Sparkles,
-  Shuffle,
-  Repeat,
-} from 'lucide-react-native';
+import { ChevronDown, Mic2 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
-import { fetchLyrics } from '../services/api';
 
 const { width, height } = Dimensions.get('window');
 
-function formatTime(seconds) {
-  if (!seconds || isNaN(seconds)) return '0:00';
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-}
-
 export const SyncedLyricsModal = () => {
-  const {
-    currentTrack,
-    isPlaying,
-    position,
-    duration,
-    togglePlayPause,
-    nextTrack,
-    previousTrack,
-    seekTo,
-    setActiveModal,
-    liveLyrics,
-    setLiveLyrics,
-    streamingQuality,
-    setShowQualityModal,
-    isShuffle,
-    isEndlessShuffle,
-    shuffleQueue,
-    isRepeat,
-    setIsRepeat,
-  } = usePlayer();
-
-  const modalAnim = useRef(new Animated.Value(height)).current;
-  const isClosingRef = useRef(false);
-
-  useEffect(() => {
-    Animated.spring(modalAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 65,
-      friction: 11,
-    }).start();
-  }, []);
-
-  const handleDismiss = () => {
-    if (isClosingRef.current) return;
-    isClosingRef.current = true;
-    Animated.timing(modalAnim, {
-      toValue: height,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setActiveModal('now_playing');
-    });
-  };
-
+  const { currentTrack, position, duration, liveLyrics, seekTo, setActiveModal } = usePlayer();
   const scrollViewRef = useRef(null);
-  const [userIsScrolling, setUserIsScrolling] = useState(false);
-  const scrollTimeoutRef = useRef(null);
 
-  // Normalize lyrics into timestamped array
   const lyricsList = useMemo(() => {
     if (liveLyrics?.synced && Array.isArray(liveLyrics.synced) && liveLyrics.synced.length > 0) {
       return liveLyrics.synced;
@@ -106,7 +37,7 @@ export const SyncedLyricsModal = () => {
     return [];
   }, [liveLyrics, duration]);
 
-  // Determine active lyric line index based on current playback position
+  // Find active line index based on position
   const activeLineIndex = useMemo(() => {
     if (lyricsList.length === 0) return -1;
     let idx = -1;
@@ -120,117 +51,59 @@ export const SyncedLyricsModal = () => {
     return idx;
   }, [lyricsList, position]);
 
-  // Reset lyrics scroll offset immediately upon track change
+  // Auto-scroll to active line
   useEffect(() => {
-    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-  }, [currentTrack?.id]);
-
-  // Apple Music Style Auto-Scroll: Keeps current sung line centered in view
-  useEffect(() => {
-    if (activeLineIndex >= 0 && scrollViewRef.current && !userIsScrolling) {
-      const estimatedY = activeLineIndex * 78;
+    if (activeLineIndex >= 0 && scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
-        y: Math.max(0, estimatedY - height * 0.35),
+        y: Math.max(0, activeLineIndex * 54 - height * 0.35),
         animated: true,
       });
     }
-  }, [activeLineIndex, userIsScrolling]);
-
-  const handleScrollBegin = () => {
-    setUserIsScrolling(true);
-    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-    // Resume auto-scroll after 3.5 seconds of user inactivity
-    scrollTimeoutRef.current = setTimeout(() => {
-      setUserIsScrolling(false);
-    }, 3500);
-  };
-
-  if (!currentTrack) return null;
-
-  const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
-  const isFlac = streamingQuality === '1411k' && currentTrack.isFlac;
+  }, [activeLineIndex]);
 
   return (
-    <Animated.View style={[styles.modalOverlay, { transform: [{ translateY: modalAnim }] }]}>
-      {/* 1. Dynamic Ambient Blurred Artwork Backdrop (Apple Music Signature Glow) */}
-      {currentTrack.cover ? (
-        <Image
-          source={{ uri: currentTrack.cover }}
-          style={StyleSheet.absoluteFillObject}
-          blurRadius={Platform.OS === 'android' ? 25 : 45}
-        />
-      ) : null}
-
-      <LinearGradient
-        colors={[
-          'rgba(6, 6, 10, 0.72)',
-          'rgba(4, 4, 8, 0.90)',
-          'rgba(2, 2, 4, 0.98)',
-        ]}
-        style={StyleSheet.absoluteFillObject}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-      />
-
-      {/* 2. Apple Music Top Navigation Bar */}
-      <View style={styles.topBar}>
+    <View style={styles.container}>
+      {/* Top Header */}
+      <View style={styles.header}>
         <TouchableOpacity
-          style={styles.dismissCircleBtn}
-          activeOpacity={0.75}
-          onPress={handleDismiss}
+          style={styles.closeBtn}
+          onPress={() => setActiveModal('now_playing')}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <ChevronDown size={24} color="#FFFFFF" />
+          <ChevronDown size={28} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <View style={styles.headerTrackInfo}>
+        <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {currentTrack.title}
+            {currentTrack?.title || 'Lyrics'}
           </Text>
-          <Text style={styles.headerArtist} numberOfLines={1}>
-            {currentTrack.artist}
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {currentTrack?.artist || 'Spotube LRCLIB Sync'}
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.qualityPill, isFlac && styles.qualityPillFlac]}
-          activeOpacity={0.7}
-          onPress={() => setShowQualityModal(true)}
-        >
-          <Text style={[styles.qualityPillText, isFlac && styles.qualityPillTextFlac]}>
-            {isFlac ? '⚡ 1,411k FLAC' : '✨ 320k Master'}
-          </Text>
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* 3. Entire Page Scrollable Synchronized Lyrics */}
+      {/* Lyrics Scrollable Area */}
       {lyricsList.length > 0 ? (
         <ScrollView
           ref={scrollViewRef}
-          style={styles.fullPageScroll}
-          contentContainerStyle={styles.fullPageContent}
+          style={styles.lyricsScroll}
+          contentContainerStyle={styles.lyricsContent}
           showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={handleScrollBegin}
         >
-          {lyricsList.map((line, idx) => {
+          {lyricsList.map((item, idx) => {
             const isActive = idx === activeLineIndex;
-            const isPast = activeLineIndex >= 0 && idx < activeLineIndex;
-
             return (
               <TouchableOpacity
-                key={idx}
-                activeOpacity={0.65}
-                style={styles.lyricTouchRow}
-                onPress={() => seekTo(line.time)}
+                key={`lyric_${idx}`}
+                style={styles.lineTouchable}
+                activeOpacity={0.7}
+                onPress={() => seekTo(item.time)}
               >
-                <Text
-                  style={[
-                    styles.lyricText,
-                    isActive && styles.lyricTextActive,
-                    isPast && styles.lyricTextPast,
-                  ]}
-                >
-                  {line.text}
+                <Text style={[styles.lineText, isActive && styles.lineTextActive]}>
+                  {item.text}
                 </Text>
               </TouchableOpacity>
             );
@@ -238,312 +111,93 @@ export const SyncedLyricsModal = () => {
         </ScrollView>
       ) : (
         <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconCircle}>
-            <Music2 size={38} color="#71717A" />
-          </View>
-          <Text style={styles.emptyTitle}>Synchronizing Live Lyrics...</Text>
+          <Mic2 size={48} color={colors.borderLight} />
+          <Text style={styles.emptyTitle}>No Synced Lyrics Found</Text>
           <Text style={styles.emptySubtitle}>
-            Matching millisecond timestamps from HAZE master stream.
+            Lyrics could not be found on LRCLIB for this track
           </Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.retryBtn}
-            onPress={() => {
-              if (currentTrack) {
-                fetchLyrics(currentTrack).then(setLiveLyrics);
-              }
-            }}
-          >
-            <Sparkles size={16} color="#000000" />
-            <Text style={styles.retryBtnText}>Sync Again</Text>
-          </TouchableOpacity>
         </View>
       )}
-
-      {/* 4. Floating Frosted Playback Capsule (Apple Music Style) */}
-      <View style={styles.floatingPlaybackCapsule}>
-        {/* Scrubber Progress Bar */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.scrubberTouch}
-          onPress={(e) => {
-            const { locationX } = e.nativeEvent;
-            const barWidth = width - 80;
-            const targetRatio = Math.max(0, Math.min(1, locationX / barWidth));
-            seekTo(Math.round(targetRatio * (duration || 200)));
-          }}
-        >
-          <View style={styles.scrubberBg} pointerEvents="none">
-            <View style={[styles.scrubberFill, { width: `${progressPercent}%` }]} />
-          </View>
-          <View style={styles.timeRow} pointerEvents="none">
-            <Text style={styles.timeText}>{formatTime(position)}</Text>
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Transport Controls */}
-        <View style={styles.controlsRow}>
-          <TouchableOpacity
-            style={styles.capsuleBtn}
-            activeOpacity={0.7}
-            onPress={shuffleQueue}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-              <Shuffle size={18} color={isEndlessShuffle ? '#C084FC' : isShuffle ? '#22C55E' : '#71717A'} />
-              {isEndlessShuffle ? (
-                <View style={[styles.smartShuffleDot, { backgroundColor: '#C084FC' }]} />
-              ) : isShuffle ? (
-                <View style={styles.smartShuffleDot} />
-              ) : null}
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.capsuleBtn}
-            activeOpacity={0.7}
-            onPress={previousTrack}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <SkipBack size={24} color="#FFFFFF" fill="#FFFFFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.playPauseBtn}
-            activeOpacity={0.85}
-            onPress={togglePlayPause}
-          >
-            {isPlaying ? (
-              <Pause size={24} color="#000000" fill="#000000" />
-            ) : (
-              <Play size={24} color="#000000" fill="#000000" style={{ marginLeft: 2 }} />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.capsuleBtn}
-            activeOpacity={0.7}
-            onPress={nextTrack}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <SkipForward size={24} color="#FFFFFF" fill="#FFFFFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.capsuleBtn}
-            activeOpacity={0.7}
-            onPress={() => setIsRepeat(prev => !prev)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Repeat size={18} color={isRepeat ? '#22C55E' : '#71717A'} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Animated.View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  container: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 1200,
-    backgroundColor: '#020204',
+    backgroundColor: '#121212',
+    zIndex: 1050,
+    paddingTop: 48,
   },
-  topBar: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    right: 20,
-    zIndex: 30,
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#242424',
   },
-  dismissCircleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  closeBtn: {
+    padding: 6,
   },
-  headerTrackInfo: {
+  headerTitleWrap: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 12,
   },
   headerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    marginBottom: 2,
   },
-  headerArtist: {
-    color: '#9CA3AF',
+  headerSubtitle: {
     fontSize: 12,
     fontWeight: '500',
-    marginTop: 2,
+    color: colors.textSecondary,
   },
-  qualityPill: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  qualityPillFlac: {
-    backgroundColor: 'rgba(245, 185, 66, 0.15)',
-    borderColor: 'rgba(245, 185, 66, 0.35)',
-  },
-  qualityPillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#38BDF8',
-    letterSpacing: 0.5,
-  },
-  qualityPillTextFlac: {
-    color: colors.gold,
-  },
-  fullPageScroll: {
+  lyricsScroll: {
     flex: 1,
   },
-  fullPageContent: {
-    paddingTop: 120,
-    paddingBottom: 210,
+  lyricsContent: {
     paddingHorizontal: 28,
-    gap: 32,
+    paddingTop: 40,
+    paddingBottom: 180,
   },
-  lyricTouchRow: {
-    paddingVertical: 6,
+  lineTouchable: {
+    paddingVertical: 14,
   },
-  lyricText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: 'rgba(255, 255, 255, 0.38)',
-    lineHeight: 42,
-    letterSpacing: -0.5,
+  lineText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.35)',
+    lineHeight: 28,
   },
-  lyricTextActive: {
-    fontSize: 32,
+  lineTextActive: {
+    fontSize: 24,
     fontWeight: '900',
     color: '#FFFFFF',
-    lineHeight: 46,
-    textShadowColor: 'rgba(255, 255, 255, 0.55)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 22,
-  },
-  lyricTextPast: {
-    color: 'rgba(255, 255, 255, 0.22)',
+    lineHeight: 32,
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 36,
-    gap: 14,
-  },
-  emptyIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 100,
   },
   emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    marginTop: 16,
+    marginBottom: 6,
   },
   emptySubtitle: {
-    color: '#9CA3AF',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textDim,
     textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    marginTop: 8,
-  },
-  retryBtnText: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  floatingPlaybackCapsule: {
-    position: 'absolute',
-    bottom: 24,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(18, 18, 24, 0.90)',
-    borderRadius: 28,
-    paddingTop: 12,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  scrubberTouch: {
-    paddingVertical: 4,
-  },
-  scrubberBg: {
-    height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  scrubberFill: {
-    height: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-    marginBottom: 8,
-  },
-  timeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    fontFamily: 'monospace',
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-  },
-  capsuleBtn: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playPauseBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  smartShuffleDot: {
-    position: 'absolute',
-    bottom: -6,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#22C55E',
+    lineHeight: 18,
   },
 });

@@ -1,393 +1,265 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Animated, Dimensions, BackHandler } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronDown, Shuffle, Trash2, GripVertical, MoreHorizontal, Sparkles } from 'lucide-react-native';
+import React from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Image,
+} from 'react-native';
+import { ChevronDown, Trash2, Play, Music } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
-
-const { height } = Dimensions.get('window');
 
 export const QueueModal = () => {
   const {
     currentTrack,
     queue,
     playTrack,
+    removeFromQueue,
     clearQueue,
-    shuffleQueue,
-    closeModal,
-    isShuffle,
-    isEndlessShuffle,
-    toggleEndlessShuffle,
+    setActiveModal,
   } = usePlayer();
 
-  const modalAnim = useRef(new Animated.Value(height)).current;
-  const isClosingRef = useRef(false);
-
-  useEffect(() => {
-    Animated.spring(modalAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 65,
-      friction: 11,
-    }).start();
-  }, []);
-
-  const handleSmoothClose = () => {
-    if (isClosingRef.current) return;
-    isClosingRef.current = true;
-    Animated.timing(modalAnim, {
-      toValue: height,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(() => {
-      closeModal();
-    });
-  };
-
-  useEffect(() => {
-    const onBack = () => {
-      handleSmoothClose();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => sub.remove();
-  }, []);
-
-  const upNextTracks = queue.filter(t => t.id !== currentTrack?.id);
+  const upNextTracks = (queue || []).filter((t) => t.id !== currentTrack?.id);
 
   return (
-    <Animated.View style={[styles.modalOverlay, { transform: [{ translateY: modalAnim }] }]}>
-      <View style={styles.content}>
-        {/* Top Header Bar */}
-        <View style={styles.headerBar}>
-          <TouchableOpacity style={styles.iconBtn} onPress={handleSmoothClose}>
-            <ChevronDown size={26} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Queue</Text>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={[
-                styles.actionPill,
-                isEndlessShuffle && styles.actionPillEndless,
-                isShuffle && !isEndlessShuffle && styles.actionPillShuffle,
-              ]}
-              onPress={shuffleQueue}
-            >
-              <Shuffle
-                size={14}
-                color={isEndlessShuffle ? '#C084FC' : isShuffle ? '#22C55E' : '#FFFFFF'}
-              />
-              <Text
-                style={[
-                  styles.actionText,
-                  isEndlessShuffle && { color: '#C084FC', fontWeight: '800' },
-                  isShuffle && !isEndlessShuffle && { color: '#22C55E', fontWeight: '800' },
-                ]}
-              >
-                {isEndlessShuffle ? '∞ Endless' : isShuffle ? '✨ Shuffle' : 'Shuffle'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionPill} onPress={clearQueue}>
-              <Trash2 size={14} color="#FFFFFF" />
-              <Text style={styles.actionText}>Clear</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+    <View style={styles.container}>
+      {/* Top Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => setActiveModal('now_playing')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <ChevronDown size={28} color="#FFFFFF" />
+        </TouchableOpacity>
 
-        <ScrollView style={styles.scrollList} showsVerticalScrollIndicator={false}>
-          {/* NOW PLAYING SECTION */}
-          <Text style={styles.sectionHeader}>NOW PLAYING</Text>
-          {currentTrack && (
-            <View style={styles.nowPlayingCard}>
-              {currentTrack.cover ? (
-                <Image source={{ uri: currentTrack.cover }} style={styles.cardArt} />
-              ) : (
-                <LinearGradient
-                  colors={currentTrack.gradient || ['#8B5CF6', '#EC4899']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cardArt}
-                />
-              )}
-              <View style={styles.cardInfo}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {currentTrack.title}
-                  </Text>
-                  {currentTrack.isHiRes && (
-                    <View style={styles.hiResBadge}>
-                      <Text style={styles.hiResText}>HI-RES</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.cardArtist} numberOfLines={1}>
+        <Text style={styles.headerTitle}>Playback Queue</Text>
+
+        {upNextTracks.length > 0 ? (
+          <TouchableOpacity
+            style={styles.clearBtn}
+            onPress={clearQueue}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.clearBtnText}>Clear</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 44 }} />
+        )}
+      </View>
+
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Now Playing Card */}
+        {currentTrack && (
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionHeading}>NOW PLAYING</Text>
+            <View style={styles.activeTrackCard}>
+              <Image source={{ uri: currentTrack.cover }} style={styles.trackThumb} />
+              <View style={styles.trackDetails}>
+                <Text style={styles.activeTrackTitle} numberOfLines={1}>
+                  {currentTrack.title}
+                </Text>
+                <Text style={styles.trackArtist} numberOfLines={1}>
                   {currentTrack.artist}
                 </Text>
               </View>
-            </View>
-          )}
-
-          {/* UP NEXT SECTION */}
-          <Text style={[styles.sectionHeader, { marginTop: 28 }]}>UP NEXT</Text>
-          <View style={styles.upNextList}>
-            {upNextTracks.map((track, idx) => (
-              <TouchableOpacity
-                key={`${track.id}-${idx}`}
-                activeOpacity={0.7}
-                style={styles.trackRow}
-                onPress={() => playTrack(track)}
-              >
-                {track.cover ? (
-                  <Image source={{ uri: track.cover }} style={styles.trackArt} />
-                ) : (
-                  <LinearGradient
-                    colors={track.gradient || ['#8B5CF6', '#EC4899']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.trackArt}
-                  />
-                )}
-                <View style={styles.trackInfo}>
-                  <Text style={styles.trackTitle} numberOfLines={1}>
-                    {track.title}
-                  </Text>
-                  <Text style={styles.trackArtist} numberOfLines={1}>
-                    {track.artist}
-                  </Text>
-                </View>
-                <TouchableOpacity style={styles.actionBtn}>
-                  <GripVertical size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Endless Autoplay Status Card */}
-          <TouchableOpacity
-            style={[styles.endlessCard, isEndlessShuffle && styles.endlessCardActive]}
-            activeOpacity={0.8}
-            onPress={toggleEndlessShuffle}
-          >
-            <View style={[styles.endlessIconBox, isEndlessShuffle && styles.endlessIconBoxActive]}>
-              <Text style={styles.endlessIconSymbol}>∞</Text>
-            </View>
-            <View style={styles.endlessCardTextCol}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.endlessCardTitle}>Endless Autoplay & Shuffle</Text>
-                {isEndlessShuffle && (
-                  <View style={styles.livePulseDot} />
-                )}
+              <View style={styles.nowPlayingBadge}>
+                <Text style={styles.nowPlayingText}>PLAYING</Text>
               </View>
-              <Text style={styles.endlessCardSub}>
-                {isEndlessShuffle
-                  ? 'Continuous discovery active · Similar music flows endlessly'
-                  : 'Tap to auto-discover & endlessly queue similar songs'}
+            </View>
+          </View>
+        )}
+
+        {/* Up Next List */}
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionHeading}>
+            UP NEXT ({upNextTracks.length})
+          </Text>
+
+          {upNextTracks.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Music size={36} color={colors.borderLight} />
+              <Text style={styles.emptyText}>Queue is empty</Text>
+              <Text style={styles.emptySub}>
+                Play songs from Search or Library to add them here
               </Text>
             </View>
-          </TouchableOpacity>
+          ) : (
+            upNextTracks.map((track, idx) => (
+              <View key={`queue_${track.id || idx}`} style={styles.queueRow}>
+                <TouchableOpacity
+                  style={styles.queueMainPressable}
+                  activeOpacity={0.7}
+                  onPress={() => playTrack(track, queue)}
+                >
+                  <Text style={styles.queueIndex}>{idx + 1}</Text>
+                  <Image source={{ uri: track.cover }} style={styles.trackThumb} />
+                  <View style={styles.trackDetails}>
+                    <Text style={styles.trackTitle} numberOfLines={1}>
+                      {track.title}
+                    </Text>
+                    <Text style={styles.trackArtist} numberOfLines={1}>
+                      {track.artist}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
 
-          <View style={{ height: 60 }} />
-        </ScrollView>
-      </View>
-    </Animated.View>
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() => removeFromQueue(track.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Trash2 size={16} color={colors.textDim} />
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.bg,
-    zIndex: 110,
+    backgroundColor: '#121212',
+    zIndex: 1050,
+    paddingTop: 48,
   },
-  content: {
-    flex: 1,
-    paddingTop: 52,
-    paddingHorizontal: 24,
-  },
-  headerBar: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#242424',
+  },
+  closeBtn: {
+    padding: 6,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  clearBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  clearBtnText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.primary,
   },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: colors.glassBg,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
-  actionPillShuffle: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    borderColor: 'rgba(34, 197, 94, 0.4)',
-  },
-  actionPillEndless: {
-    backgroundColor: 'rgba(168, 85, 247, 0.18)',
-    borderColor: 'rgba(168, 85, 247, 0.5)',
-  },
-  actionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  endlessCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginTop: 20,
-    gap: 12,
-  },
-  endlessCardActive: {
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-    borderColor: 'rgba(168, 85, 247, 0.4)',
-  },
-  endlessIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  endlessIconBoxActive: {
-    backgroundColor: '#A855F7',
-  },
-  endlessIconSymbol: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
-    lineHeight: 20,
-  },
-  endlessCardTextCol: {
+  scrollArea: {
     flex: 1,
   },
-  endlessCardTitle: {
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 150,
+  },
+  sectionWrap: {
+    marginBottom: 24,
+  },
+  sectionHeading: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textDim,
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  activeTrackCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#242424',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#333333',
+  },
+  trackThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    backgroundColor: '#181818',
+  },
+  trackDetails: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  activeTrackTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  trackTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+    marginBottom: 2,
   },
-  livePulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#A855F7',
-  },
-  endlessCardSub: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  scrollList: {
-    flex: 1,
-    marginTop: 20,
-  },
-  sectionHeader: {
+  trackArtist: {
     fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontWeight: '500',
     color: colors.textSecondary,
-    marginBottom: 12,
   },
-  nowPlayingCard: {
+  nowPlayingBadge: {
+    backgroundColor: 'rgba(30, 215, 96, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  nowPlayingText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  queueRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: colors.cardBg,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    gap: 14,
+    justifyContent: 'space-between',
+    paddingVertical: 6,
   },
-  cardArt: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-  },
-  cardInfo: {
+  queueMainPressable: {
     flex: 1,
-  },
-  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  cardTitle: {
+  queueIndex: {
+    width: 22,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textDim,
+  },
+  deleteBtn: {
+    padding: 8,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+    marginTop: 12,
+    marginBottom: 4,
   },
-  hiResBadge: {
-    backgroundColor: colors.gold,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  hiResText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.goldDark,
-    letterSpacing: 0.5,
-  },
-  cardArtist: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 3,
-  },
-  upNextList: {
-    gap: 12,
-  },
-  trackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 4,
-  },
-  trackArt: {
-    width: 46,
-    height: 46,
-    borderRadius: 10,
-  },
-  trackInfo: {
-    flex: 1,
-  },
-  trackTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  trackArtist: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 3,
-  },
-  actionBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+  emptySub: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textDim,
+    textAlign: 'center',
   },
 });
