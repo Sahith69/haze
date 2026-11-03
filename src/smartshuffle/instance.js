@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SmartShuffleService } from './service';
 
 // Master switch. false = the app behaves exactly as before.
-export const SMART_SHUFFLE = false;
+export const SMART_SHUFFLE = true;
 
 // One service per user profile. Keys follow the app's existing @haze_<userId>_ pattern.
 export function createSmartShuffle(userId) {
