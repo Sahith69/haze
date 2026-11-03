@@ -380,6 +380,25 @@ export async function saveTrackToVault(track) {
   }
 }
 
+function cleanTitleSimple(t = '') {
+  return t
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, '')
+    .replace(/feat\..*|ft\..*|featuring\..*/gi, '')
+    .replace(/\s*[-–—]\s*(?:remix|acoustic|live|instrumental|edit|slowed|reverb|sped up|remaster|radio|version|mix).*$/i, '')
+    .replace(/[^a-z0-9]/g, ' ')
+    .trim();
+}
+
+function isTitleDuplicate(t1 = '', t2 = '') {
+  const c1 = cleanTitleSimple(t1);
+  const c2 = cleanTitleSimple(t2);
+  if (!c1 || !c2) return false;
+  if (c1 === c2) return true;
+  if (c1.length >= 3 && c2.length >= 3 && (c1.includes(c2) || c2.includes(c1))) return true;
+  return false;
+}
+
 /**
  * Fetch diverse artist & vibe radio tracks
  * Excludes the current track title to prevent duplicate-title shuffle
@@ -399,40 +418,70 @@ export async function fetchRadioTracks(artist, genre, excludeTitle) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data?.tracks && Array.isArray(data.tracks) && data.tracks.length > 0) {
-      return data.tracks;
+      const filtered = data.tracks.filter(t => !excludeTitle || !isTitleDuplicate(t.title, excludeTitle));
+      if (filtered.length > 0) return filtered;
     }
   } catch (err) {
     console.warn('[API] fetchRadioTracks backend warning:', err.message);
   }
 
-  // Client-side fallback: Query iTunes for complementary artist top hits
+  // Client-side fallback: Query iTunes for complementary artist & genre vibes
   try {
     const cleanA = (artist || '').split(/[,&]/)[0].trim();
-    if (cleanA) {
-      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanA)}&entity=song&limit=10`).then(r => r.ok ? r.json() : null);
-      const cleanEx = (excludeTitle || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
-      const fallbackTracks = [];
-      for (const item of (itunesRes?.results || [])) {
-        const title = item.trackName || '';
-        const normTitle = title.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').trim();
-        if (cleanEx && normTitle.includes(cleanEx)) continue;
-        fallbackTracks.push({
-          id: `radio-fb-${item.trackId}`,
-          title,
-          artist: item.artistName || cleanA,
-          album: item.collectionName || 'Single',
-          cover: (item.artworkUrl100 || '').replace('100x100bb.jpg', '600x600bb.jpg'),
-          coverLarge: (item.artworkUrl100 || '').replace('100x100bb.jpg', '1000x1000bb.jpg'),
-          duration: Math.round((item.trackTimeMillis || 210000) / 1000),
-          year: item.releaseDate ? item.releaseDate.substring(0, 4) : '2026',
-          genre: item.primaryGenreName || genre || 'Music',
-          isHiRes: true,
-          qualityLabel: '320 kbps · Studio Master',
-          source: 'radio-fallback',
-        });
-      }
-      if (fallbackTracks.length > 0) return fallbackTracks;
+    const rawGenre = (genre || '').replace(/[^a-zA-Z0-9 ]/g, '').trim();
+    const validGenre = rawGenre && !['music', 'audio', 'track', 'single', 'album'].includes(rawGenre.toLowerCase()) ? rawGenre : '';
+
+    const queries = [];
+    if (validGenre) {
+      queries.push(`https://itunes.apple.com/search?term=${encodeURIComponent(validGenre + ' Hits')}&entity=song&limit=15`);
+    } else {
+      queries.push(`https://itunes.apple.com/search?term=Top%20Hits&entity=song&limit=15`);
     }
+    if (cleanA) {
+      queries.push(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanA)}&entity=song&limit=5`);
+    }
+
+    const responses = await Promise.all(
+      queries.map(q => fetch(q).then(r => (r.ok ? r.json() : null)).catch(() => null))
+    );
+
+    const genreResults = responses[0]?.results || [];
+    const artistResults = responses[1]?.results || [];
+    const allResults = [];
+    const maxLen = Math.max(genreResults.length, artistResults.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (genreResults[i]) allResults.push(genreResults[i]);
+      if (artistResults[i]) allResults.push(artistResults[i]);
+    }
+
+    const fallbackTracks = [];
+    const seenTitles = new Set();
+    if (excludeTitle) seenTitles.add(cleanTitleSimple(excludeTitle));
+
+    for (const item of allResults) {
+      const title = item.trackName || '';
+      const cTitle = cleanTitleSimple(title);
+      if (!cTitle || seenTitles.has(cTitle)) continue;
+      if (excludeTitle && isTitleDuplicate(title, excludeTitle)) continue;
+      seenTitles.add(cTitle);
+
+      fallbackTracks.push({
+        id: `radio-fb-${item.trackId}`,
+        title,
+        artist: item.artistName || cleanA || 'Top Artist',
+        album: item.collectionName || 'Single',
+        cover: (item.artworkUrl100 || '').replace('100x100bb.jpg', '600x600bb.jpg'),
+        coverLarge: (item.artworkUrl100 || '').replace('100x100bb.jpg', '1000x1000bb.jpg'),
+        duration: Math.round((item.trackTimeMillis || 210000) / 1000),
+        year: item.releaseDate ? item.releaseDate.substring(0, 4) : '2026',
+        genre: item.primaryGenreName || genre || 'Music',
+        isHiRes: true,
+        qualityLabel: '320 kbps · Studio Master',
+        source: 'radio-fallback',
+      });
+      if (fallbackTracks.length >= 15) break;
+    }
+    if (fallbackTracks.length > 0) return fallbackTracks;
   } catch (e) {}
 
   return [];

@@ -16,24 +16,30 @@ import {
 import { API_BASE_URL } from '../config';
 import { resolveDirectSaavnAudio } from '../services/directResolver';
 import { createSmartShuffle } from '../smartshuffle/instance';
+import { titleKey, fuzzySameTitle } from '../smartshuffle/workKey';
 
 function cleanTitleForComparison(t = '') {
   return t
     .toLowerCase()
     .replace(/\(.*?\)|\[.*?\]/g, '')
-    .replace(/feat\..*|ft\..*/gi, '')
+    .replace(/feat\..*|ft\..*|featuring\..*/gi, '')
+    .replace(/\s*[-–—]\s*(?:remix|acoustic|live|instrumental|edit|slowed|reverb|sped up|remaster|radio|version|mix).*$/i, '')
     .replace(/[^a-z0-9]/g, ' ')
     .trim();
 }
 
 function doTitlesMatch(t1 = '', t2 = '') {
+  if (!t1 || !t2) return false;
+  try {
+    const k1 = titleKey(t1);
+    const k2 = titleKey(t2);
+    if (k1 && k2 && (k1 === k2 || fuzzySameTitle(k1, k2))) return true;
+  } catch (e) {}
   const c1 = cleanTitleForComparison(t1);
   const c2 = cleanTitleForComparison(t2);
   if (!c1 || !c2) return false;
   if (c1 === c2) return true;
-  if (c1.length > 4 && c2.length > 4) {
-    if (c1.includes(c2) || c2.includes(c1)) return true;
-  }
+  if (c1.length >= 3 && c2.length >= 3 && (c1.includes(c2) || c2.includes(c1))) return true;
   return false;
 }
 
@@ -202,6 +208,15 @@ export const PlayerProvider = ({ children }) => {
   const isShuffle = shuffleMode !== 'off';
   const isEndlessShuffle = shuffleMode === 'endless';
   const shuffleModeRef = useRef('off');
+
+  const setShuffleModeWithRef = useCallback((val) => {
+    setShuffleMode((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      shuffleModeRef.current = next;
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     shuffleModeRef.current = shuffleMode;
   }, [shuffleMode]);
@@ -773,8 +788,22 @@ export const PlayerProvider = ({ children }) => {
 
     // Set queue to the specific context if passed (e.g. from liked, search, album)
     if (contextQueue && Array.isArray(contextQueue) && contextQueue.length > 0) {
-      setQueue(contextQueue);
-      queueRef.current = contextQueue;
+      let finalQueue = contextQueue;
+      if (shuffleModeRef.current !== 'off') {
+        const svc = smartRef.current;
+        if (svc) {
+          finalQueue = svc.order(contextQueue, track);
+        } else {
+          const others = contextQueue.filter((t) => t.id !== track.id);
+          for (let i = others.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [others[i], others[j]] = [others[j], others[i]];
+          }
+          finalQueue = [track, ...others];
+        }
+      }
+      setQueue(finalQueue);
+      queueRef.current = finalQueue;
     }
 
     hasCrossfadedRef.current = false;
@@ -808,7 +837,7 @@ export const PlayerProvider = ({ children }) => {
     persistPlaybackSession({
       track: enrichedTrack,
       position: startPos,
-      queue: contextQueue && Array.isArray(contextQueue) ? contextQueue : queueRef.current,
+      queue: queueRef.current,
       duration: track.duration || 216,
     });
 
@@ -1342,6 +1371,19 @@ export const PlayerProvider = ({ children }) => {
     }
 
     if (candidates.length > 0) {
+      // 1. If SmartShuffleService is ready, leverage its Bayesian ladder order
+      const svc = smartRef.current;
+      if (svc) {
+        try {
+          const pool = currentTrack ? [currentTrack, ...candidates] : candidates;
+          const ordered = svc.order(pool, currentTrack || undefined);
+          const chosen = ordered.find(
+            (t) => t.id !== currentTrack?.id && (!currentTrack?.title || !doTitlesMatch(t.title, currentTrack.title))
+          );
+          if (chosen) return chosen;
+        } catch (e) {}
+      }
+
       const scored = candidates.map((t) => {
         let score = 20;
         const tArtist = (t.artist || '').toLowerCase().trim();
@@ -1350,22 +1392,25 @@ export const PlayerProvider = ({ children }) => {
 
         // 1. Genre / Sonic vibe similarity (strongest vibe continuity)
         if (tGenre && currentGenre && (tGenre === currentGenre || tGenre.includes(currentGenre) || currentGenre.includes(tGenre))) {
-          score += 55;
+          score += 50;
         }
 
-        // 2. Artist affinity (boost, but avoids immediate repetition if other artists exist)
+        // 2. Artist diversity: AVOID consecutive same artist when others exist!
+        const hasOtherArtists = candidates.some((c) => (c.artist || '').toLowerCase().trim() !== currentArtist);
         if (tArtist && currentArtist) {
           if (tArtist === currentArtist) {
-            const hasOtherArtists = candidates.some((c) => (c.artist || '').toLowerCase().trim() !== currentArtist);
-            score += hasOtherArtists ? 10 : 35;
+            score -= hasOtherArtists ? 40 : 0;
           } else if (tArtist.includes(currentArtist) || currentArtist.includes(tArtist)) {
+            score -= hasOtherArtists ? 20 : 0;
+          } else {
             score += 25;
           }
         }
 
-        // 3. Same album boost
+        // 3. Album diversity: AVOID consecutive same album when others exist!
+        const hasOtherAlbums = candidates.some((c) => (c.album || '').toLowerCase().trim() !== currentAlbum);
         if (tAlbum && currentAlbum && tAlbum === currentAlbum) {
-          score += 15;
+          score -= hasOtherAlbums ? 30 : 0;
         }
 
         // 4. User liked track affinity (favorite vibe)
@@ -1375,8 +1420,8 @@ export const PlayerProvider = ({ children }) => {
 
         // 5. Pacing / track length similarity (keeps acoustic with acoustic, pop with pop)
         const diff = Math.abs((t.duration || 210) - (currentTrack?.duration || 210));
-        if (diff < 30) score += 20;
-        else if (diff < 60) score += 10;
+        if (diff < 30) score += 15;
+        else if (diff < 60) score += 5;
 
         // Controlled entropy so queue feels fresh and lively
         score += Math.random() * 20;
@@ -1398,7 +1443,12 @@ export const PlayerProvider = ({ children }) => {
               !queue.some((q) => q.id === r.id || doTitlesMatch(q.title, r.title))
             );
             if (fresh.length > 0) {
-              setQueue((prev) => [...prev, ...fresh.slice(0, 8)]);
+              setQueue((prev) => {
+                const combined = [...prev, ...fresh.slice(0, 8)];
+                const ordered = smartRef.current ? smartRef.current.order(combined, currentTrack) : combined;
+                queueRef.current = ordered;
+                return ordered;
+              });
               setToastMessage({
                 type: 'info',
                 text: `Smart Shuffle: Added ${Math.min(fresh.length, 8)} complementary tracks to queue`,
@@ -1419,12 +1469,17 @@ export const PlayerProvider = ({ children }) => {
           t.id !== currentTrack.id &&
           !recentSet.has(t.id) &&
           !doTitlesMatch(t.title, currentTrack.title) &&
-          !queue.some((q) => q.id === t.id)
+          !queue.some((q) => q.id === t.id || doTitlesMatch(q.title, t.title))
         );
 
         if (validRelated.length > 0) {
           const toAdd = validRelated.slice(0, 10);
-          setQueue((prev) => [...prev, ...toAdd]);
+          setQueue((prev) => {
+            const combined = [...prev, ...toAdd];
+            const ordered = smartRef.current ? smartRef.current.order(combined, currentTrack) : combined;
+            queueRef.current = ordered;
+            return ordered;
+          });
           setToastMessage({
             type: 'info',
             text: `Smart Shuffle: Autoplaying complementary artist vibes`,
@@ -1451,24 +1506,31 @@ export const PlayerProvider = ({ children }) => {
       if (newRadioTracks && newRadioTracks.length > 0) {
         setQueue((prevQueue) => {
           const existingIds = new Set(prevQueue.map((t) => t.id));
-          const existingTitles = new Set(prevQueue.map((t) => cleanTitleForComparison(t.title)));
 
           const uniqueNewTracks = newRadioTracks.filter((t) => {
             if (existingIds.has(t.id)) return false;
-            if (existingTitles.has(cleanTitleForComparison(t.title))) return false;
+            if (doTitlesMatch(t.title, targetTrack.title)) return false;
+            if (prevQueue.some((q) => doTitlesMatch(q.title, t.title))) return false;
             return true;
           });
 
           if (uniqueNewTracks.length === 0) return prevQueue;
 
-          // Randomize new tracks before appending
-          for (let i = uniqueNewTracks.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [uniqueNewTracks[i], uniqueNewTracks[j]] = [uniqueNewTracks[j], uniqueNewTracks[i]];
+          const svc = smartRef.current;
+          let orderedQueue;
+          if (svc) {
+            orderedQueue = svc.order([...prevQueue, ...uniqueNewTracks], targetTrack);
+          } else {
+            for (let i = uniqueNewTracks.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [uniqueNewTracks[i], uniqueNewTracks[j]] = [uniqueNewTracks[j], uniqueNewTracks[i]];
+            }
+            orderedQueue = [...prevQueue, ...uniqueNewTracks];
           }
 
+          queueRef.current = orderedQueue;
           console.log(`[PlayerContext] Endless Shuffle: Appended ${uniqueNewTracks.length} fresh discovered tracks!`);
-          return [...prevQueue, ...uniqueNewTracks];
+          return orderedQueue;
         });
       }
     } catch (err) {
@@ -1483,7 +1545,7 @@ export const PlayerProvider = ({ children }) => {
   const nextTrack = async () => {
     const q = queueRef.current || [];
     const curr = currentTrackRef.current;
-    const currentIndex = q.findIndex(t => t.id === curr?.id);
+    const currentIndex = q.findIndex((t) => t.id === curr?.id);
 
     // If remaining tracks in queue <= 3 and endless shuffle is on, pre-emptively replenish!
     if (shuffleModeRef.current === 'endless' && (q.length - currentIndex) <= 3) {
@@ -1491,7 +1553,34 @@ export const PlayerProvider = ({ children }) => {
     }
 
     if (currentIndex >= 0 && currentIndex + 1 < q.length) {
-      playTrack(q[currentIndex + 1]);
+      let nextIndex = currentIndex + 1;
+
+      // In shuffle mode, strictly prevent duplicate titles or consecutive same-artist clustering if alternatives exist
+      if (shuffleModeRef.current !== 'off') {
+        const remaining = q.slice(currentIndex + 1);
+        const currArtist = (curr?.artist || '').split(/[,&]/)[0].trim().toLowerCase();
+
+        const hasDiffTitle = remaining.some((t) => !curr?.title || !doTitlesMatch(t.title, curr.title));
+        const hasDiffArtist = remaining.some((t) => {
+          const a = (t.artist || '').split(/[,&]/)[0].trim().toLowerCase();
+          return a && currArtist && a !== currArtist;
+        });
+
+        const validOffset = remaining.findIndex((t) => {
+          if (hasDiffTitle && curr?.title && doTitlesMatch(t.title, curr.title)) return false;
+          if (hasDiffArtist) {
+            const a = (t.artist || '').split(/[,&]/)[0].trim().toLowerCase();
+            if (a && currArtist && a === currArtist) return false;
+          }
+          return true;
+        });
+
+        if (validOffset >= 0) {
+          nextIndex = currentIndex + 1 + validOffset;
+        }
+      }
+
+      playTrack(q[nextIndex]);
       return;
     }
 
@@ -1501,22 +1590,23 @@ export const PlayerProvider = ({ children }) => {
       const targetSeed = curr || q[q.length - 1];
       const freshTracks = await fetchRadioTracks(targetSeed?.artist, targetSeed?.genre, targetSeed?.title);
       if (freshTracks && freshTracks.length > 0) {
-        for (let i = freshTracks.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [freshTracks[i], freshTracks[j]] = [freshTracks[j], freshTracks[i]];
-        }
-        setQueue(prev => [...prev, ...freshTracks]);
-        playTrack(freshTracks[0]);
+        const validFresh = freshTracks.filter((t) => !curr?.title || !doTitlesMatch(t.title, curr.title));
+        const svc = smartRef.current;
+        const ordered = svc ? svc.order(validFresh) : validFresh;
+        setQueue((prev) => [...prev, ...ordered]);
+        queueRef.current = [...(queueRef.current || []), ...ordered];
+        playTrack(ordered[0]);
         return;
       }
     }
 
     // Standard fallback: dynamically discover and autoplay complementary artist vibes
     const smartNext = await getSmartNextTrack();
-    if (smartNext && smartNext.id !== curr?.id) {
+    if (smartNext && smartNext.id !== curr?.id && (!curr?.title || !doTitlesMatch(smartNext.title, curr.title))) {
       playTrack(smartNext);
     } else if (q.length > 0) {
-      playTrack(q[0]);
+      const nonMatching = q.find((t) => !curr?.title || !doTitlesMatch(t.title, curr.title));
+      playTrack(nonMatching || q[0]);
     }
   };
 
@@ -1866,61 +1956,64 @@ export const PlayerProvider = ({ children }) => {
   const clearQueue = () => setQueue([]);
 
   const cycleShuffleMode = () => {
-    setShuffleMode((prev) => {
-      let nextMode = 'off';
-      if (prev === 'off') nextMode = 'on';
-      else if (prev === 'on') nextMode = 'endless';
-      else nextMode = 'off';
+    let nextMode = 'off';
+    if (shuffleModeRef.current === 'off') nextMode = 'on';
+    else if (shuffleModeRef.current === 'on') nextMode = 'endless';
+    else nextMode = 'off';
 
-      AsyncStorage.setItem('@haze_shuffle_mode', nextMode).catch(() => {});
+    shuffleModeRef.current = nextMode;
+    setShuffleMode(nextMode);
+    AsyncStorage.setItem('@haze_shuffle_mode', nextMode).catch(() => {});
 
-      if (nextMode === 'on' || nextMode === 'endless') {
-        const q = queueRef.current || [];
-        const curr = currentTrackRef.current;
-        if (q.length > 1) {
-          const otherTracks = q.filter((t) => t.id !== curr?.id);
-          const svc = smartRef.current;
-          if (svc) {
-            setQueue(svc.order(curr ? [curr, ...otherTracks] : otherTracks, curr || undefined));
-          } else {
-            for (let i = otherTracks.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
-            }
-            setQueue(curr ? [curr, ...otherTracks] : otherTracks);
+    if (nextMode === 'on' || nextMode === 'endless') {
+      const q = queueRef.current || [];
+      const curr = currentTrackRef.current;
+      if (q.length > 1) {
+        const otherTracks = q.filter((t) => t.id !== curr?.id);
+        const svc = smartRef.current;
+        let ordered;
+        if (svc) {
+          ordered = svc.order(curr ? [curr, ...otherTracks] : otherTracks, curr || undefined);
+        } else {
+          for (let i = otherTracks.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
           }
+          ordered = curr ? [curr, ...otherTracks] : otherTracks;
         }
-
-        if (nextMode === 'endless') {
-          replenishEndlessQueue(curr);
-        }
+        setQueue(ordered);
+        queueRef.current = ordered;
       }
 
-      setToastMessage({
-        type: 'info',
-        text: nextMode === 'endless'
-          ? '♾️ Endless Shuffle On · Music Will Play Infinitely'
-          : nextMode === 'on'
-          ? 'Smart Shuffle On · Queue Randomized'
-          : 'Shuffle Off',
-      });
-      return nextMode;
+      if (nextMode === 'endless') {
+        replenishEndlessQueue(curr);
+      }
+    }
+
+    setToastMessage({
+      type: 'info',
+      text: nextMode === 'endless'
+        ? '♾️ Endless Shuffle On · Music Will Play Infinitely'
+        : nextMode === 'on'
+        ? 'Smart Shuffle On · Queue Randomized'
+        : 'Shuffle Off',
     });
+    return nextMode;
   };
 
   const toggleEndlessShuffle = () => {
-    setShuffleMode((prev) => {
-      const nextMode = prev === 'endless' ? 'off' : 'endless';
-      AsyncStorage.setItem('@haze_shuffle_mode', nextMode).catch(() => {});
-      if (nextMode === 'endless') {
-        replenishEndlessQueue(currentTrackRef.current);
-      }
-      setToastMessage({
-        type: 'info',
-        text: nextMode === 'endless' ? '♾️ Endless Shuffle On · Infinite Music Flow' : 'Shuffle Off',
-      });
-      return nextMode;
+    const nextMode = shuffleModeRef.current === 'endless' ? 'off' : 'endless';
+    shuffleModeRef.current = nextMode;
+    setShuffleMode(nextMode);
+    AsyncStorage.setItem('@haze_shuffle_mode', nextMode).catch(() => {});
+    if (nextMode === 'endless') {
+      replenishEndlessQueue(currentTrackRef.current);
+    }
+    setToastMessage({
+      type: 'info',
+      text: nextMode === 'endless' ? '♾️ Endless Shuffle On · Infinite Music Flow' : 'Shuffle Off',
     });
+    return nextMode;
   };
 
   const openArtistView = useCallback((artistInput, artistCover = '') => {
@@ -2092,7 +2185,7 @@ export const PlayerProvider = ({ children }) => {
         setSearchQuery,
         performSearch,
         shuffleMode,
-        setShuffleMode,
+        setShuffleMode: setShuffleModeWithRef,
         isShuffle,
         isEndlessShuffle,
         isRepeat,

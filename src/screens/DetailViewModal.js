@@ -29,6 +29,7 @@ import {
   Check,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchArtistDetails, fetchAlbumDetails } from '../services/api';
 import { colors } from '../theme/colors';
 
@@ -56,6 +57,7 @@ export const DetailViewModal = () => {
     updatePlaylist,
     accentColor,
     showToast,
+    setShuffleMode,
   } = usePlayer();
 
   const data = detailViewData || detailModalData;
@@ -129,8 +131,11 @@ export const DetailViewModal = () => {
 
   const handleShuffleAll = () => {
     if (activeTracks.length > 0) {
-      const shuffled = [...activeTracks].sort(() => Math.random() - 0.5);
-      playTrack(shuffled[0], shuffled);
+      if (setShuffleMode) setShuffleMode('on');
+      AsyncStorage.setItem('@haze_shuffle_mode', 'on').catch(() => {});
+      const randomFirst = activeTracks[Math.floor(Math.random() * activeTracks.length)];
+      playTrack(randomFirst, activeTracks);
+      if (showToast) showToast('Smart Shuffle On · Queue Randomized', 'info');
     }
   };
 
