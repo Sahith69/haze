@@ -736,11 +736,28 @@ export async function importSpotifyPlaylist(playlistUrl) {
     if (backendRes.ok) {
       const data = await backendRes.json();
       if (data && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        const enrichedBackendTracks = await Promise.all(
+          data.tracks.map(async (t) => {
+            const hasUniqueCover = t.cover && t.cover !== data.cover && !t.cover.includes('placeholder');
+            if (hasUniqueCover) return { ...t, isSongCover: true };
+            try {
+              const timeoutPromise = new Promise((res) => setTimeout(() => res(null), 2000));
+              const songCover = await Promise.race([
+                resolveTrackCover(t.title, t.artist),
+                timeoutPromise,
+              ]);
+              if (songCover) {
+                return { ...t, cover: songCover, coverLarge: songCover, isSongCover: true };
+              }
+            } catch (e) {}
+            return { ...t, source: 'spotify-import' };
+          })
+        );
         return {
           name: data.name || 'Imported Spotify Playlist',
           cover: data.cover || '',
-          trackCount: data.tracks.length,
-          tracks: data.tracks,
+          trackCount: enrichedBackendTracks.length,
+          tracks: enrichedBackendTracks,
         };
       }
     }
@@ -775,7 +792,7 @@ export async function importSpotifyPlaylist(playlistUrl) {
     const coverArt = entity.coverArt?.sources?.[0]?.url || '';
     const rawTracks = entity.trackList || [];
 
-    const tracks = rawTracks.map((t, idx) => ({
+    const initialTracks = rawTracks.map((t, idx) => ({
       id: `sp-${playlistId}-${idx}`,
       title: t.title || 'Unknown Track',
       artist: t.subtitle || 'Unknown Artist',
@@ -784,7 +801,31 @@ export async function importSpotifyPlaylist(playlistUrl) {
       duration: Math.round((t.duration || 210000) / 1000),
       isHiRes: true,
       qualityLabel: '320 kbps · Studio Master',
+      source: 'spotify-import',
+      playlistCover: coverArt,
     }));
+
+    // Concurrently resolve real individual song covers from iTunes/JioSaavn
+    const tracks = await Promise.all(
+      initialTracks.map(async (t) => {
+        try {
+          const timeoutPromise = new Promise((res) => setTimeout(() => res(null), 2500));
+          const songCover = await Promise.race([
+            resolveTrackCover(t.title, t.artist),
+            timeoutPromise,
+          ]);
+          if (songCover) {
+            return {
+              ...t,
+              cover: songCover,
+              coverLarge: songCover,
+              isSongCover: true,
+            };
+          }
+        } catch (e) {}
+        return t;
+      })
+    );
 
     return {
       name: playlistName,

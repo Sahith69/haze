@@ -357,7 +357,19 @@ export const PlayerProvider = ({ children }) => {
       } catch (e) {}
       setUserPlaylists(storedPlaylists ? JSON.parse(storedPlaylists) : []);
       setDownloadedTracks(storedDownloads ? JSON.parse(storedDownloads) : []);
-      setSearchHistory(storedSearch ? JSON.parse(storedSearch) : []);
+      if (storedSearch) {
+        try {
+          const parsed = JSON.parse(storedSearch);
+          const cleaned = Array.isArray(parsed)
+            ? parsed.filter((item) => typeof item === 'string' && item.trim().length > 1)
+            : [];
+          setSearchHistory(cleaned);
+        } catch (e) {
+          setSearchHistory([]);
+        }
+      } else {
+        setSearchHistory([]);
+      }
 
       if (storedCrossfade !== null) {
         const cf = Number(storedCrossfade) || 0;
@@ -443,7 +455,11 @@ export const PlayerProvider = ({ children }) => {
   const addSearchHistory = async (queryText) => {
     if (!queryText || !queryText.trim()) return;
     const clean = queryText.trim();
-    const updated = [clean, ...searchHistory.filter(item => item.toLowerCase() !== clean.toLowerCase())].slice(0, 15);
+    if (clean.length < 2) return;
+    const updated = [
+      clean,
+      ...searchHistory.filter((item) => item.toLowerCase() !== clean.toLowerCase() && item.trim().length > 1),
+    ].slice(0, 15);
     setSearchHistory(updated);
     try {
       await AsyncStorage.setItem(`@haze_${currentUser.id}_search_history`, JSON.stringify(updated));
@@ -865,10 +881,12 @@ export const PlayerProvider = ({ children }) => {
             !prev.cover ||
             prev.cover.includes('20UMGIM12176') ||
             prev.cover.includes('placeholder') ||
+            prev.id?.startsWith('sp-') ||
+            prev.source === 'spotify-import' ||
             prev.album === 'Imported Spotify Playlist' ||
             prev.album === 'Spotify Import'
           ) {
-            return { ...prev, cover: freshCover, coverLarge: freshCover };
+            return { ...prev, cover: freshCover, coverLarge: freshCover, isSongCover: true };
           }
           return prev;
         });

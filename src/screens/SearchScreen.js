@@ -15,6 +15,7 @@ import {
 import { Search as SearchIcon, X, Play, MoreVertical, Disc3, Mic2, ListMusic, Clock } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { searchTracks, searchMusic } from '../services/api';
+import { titleKey } from '../smartshuffle/workKey';
 import { colors } from '../theme/colors';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
@@ -57,10 +58,6 @@ export const SearchScreen = () => {
       setLoading(false);
       return;
     }
-    const clean = text.trim();
-    if (addSearchHistory) {
-      addSearchHistory(clean);
-    }
     setLoading(true);
     try {
       const searchFn = searchTracks || searchMusic;
@@ -73,18 +70,41 @@ export const SearchScreen = () => {
     }
   };
 
+  const isMountedRef = useRef(false);
   useEffect(() => {
-    if (queryValue && queryValue.trim().length > 0) {
-      executeSearch(queryValue);
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      if (queryValue && queryValue.trim().length > 0) {
+        executeSearch(queryValue);
+      }
     }
-  }, [queryValue]);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
 
   const handleQueryChange = (text) => {
     if (setSearchQuery) setSearchQuery(text);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    if (!text || text.trim().length === 0) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
     debounceTimer.current = setTimeout(() => {
       executeSearch(text);
     }, 350);
+  };
+
+  const handleSelectTrack = (item) => {
+    if (queryValue && queryValue.trim().length > 1 && addSearchHistory) {
+      addSearchHistory(queryValue.trim());
+    }
+    const itemKey = titleKey(item.title || '');
+    const queueTracks = filteredResults.filter(
+      (t) => t.id === item.id || !itemKey || titleKey(t.title || '') !== itemKey
+    );
+    playTrack(item, queueTracks);
   };
 
   const handleClear = () => {
@@ -157,6 +177,12 @@ export const SearchScreen = () => {
             placeholderTextColor={colors.textDim}
             value={queryValue}
             onChangeText={handleQueryChange}
+            onSubmitEditing={() => {
+              if (queryValue && queryValue.trim().length > 1 && addSearchHistory) {
+                addSearchHistory(queryValue.trim());
+              }
+              executeSearch(queryValue);
+            }}
             returnKeyType="search"
             autoCapitalize="none"
           />
@@ -262,7 +288,7 @@ export const SearchScreen = () => {
                 <TouchableOpacity
                   style={styles.resultMainPressable}
                   activeOpacity={0.7}
-                  onPress={() => playTrack(item, filteredResults)}
+                  onPress={() => handleSelectTrack(item)}
                 >
                   <Image
                     source={{ uri: item.cover || 'https://via.placeholder.com/150' }}
