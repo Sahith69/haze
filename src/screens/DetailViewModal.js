@@ -198,9 +198,18 @@ export const DetailViewModal = () => {
     }
   };
 
+  if (!data && activeModal !== 'detail_view') return null;
+
   return (
     <Modal
-      visible={activeModal === 'detail_view'}
+      visible={
+        activeModal === 'detail_view' ||
+        (Boolean(data) &&
+          (activeModal === 'now_playing' ||
+            activeModal === 'lyrics' ||
+            activeModal === 'queue' ||
+            activeModal === 'equalizer'))
+      }
       animationType="slide"
       statusBarTranslucent
       onRequestClose={closeDetailView}

@@ -217,7 +217,12 @@ export const NowPlayingModal = () => {
 
   return (
     <Modal
-      visible={activeModal === 'now_playing'}
+      visible={
+        activeModal === 'now_playing' ||
+        activeModal === 'lyrics' ||
+        activeModal === 'queue' ||
+        activeModal === 'equalizer'
+      }
       animationType="slide"
       statusBarTranslucent
       onRequestClose={closeModal}

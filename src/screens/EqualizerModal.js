@@ -35,11 +35,7 @@ export const EqualizerModal = () => {
   } = usePlayer();
 
   const handleClose = () => {
-    if (currentTrack) {
-      setActiveModal('now_playing');
-    } else {
-      closeModal();
-    }
+    closeModal();
   };
 
   const presets = ['Flat', 'Bass boost', 'Vocal', 'Rock'];

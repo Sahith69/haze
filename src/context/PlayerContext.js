@@ -203,6 +203,7 @@ export const PlayerProvider = ({ children }) => {
   const [activeModal, setActiveModal] = useState(null);
   const [detailModalData, setDetailModalData] = useState(null);
   const previousModalRef = useRef(null);
+  const modalHistoryRef = useRef([]);
   const detailHistoryRef = useRef([]);
   const [shuffleMode, setShuffleMode] = useState('off'); // 'off' | 'on' | 'endless'
   const isShuffle = shuffleMode !== 'off';
@@ -2069,6 +2070,9 @@ export const PlayerProvider = ({ children }) => {
         detailHistoryRef.current.push(detailModalData);
       }
     } else {
+      if (activeModal && !modalHistoryRef.current.includes(activeModal)) {
+        modalHistoryRef.current.push(activeModal);
+      }
       previousModalRef.current = activeModal;
       detailHistoryRef.current = [];
     }
@@ -2099,6 +2103,9 @@ export const PlayerProvider = ({ children }) => {
         detailHistoryRef.current.push(detailModalData);
       }
     } else {
+      if (activeModal && !modalHistoryRef.current.includes(activeModal)) {
+        modalHistoryRef.current.push(activeModal);
+      }
       previousModalRef.current = activeModal;
       detailHistoryRef.current = [];
     }
@@ -2114,8 +2121,35 @@ export const PlayerProvider = ({ children }) => {
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  const openModal = useCallback(() => {
-    setActiveModal('now_playing');
+  const openModal = useCallback((target = 'now_playing') => {
+    setActiveModal((current) => {
+      if (current && current !== target && !modalHistoryRef.current.includes(current)) {
+        modalHistoryRef.current.push(current);
+      }
+      return target;
+    });
+  }, []);
+
+  const setActiveModalWithHistory = useCallback((target) => {
+    setActiveModal((current) => {
+      if (!target) {
+        modalHistoryRef.current = [];
+        return null;
+      }
+      if (current && current !== target && !modalHistoryRef.current.includes(current)) {
+        modalHistoryRef.current.push(current);
+      }
+      return target;
+    });
+  }, []);
+
+  const closeModal = useCallback(() => {
+    if (modalHistoryRef.current.length > 0) {
+      const prev = modalHistoryRef.current.pop();
+      setActiveModal(prev || null);
+    } else {
+      setActiveModal(null);
+    }
   }, []);
 
   const openDetailView = useCallback((data) => {
@@ -2125,6 +2159,9 @@ export const PlayerProvider = ({ children }) => {
         detailHistoryRef.current.push(detailModalData);
       }
     } else {
+      if (activeModal && !modalHistoryRef.current.includes(activeModal)) {
+        modalHistoryRef.current.push(activeModal);
+      }
       previousModalRef.current = activeModal;
       detailHistoryRef.current = [];
     }
@@ -2152,8 +2189,13 @@ export const PlayerProvider = ({ children }) => {
       setDetailModalData(prev);
     } else {
       setDetailModalData(null);
-      const targetModal = previousModalRef.current === 'detail_view' ? null : (previousModalRef.current || null);
-      setActiveModal(targetModal);
+      let targetModal = null;
+      if (modalHistoryRef.current.length > 0) {
+        targetModal = modalHistoryRef.current.pop();
+      } else if (previousModalRef.current && previousModalRef.current !== 'detail_view') {
+        targetModal = previousModalRef.current;
+      }
+      setActiveModal(targetModal || null);
       previousModalRef.current = null;
     }
   }, []);
@@ -2239,8 +2281,9 @@ export const PlayerProvider = ({ children }) => {
         downloadedTracks,
         downloadProgress,
         setActiveTab,
-        setActiveModal,
-        closeModal: () => setActiveModal(null),
+        setActiveModal: setActiveModalWithHistory,
+        closeModal,
+        openModal,
         playTrack,
         togglePlayPause,
         nextTrack,

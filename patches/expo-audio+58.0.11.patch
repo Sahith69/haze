@@ -22,7 +22,7 @@ index fb2d0b5..61d054e 100644
    override val isLive: Boolean
      get() = ref.isCurrentMediaItemLive
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-index 53c36f7..7493d48 100644
+index 53c36f7..b0e85d7 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 @@ -143,14 +143,20 @@ class AudioControlsService : MediaSessionService() {
@@ -186,7 +186,7 @@ index 53c36f7..7493d48 100644
      builder.setStyle(style)
      return builder.build()
    }
-@@ -291,26 +264,15 @@ class AudioControlsService : MediaSessionService() {
+@@ -291,26 +264,16 @@ class AudioControlsService : MediaSessionService() {
  
      val playable = currentPlayable
  
@@ -213,6 +213,7 @@ index 53c36f7..7493d48 100644
 +    // Previous Track Button
 +    mediaButtons.add(
 +      CommandButton.Builder(CommandButton.ICON_PREVIOUS)
++        .setIconResId(androidx.media3.session.R.drawable.media3_icon_previous)
 +        .setDisplayName("Previous Track")
 +        .setEnabled(true)
 +        .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
@@ -222,7 +223,21 @@ index 53c36f7..7493d48 100644
  
      mediaButtons.add(
        CommandButton.Builder(
-@@ -333,26 +295,15 @@ class AudioControlsService : MediaSessionService() {
+@@ -320,6 +283,13 @@ class AudioControlsService : MediaSessionService() {
+           CommandButton.ICON_PLAY
+         }
+       )
++        .setIconResId(
++          if (isPlaying) {
++            androidx.media3.session.R.drawable.media3_icon_pause
++          } else {
++            androidx.media3.session.R.drawable.media3_icon_play
++          }
++        )
+         .setDisplayName(
+           if (isPlaying) {
+             "Pause"
+@@ -333,26 +303,16 @@ class AudioControlsService : MediaSessionService() {
          .build()
      )
  
@@ -249,6 +264,7 @@ index 53c36f7..7493d48 100644
 +    // Next Track Button
 +    mediaButtons.add(
 +      CommandButton.Builder(CommandButton.ICON_NEXT)
++        .setIconResId(androidx.media3.session.R.drawable.media3_icon_next)
 +        .setDisplayName("Next Track")
 +        .setEnabled(true)
 +        .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
@@ -258,7 +274,7 @@ index 53c36f7..7493d48 100644
  
      session.setCustomLayout(mediaButtons)
      session.setMediaButtonPreferences(mediaButtons)
-@@ -419,13 +370,65 @@ class AudioControlsService : MediaSessionService() {
+@@ -419,13 +379,65 @@ class AudioControlsService : MediaSessionService() {
          seekTo((currentPosition - backwardMs).coerceAtLeast(0))
        }
  
@@ -324,7 +340,7 @@ index 53c36f7..7493d48 100644
      }
    }
  
-@@ -684,7 +683,7 @@ class AudioControlsService : MediaSessionService() {
+@@ -684,7 +696,7 @@ class AudioControlsService : MediaSessionService() {
    }
  
    companion object {
@@ -334,7 +350,7 @@ index 53c36f7..7493d48 100644
      private const val ACTION_PAUSE = "expo.modules.audio.action.PAUSE"
      private const val ACTION_TOGGLE = "expo.modules.audio.action.TOGGLE"
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
-index ee83be1..da5c128 100644
+index ee83be1..cfa76ed 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
 @@ -1,6 +1,8 @@
@@ -346,7 +362,33 @@ index ee83be1..da5c128 100644
  import androidx.annotation.OptIn
  import androidx.media3.common.Player
  import androidx.media3.common.util.UnstableApi
-@@ -23,29 +25,17 @@ class AudioMediaSessionCallback(
+@@ -14,6 +16,25 @@ import com.google.common.util.concurrent.ListenableFuture
+ class AudioMediaSessionCallback(
+   private val service: AudioControlsService
+ ) : MediaSession.Callback {
++  private var headsetHookClicks = 0
++  private val headsetHandler = android.os.Handler(android.os.Looper.getMainLooper())
++  private val headsetRunnable = Runnable {
++    when (headsetHookClicks) {
++      1 -> {
++        val player = service.mediaSession?.player
++        if (player != null) {
++          if (player.isPlaying) player.pause() else player.play()
++        }
++      }
++      2 -> {
++        service.nextTrack()
++      }
++      3 -> {
++        service.previousTrack()
++      }
++    }
++    headsetHookClicks = 0
++  }
+   override fun onConnect(
+     session: MediaSession,
+     controller: MediaSession.ControllerInfo
+@@ -23,29 +44,17 @@ class AudioMediaSessionCallback(
          .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
          .add(Player.COMMAND_SEEK_FORWARD)
          .add(Player.COMMAND_SEEK_BACK)
@@ -382,7 +424,7 @@ index ee83be1..da5c128 100644
          .build()
  
        return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-@@ -83,4 +73,47 @@ class AudioMediaSessionCallback(
+@@ -83,4 +92,52 @@ class AudioMediaSessionCallback(
        else -> super.onCustomCommand(session, controller, command, args)
      }
    }
@@ -416,13 +458,18 @@ index ee83be1..da5c128 100644
 +          session.player.pause()
 +          return true
 +        }
-+        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-+        KeyEvent.KEYCODE_HEADSETHOOK -> {
++        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
 +          if (session.player.isPlaying) {
 +            session.player.pause()
 +          } else {
 +            session.player.play()
 +          }
++          return true
++        }
++        KeyEvent.KEYCODE_HEADSETHOOK -> {
++          headsetHookClicks++
++          headsetHandler.removeCallbacks(headsetRunnable)
++          headsetHandler.postDelayed(headsetRunnable, 350)
 +          return true
 +        }
 +      }

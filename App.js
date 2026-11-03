@@ -57,6 +57,9 @@ const MainNavigator = () => {
     setActiveModal,
     closeModal,
     closeDetailView,
+    detailModalData,
+    detailViewData,
+    currentTrack,
     showQualityModal,
     setShowQualityModal,
     qualityModalMode,
@@ -87,26 +90,20 @@ const MainNavigator = () => {
         return true;
       }
 
-      // 0.5 If detail view open -> close it
-      if (activeModal === 'detail_view') {
-        closeDetailView();
-        return true;
-      }
-
       // 1. If quality modal open -> close it
       if (showQualityModal) {
         setShowQualityModal(false);
         return true;
       }
 
-      // 2. If queue/equalizer modal open -> return to now_playing
-      if (activeModal && activeModal !== 'now_playing') {
-        setActiveModal('now_playing');
+      // 2. If detail view open -> close it
+      if (activeModal === 'detail_view') {
+        closeDetailView();
         return true;
       }
 
-      // 3. If now_playing modal open -> minimize to miniplayer
-      if (activeModal === 'now_playing') {
+      // 3. If any modal open (lyrics, queue, equalizer, now_playing) -> pop stack
+      if (activeModal) {
         closeModal();
         return true;
       }
@@ -133,7 +130,7 @@ const MainNavigator = () => {
     activeModal,
     activeTab,
     closeModal,
-    setActiveModal,
+    closeDetailView,
     setActiveTab,
   ]);
 
@@ -171,11 +168,13 @@ const MainNavigator = () => {
         {!activeModal && <BottomNavBar />}
 
         {/* Modals & Overlays */}
-        {activeModal === 'now_playing' && <NowPlayingModal />}
-        {activeModal === 'lyrics' && <SyncedLyricsModal />}
-        {activeModal === 'queue' && <QueueModal />}
-        {activeModal === 'equalizer' && <EqualizerModal />}
-        {activeModal === 'detail_view' && <DetailViewModal />}
+        {(detailModalData || detailViewData || activeModal === 'detail_view') && (
+          <DetailViewModal />
+        )}
+        {currentTrack && <NowPlayingModal />}
+        {currentTrack && <SyncedLyricsModal />}
+        <QueueModal />
+        <EqualizerModal />
 
         {/* Audio Quality Preferences Modal */}
         <AudioQualityModal

@@ -25,7 +25,7 @@ export const QueueModal = () => {
     playTrack,
     removeFromQueue,
     clearQueue,
-    setActiveModal,
+    closeModal,
   } = usePlayer();
 
   const upNextTracks = (queue || []).filter((t) => t.id !== currentTrack?.id);
@@ -35,7 +35,7 @@ export const QueueModal = () => {
       visible={activeModal === 'queue'}
       animationType="slide"
       statusBarTranslucent
-      onRequestClose={() => setActiveModal('now_playing')}
+      onRequestClose={closeModal}
     >
       <View style={styles.container}>
         <ToastBanner />
@@ -43,7 +43,7 @@ export const QueueModal = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeBtn}
-          onPress={() => setActiveModal('now_playing')}
+          onPress={closeModal}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <ChevronDown size={28} color="#FFFFFF" />

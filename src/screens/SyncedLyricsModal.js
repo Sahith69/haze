@@ -9,8 +9,9 @@ import {
   Modal,
   StatusBar as RNStatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { ChevronDown, Mic2, Plus, Minus, RotateCcw } from 'lucide-react-native';
+import { ChevronDown, Mic2, Plus, Minus, RotateCcw, Languages } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { ToastBanner } from '../components/ToastBanner';
 import { colors } from '../theme/colors';
@@ -19,13 +20,27 @@ const { width, height } = Dimensions.get('window');
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
 
 export const SyncedLyricsModal = () => {
-  const { activeModal, currentTrack, position, duration, liveLyrics, seekTo, setActiveModal, accentColor } = usePlayer();
+  const {
+    activeModal,
+    currentTrack,
+    position,
+    duration,
+    liveLyrics,
+    seekTo,
+    closeModal,
+    accentColor,
+    showToast,
+  } = usePlayer();
   const scrollViewRef = useRef(null);
   const [syncOffset, setSyncOffset] = useState(0); // Offset in seconds (-5.0s to +5.0s)
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const translationCacheRef = useRef({});
 
-  // Reset offset when track changes
+  // Reset offset and translation state when track changes
   useEffect(() => {
     setSyncOffset(0);
+    setShowTranslation(false);
   }, [currentTrack?.id]);
 
   const lyricsList = useMemo(() => {
@@ -48,20 +63,75 @@ export const SyncedLyricsModal = () => {
     return [];
   }, [liveLyrics, duration]);
 
+  const toggleTranslation = async () => {
+    if (showTranslation) {
+      setShowTranslation(false);
+      return;
+    }
+
+    const trackId = currentTrack?.id;
+    if (!trackId || lyricsList.length === 0) return;
+
+    if (translationCacheRef.current[trackId]) {
+      setShowTranslation(true);
+      return;
+    }
+
+    try {
+      setIsTranslating(true);
+      const originalLines = lyricsList.map((item) => item.text);
+      const joined = originalLines.join('\n');
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(joined)}`;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Translation status: ${response.status}`);
+      const data = await response.json();
+
+      const fullTranslatedText = (data?.[0] || []).map((part) => part[0]).join('');
+      const translatedLines = fullTranslatedText.split('\n');
+
+      const translatedLyrics = lyricsList.map((item, idx) => ({
+        time: item.time,
+        text: translatedLines[idx]?.trim() || item.text,
+      }));
+
+      translationCacheRef.current[trackId] = translatedLyrics;
+      setShowTranslation(true);
+      if (showToast) {
+        showToast('Translated to English', 'success');
+      }
+    } catch (err) {
+      console.warn('[SyncedLyricsModal] Translation error:', err);
+      if (showToast) {
+        showToast('Translation unavailable offline', 'info');
+      }
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const displayLyrics = useMemo(() => {
+    const trackId = currentTrack?.id;
+    if (showTranslation && trackId && translationCacheRef.current[trackId]) {
+      return translationCacheRef.current[trackId];
+    }
+    return lyricsList;
+  }, [lyricsList, showTranslation, currentTrack?.id]);
+
   // Find active line index based on position + syncOffset
   const activeLineIndex = useMemo(() => {
-    if (lyricsList.length === 0) return -1;
+    if (displayLyrics.length === 0) return -1;
     const effectivePos = position + syncOffset;
     let idx = -1;
-    for (let i = 0; i < lyricsList.length; i++) {
-      if (effectivePos >= lyricsList[i].time) {
+    for (let i = 0; i < displayLyrics.length; i++) {
+      if (effectivePos >= displayLyrics[i].time) {
         idx = i;
       } else {
         break;
       }
     }
     return idx;
-  }, [lyricsList, position, syncOffset]);
+  }, [displayLyrics, position, syncOffset]);
 
   // Auto-scroll to active line
   useEffect(() => {
@@ -85,7 +155,7 @@ export const SyncedLyricsModal = () => {
       visible={activeModal === 'lyrics'}
       animationType="slide"
       statusBarTranslucent
-      onRequestClose={() => setActiveModal('now_playing')}
+      onRequestClose={closeModal}
     >
       <View style={styles.container}>
         <ToastBanner />
@@ -93,7 +163,7 @@ export const SyncedLyricsModal = () => {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.closeBtn}
-            onPress={() => setActiveModal('now_playing')}
+            onPress={closeModal}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <ChevronDown size={28} color="#FFFFFF" />
@@ -104,15 +174,47 @@ export const SyncedLyricsModal = () => {
               {currentTrack?.title || 'Lyrics'}
             </Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
-              {currentTrack?.artist || 'Synced Lyrics'}
+              {showTranslation ? 'English Translation' : (currentTrack?.artist || 'Synced Lyrics')}
             </Text>
           </View>
 
-          <View style={{ width: 40 }} />
+          {lyricsList.length > 0 ? (
+            <TouchableOpacity
+              style={[
+                styles.translateBtn,
+                showTranslation && {
+                  backgroundColor: accentColor || colors.primary,
+                  borderColor: accentColor || colors.primary,
+                },
+              ]}
+              onPress={toggleTranslation}
+              disabled={isTranslating}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              {isTranslating ? (
+                <ActivityIndicator size="small" color="#FFFFFF" style={{ transform: [{ scale: 0.75 }] }} />
+              ) : (
+                <>
+                  <Languages size={15} color={showTranslation ? '#000000' : '#FFFFFF'} />
+                  <Text
+                    style={[
+                      styles.translateBtnText,
+                      showTranslation && { color: '#000000', fontWeight: '800' },
+                    ]}
+                  >
+                    EN
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
         </View>
 
         {/* Sync Offset Controls */}
-        {lyricsList.length > 0 && (
+        {displayLyrics.length > 0 && (
           <View style={styles.offsetBar}>
             <Text style={styles.offsetLabel}>Sync Offset</Text>
             <View style={styles.offsetControls}>
@@ -158,14 +260,14 @@ export const SyncedLyricsModal = () => {
         )}
 
         {/* Lyrics Scrollable Area */}
-        {lyricsList.length > 0 ? (
+        {displayLyrics.length > 0 ? (
           <ScrollView
             ref={scrollViewRef}
             style={styles.lyricsScroll}
             contentContainerStyle={styles.lyricsContent}
             showsVerticalScrollIndicator={false}
           >
-            {lyricsList.map((item, idx) => {
+            {displayLyrics.map((item, idx) => {
               const isActive = idx === activeLineIndex;
               return (
                 <TouchableOpacity
@@ -327,5 +429,24 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  translateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: '#222222',
+    borderWidth: 1,
+    borderColor: '#383838',
+    gap: 4,
+    minWidth: 54,
+    justifyContent: 'center',
+  },
+  translateBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 });
