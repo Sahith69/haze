@@ -15,6 +15,7 @@ import {
 } from '../services/api';
 import { API_BASE_URL } from '../config';
 import { resolveDirectSaavnAudio } from '../services/directResolver';
+import { createSmartShuffle } from '../smartshuffle/instance';
 
 function cleanTitleForComparison(t = '') {
   return t
@@ -238,6 +239,7 @@ export const PlayerProvider = ({ children }) => {
   const latestPositionRef = useRef(0);
   const lastPersistTimestampRef = useRef(0);
   const hasRestoredSessionRef = useRef(false);
+  const smartRef = useRef(null);
 
   // Playback session storage keys for instant continuity
   const SESSION_STORAGE_KEY = '@haze_last_playback_session';
@@ -283,6 +285,7 @@ export const PlayerProvider = ({ children }) => {
     const handleAppStateChange = (nextAppState) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         persistPlaybackSession({ position: latestPositionRef.current });
+        smartRef.current?.flush();
       }
     };
 
@@ -327,6 +330,16 @@ export const PlayerProvider = ({ children }) => {
       ]);
 
       setLikedTracks(storedLikes ? JSON.parse(storedLikes) : []);
+      try {
+        const prev = smartRef.current;
+        if (prev) { prev.endTrack({ finished: false }); await prev.flush(); }
+        const svc = createSmartShuffle(userId);
+        if (svc) {
+          await svc.init();
+          svc.syncLikes(storedLikes ? JSON.parse(storedLikes) : []);
+        }
+        smartRef.current = svc;
+      } catch (e) {}
       setUserPlaylists(storedPlaylists ? JSON.parse(storedPlaylists) : []);
       setDownloadedTracks(storedDownloads ? JSON.parse(storedDownloads) : []);
       setSearchHistory(storedSearch ? JSON.parse(storedSearch) : []);
@@ -787,6 +800,7 @@ export const PlayerProvider = ({ children }) => {
     const startPos = typeof resumePositionSec === 'number' && resumePositionSec > 0 ? resumePositionSec : 0;
     setPosition(startPos);
     latestPositionRef.current = startPos;
+    smartRef.current?.startTrack(track, startPos);
     setDuration(track.duration || 216);
     setIsLoadingAudio(true);
 
@@ -1134,6 +1148,7 @@ export const PlayerProvider = ({ children }) => {
           }
 
           if (typeof status.currentTime === 'number') {
+            smartRef.current?.onStatus(status.currentTime, status.playing === true);
             const currentSeconds = Math.round(status.currentTime);
             setPosition(currentSeconds);
             latestPositionRef.current = currentSeconds;
@@ -1524,6 +1539,7 @@ export const PlayerProvider = ({ children }) => {
   });
 
   const handleTrackFinish = () => {
+    smartRef.current?.endTrack({ finished: true });
     if (sleepTimerOptionRef.current === 'end_of_track') {
       sleepTimerOptionRef.current = 'off';
       setSleepTimerOption('off');
@@ -1575,6 +1591,7 @@ export const PlayerProvider = ({ children }) => {
     }
 
     setLikedTracks(updatedLikes);
+    smartRef.current?.setLiked(targetTrack, !isCurrentlyLiked);
     const likesKey = `@haze_${currentUser.id}_likes`;
     try {
       await AsyncStorage.setItem(likesKey, JSON.stringify(updatedLikes));
@@ -1862,11 +1879,16 @@ export const PlayerProvider = ({ children }) => {
         const curr = currentTrackRef.current;
         if (q.length > 1) {
           const otherTracks = q.filter((t) => t.id !== curr?.id);
-          for (let i = otherTracks.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+          const svc = smartRef.current;
+          if (svc) {
+            setQueue(svc.order(curr ? [curr, ...otherTracks] : otherTracks, curr || undefined));
+          } else {
+            for (let i = otherTracks.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+            }
+            setQueue(curr ? [curr, ...otherTracks] : otherTracks);
           }
-          setQueue(curr ? [curr, ...otherTracks] : otherTracks);
         }
 
         if (nextMode === 'endless') {
