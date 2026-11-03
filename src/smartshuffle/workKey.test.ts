@@ -196,3 +196,22 @@ describe('known issues (desired behavior)', () => {
     expect(artistKey('!!!')).not.toBe(artistKey('???'));
   });
 });
+
+describe('titleKey: Indian cinema, regional languages & audio variants', () => {
+  it.each([
+    ['Aaya Sher', 'aayasher'],
+    ['Aaya Sher (From "The Paradise") (Telugu)', 'aayasher'],
+    ['Aaya Sher (From "The Paradise") (Hindi)', 'aayasher'],
+    ['Aaya Sher - Telugu', 'aayasher'],
+    ['Aararai Kodi - Karoake', 'aararaikodi'],
+    ['Aararai Kodi - Karaoke', 'aararaikodi'],
+    ['Kesariya (From "Brahmastra")', 'kesariya'],
+    ['Naatu Naatu (From "RRR")', 'naatunaatu'],
+    ['Naatu Naatu - Telugu', 'naatunaatu'],
+    ['Naatu Naatu - Hindi', 'naatunaatu'],
+    ['Ordinary Person (From "Leo")', 'ordinaryperson'],
+    ['Arabic Kuthu - Halamithi Habibo (From "Beast")', 'arabickuthuhalamithihabibo'],
+  ])('%s -> %s', (input, expected) => {
+    expect(titleKey(input)).toBe(expected);
+  });
+});

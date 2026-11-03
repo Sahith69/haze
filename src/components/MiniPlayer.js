@@ -4,7 +4,7 @@ import { Play, Pause, SkipBack, SkipForward, Heart } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
 import { colors } from '../theme/colors';
 
-export const MiniPlayer = () => {
+export const MiniPlayer = ({ bottomOffset }) => {
   const {
     currentTrack,
     isPlaying,
@@ -32,7 +32,10 @@ export const MiniPlayer = () => {
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[
+      styles.wrapper,
+      typeof bottomOffset === 'number' && { bottom: bottomOffset }
+    ]}>
       {/* Top Thin Progress Bar */}
       <View style={styles.progressBarBg}>
         <View

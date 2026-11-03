@@ -101,10 +101,22 @@ export const SearchScreen = () => {
       addSearchHistory(queryValue.trim());
     }
     const itemKey = titleKey(item.title || '');
-    const queueTracks = filteredResults.filter(
-      (t) => t.id === item.id || !itemKey || titleKey(t.title || '') !== itemKey
-    );
-    playTrack(item, queueTracks);
+    const seenKeys = new Set();
+    if (itemKey) seenKeys.add(itemKey);
+    const cleanQueue = [item];
+
+    for (const t of filteredResults) {
+      if (!t || t.id === item.id) continue;
+      const lower = (t.title || '').toLowerCase();
+      if (lower.includes('karaoke') || lower.includes('karoake') || lower.includes('instrumental')) continue;
+      const k = titleKey(t.title || '');
+      if (k && !seenKeys.has(k)) {
+        seenKeys.add(k);
+        cleanQueue.push(t);
+      }
+    }
+    // Cap at 10 distinct top tracks so user is not inundated with 56 keyword search hits
+    playTrack(item, cleanQueue.slice(0, 10));
   };
 
   const handleClear = () => {

@@ -4,7 +4,13 @@
 const NOISE_WORDS = [
   'remaster(?:ed)?', 'live', 'acoustic', 'radio edit', 'single version',
   'album version', 'mono', 'stereo', 'deluxe(?: edition)?', 'bonus track',
-  'explicit', 'clean',
+  'explicit', 'clean(?: version)?', 'kar[ao]+ke', 'instrumental',
+  'lyric(?: video)?', 'official (?:audio|video)',
+  'slowed(?: \\+ reverb)?', 'reverb', 'lo-?fi', 'extended(?: version)?',
+  'soundtrack', 'original soundtrack', 'ost',
+  'original motion picture soundtrack',
+  'telugu', 'tamil', 'hindi', 'kannada', 'malayalam', 'punjabi', 'bengali', 'marathi',
+  'from\\s+["\'].*?["\']', 'from\\s+[^)\\]]+',
 ];
 const NOISE_RE = new RegExp(`\\b(?:${NOISE_WORDS.join('|')})\\b`, 'i');
 const FEAT_START_RE = /^\s*(?:feat|ft|featuring)\b\.?/i;

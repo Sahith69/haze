@@ -32,6 +32,7 @@ import { usePlayer } from '../context/PlayerContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchArtistDetails, fetchAlbumDetails } from '../services/api';
 import { colors } from '../theme/colors';
+import { MiniPlayer } from '../components/MiniPlayer';
 
 const { width } = Dimensions.get('window');
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
@@ -231,7 +232,7 @@ export const DetailViewModal = () => {
 
         <ScrollView
           style={styles.scrollArea}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, currentTrack && { paddingBottom: 90 }]}
           showsVerticalScrollIndicator={false}
         >
           {/* Hero Header */}
@@ -357,6 +358,11 @@ export const DetailViewModal = () => {
             )}
           </View>
         </ScrollView>
+
+        {/* Docked MiniPlayer when a track is playing or paused */}
+        {currentTrack && (
+          <MiniPlayer bottomOffset={Platform.OS === 'android' ? 12 : 24} />
+        )}
 
         {/* Edit Playlist Modal */}
         {showEditModal && (

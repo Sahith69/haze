@@ -47,4 +47,13 @@ describe('Queue title deduplication & collision prevention', () => {
     expect(doTitlesMatch('Levitating', 'Don’t Start Now')).toBe(false);
     expect(doTitlesMatch('Blinding Lights', 'Save Your Tears')).toBe(false);
   });
+
+  it('detects Indian movie versions, language variants, and karaoke as duplicate titles', () => {
+    expect(doTitlesMatch('Aaya Sher', 'Aaya Sher (From "The Paradise") (Telugu)')).toBe(true);
+    expect(doTitlesMatch('Aaya Sher', 'Aaya Sher (From "The Paradise") (Hindi)')).toBe(true);
+    expect(doTitlesMatch('Aaya Sher', 'Aaya Sher - Telugu')).toBe(true);
+    expect(doTitlesMatch('Aaya Sher (From "The Paradise") (Telugu)', 'Aaya Sher (From "The Paradise") (Hindi)')).toBe(true);
+    expect(doTitlesMatch('Naatu Naatu', 'Naatu Naatu (From "RRR")')).toBe(true);
+    expect(doTitlesMatch('Kesariya', 'Kesariya (From "Brahmastra")')).toBe(true);
+  });
 });

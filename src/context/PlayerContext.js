@@ -23,7 +23,7 @@ function cleanTitleForComparison(t = '') {
     .toLowerCase()
     .replace(/\(.*?\)|\[.*?\]/g, '')
     .replace(/feat\..*|ft\..*|featuring\..*/gi, '')
-    .replace(/\s*[-–—]\s*(?:remix|acoustic|live|instrumental|edit|slowed|reverb|sped up|remaster|radio|version|mix).*$/i, '')
+    .replace(/\s*[-–—]\s*(?:remix|acoustic|live|instrumental|edit|slowed|reverb|sped up|remaster|radio|version|mix|kar[ao]+ke|telugu|tamil|hindi|kannada|malayalam).*$/i, '')
     .replace(/[^a-z0-9]/g, ' ')
     .trim();
 }
@@ -804,13 +804,34 @@ export const PlayerProvider = ({ children }) => {
 
     // Set queue to the specific context if passed (e.g. from liked, search, album)
     if (contextQueue && Array.isArray(contextQueue) && contextQueue.length > 0) {
-      let finalQueue = contextQueue;
+      // Deduplicate contextQueue to prevent duplicate title/workKey repetition
+      const seenWorkKeys = new Set();
+      const deduplicatedContextQueue = [];
+      const trackKey = titleKey(track.title || '');
+      if (trackKey) seenWorkKeys.add(trackKey);
+
+      for (const t of contextQueue) {
+        if (!t) continue;
+        if (t.id === track.id) {
+          deduplicatedContextQueue.push(t);
+        } else {
+          const lower = (t.title || '').toLowerCase();
+          if (lower.includes('karaoke') || lower.includes('karoake') || lower.includes('instrumental')) continue;
+          const k = titleKey(t.title || '');
+          if (k && seenWorkKeys.has(k)) continue;
+          if (doTitlesMatch(t.title, track.title)) continue;
+          if (k) seenWorkKeys.add(k);
+          deduplicatedContextQueue.push(t);
+        }
+      }
+
+      let finalQueue = deduplicatedContextQueue.length > 0 ? deduplicatedContextQueue : contextQueue;
       if (shuffleModeRef.current !== 'off') {
         const svc = smartRef.current;
         if (svc) {
-          finalQueue = svc.order(contextQueue, track);
+          finalQueue = svc.order(finalQueue, track);
         } else {
-          const others = contextQueue.filter((t) => t.id !== track.id);
+          const others = finalQueue.filter((t) => t.id !== track.id);
           for (let i = others.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [others[i], others[j]] = [others[j], others[i]];

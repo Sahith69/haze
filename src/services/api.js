@@ -239,7 +239,7 @@ export async function resolveAudioStream(track, options = {}) {
     });
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     const res = await fetch(`${API_BASE_URL}/api/stream?${params.toString()}`, { signal: controller.signal });
     clearTimeout(timeout);
 

@@ -12,6 +12,7 @@ import {
   PanResponder,
   Pressable,
   Share,
+  ScrollView,
 } from 'react-native';
 import {
   ChevronDown,
@@ -486,163 +487,305 @@ export const NowPlayingModal = () => {
           </Pressable>
         )}
 
-        {/* In-Modal Sheet: 3-Dot More Actions Menu */}
+        {/* Full-Page Track Options & Settings Modal */}
         {showMoreSheet && (
-          <Pressable
-            style={styles.sheetBackdrop}
-            onPress={() => setShowMoreSheet(false)}
+          <Modal
+            visible={showMoreSheet}
+            animationType="slide"
+            statusBarTranslucent
+            onRequestClose={() => setShowMoreSheet(false)}
           >
-            <Pressable
-              style={styles.sheetContainer}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View style={styles.sheetHandle} />
-
-              {/* Track Info in Sheet */}
-              <View style={styles.sheetTrackPreview}>
-                <Image
-                  source={{ uri: currentTrack.cover || 'https://via.placeholder.com/150' }}
-                  style={styles.sheetThumb}
-                />
-                <View style={styles.sheetTrackMeta}>
-                  <Text style={styles.sheetTrackTitle} numberOfLines={1}>
-                    {currentTrack.title}
-                  </Text>
-                  <Text style={styles.sheetTrackArtist} numberOfLines={1}>
-                    {currentTrack.artist}
-                  </Text>
-                </View>
+            <View style={styles.fullSettingsContainer}>
+              {/* Top Bar Header */}
+              <View style={styles.fullSettingsTopBar}>
+                <TouchableOpacity
+                  style={styles.fullSettingsBackBtn}
+                  onPress={() => setShowMoreSheet(false)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <ChevronDown size={28} color="#FFFFFF" />
+                </TouchableOpacity>
+                <Text style={styles.fullSettingsHeaderTitle}>Track Settings & Options</Text>
+                <TouchableOpacity
+                  style={styles.fullSettingsCloseBtn}
+                  onPress={() => setShowMoreSheet(false)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <X size={22} color="#A0A0A0" />
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.menuDivider} />
-
-              {/* Action Menu Options */}
-              <TouchableOpacity
-                style={styles.menuItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setShowMoreSheet(false);
-                  if (promptAddToPlaylist) {
-                    promptAddToPlaylist(currentTrack);
-                  }
-                }}
+              <ScrollView
+                style={styles.fullSettingsScroll}
+                contentContainerStyle={styles.fullSettingsContent}
+                showsVerticalScrollIndicator={false}
               >
-                <ListPlus size={22} color="#FFFFFF" />
-                <Text style={styles.menuItemText}>Add to Playlist</Text>
-              </TouchableOpacity>
-
-              {currentTrack.artist ? (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setShowMoreSheet(false);
-                    if (openArtistView) {
-                      openArtistView(currentTrack.artist, currentTrack.cover);
-                    }
-                  }}
-                >
-                  <User size={22} color="#FFFFFF" />
-                  <Text style={styles.menuItemText}>View Artist ({currentTrack.artist})</Text>
-                </TouchableOpacity>
-              ) : null}
-
-              {currentTrack.album ? (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setShowMoreSheet(false);
-                    if (openAlbumView) {
-                      openAlbumView(currentTrack.album, currentTrack.artist, currentTrack.cover);
-                    }
-                  }}
-                >
-                  <Disc3 size={22} color="#FFFFFF" />
-                  <Text style={styles.menuItemText}>View Album ({currentTrack.album})</Text>
-                </TouchableOpacity>
-              ) : null}
-
-              <TouchableOpacity
-                style={styles.menuItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setShowMoreSheet(false);
-                  setActiveModal('equalizer');
-                }}
-              >
-                <Sliders size={22} color="#FFFFFF" />
-                <Text style={styles.menuItemText}>Audio Equalizer</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.menuItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setShowMoreSheet(false);
-                  setShowQualitySheet(true);
-                }}
-              >
-                <Sparkles size={22} color="#FFFFFF" />
-                <Text style={styles.menuItemText}>Streaming Quality ({currentQualityLabel})</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.menuItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setShowMoreSheet(false);
-                  setShowAudioSpecsSheet(true);
-                }}
-              >
-                <Info size={22} color={accentColor || colors.primary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.menuItemText}>Audio Specs & Stream Inspector</Text>
-                  <Text style={styles.menuItemSubText}>
-                    {isActualFlac ? '1,411 kbps · FLAC Lossless Master' : '320 kbps · Hi-Fi Studio Master'}
-                  </Text>
+                {/* Hero Track Card */}
+                <View style={styles.fullSettingsHeroCard}>
+                  <Image
+                    source={{ uri: currentTrack.cover || 'https://via.placeholder.com/150' }}
+                    style={styles.fullSettingsArtwork}
+                  />
+                  <View style={styles.fullSettingsMeta}>
+                    <Text style={styles.fullSettingsTrackTitle} numberOfLines={2}>
+                      {currentTrack.title}
+                    </Text>
+                    <Text style={styles.fullSettingsTrackArtist} numberOfLines={1}>
+                      {currentTrack.artist}
+                    </Text>
+                    {currentTrack.album ? (
+                      <Text style={styles.fullSettingsTrackAlbum} numberOfLines={1}>
+                        {currentTrack.album}
+                      </Text>
+                    ) : null}
+                    <View style={[styles.fullSettingsBadge, { backgroundColor: (accentColor || colors.primary) + '20' }]}>
+                      <Sparkles size={13} color={accentColor || colors.primary} />
+                      <Text style={[styles.fullSettingsBadgeText, { color: accentColor || colors.primary }]}>
+                        {isActualFlac ? '1,411 kbps · Pure Lossless FLAC Master' : '320 kbps · Studio Master'}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.menuItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setShowMoreSheet(false);
-                  setShowSleepTimerSheet(true);
-                }}
-              >
-                <Moon size={22} color={sleepTimerOption !== 'off' ? (accentColor || colors.primary) : '#FFFFFF'} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.menuItemText}>Sleep Timer ("Bedtime Mode")</Text>
-                  <Text style={[styles.menuItemSubText, sleepTimerOption !== 'off' && { color: accentColor || colors.primary }]}>
-                    {sleepTimerOption === 'off'
-                      ? 'Off'
-                      : sleepTimerOption === 'end_of_track'
-                      ? 'End of Current Track'
-                      : `${Math.ceil((sleepTimerRemainingSec || 0) / 60)} min remaining`}
-                  </Text>
+                {/* Section 1: Navigation & Actions */}
+                <Text style={styles.fullSettingsSectionLabel}>ACTIONS & NAVIGATION</Text>
+                <View style={styles.fullSettingsCard}>
+                  <TouchableOpacity
+                    style={styles.fullSettingsActionRow}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setShowMoreSheet(false);
+                      if (promptAddToPlaylist) promptAddToPlaylist(currentTrack);
+                    }}
+                  >
+                    <View style={styles.fullSettingsIconWrap}>
+                      <ListPlus size={20} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.fullSettingsActionText}>Add to Playlist</Text>
+                  </TouchableOpacity>
+
+                  {currentTrack.artist ? (
+                    <>
+                      <View style={styles.fullSettingsRowDivider} />
+                      <TouchableOpacity
+                        style={styles.fullSettingsActionRow}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setShowMoreSheet(false);
+                          if (openArtistView) openArtistView(currentTrack.artist, currentTrack.cover);
+                        }}
+                      >
+                        <View style={styles.fullSettingsIconWrap}>
+                          <User size={20} color="#FFFFFF" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.fullSettingsActionText}>View Artist</Text>
+                          <Text style={styles.fullSettingsActionSub}>{currentTrack.artist}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </>
+                  ) : null}
+
+                  {currentTrack.album ? (
+                    <>
+                      <View style={styles.fullSettingsRowDivider} />
+                      <TouchableOpacity
+                        style={styles.fullSettingsActionRow}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setShowMoreSheet(false);
+                          if (openAlbumView) openAlbumView(currentTrack.album, currentTrack.artist, currentTrack.cover);
+                        }}
+                      >
+                        <View style={styles.fullSettingsIconWrap}>
+                          <Disc3 size={20} color="#FFFFFF" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.fullSettingsActionText}>View Album</Text>
+                          <Text style={styles.fullSettingsActionSub}>{currentTrack.album}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </>
+                  ) : null}
+
+                  <View style={styles.fullSettingsRowDivider} />
+                  <TouchableOpacity
+                    style={styles.fullSettingsActionRow}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setShowMoreSheet(false);
+                      setActiveModal('equalizer');
+                    }}
+                  >
+                    <View style={styles.fullSettingsIconWrap}>
+                      <Sliders size={20} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.fullSettingsActionText}>Audio Equalizer</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.fullSettingsRowDivider} />
+                  <TouchableOpacity
+                    style={styles.fullSettingsActionRow}
+                    activeOpacity={0.7}
+                    onPress={handleShareTrack}
+                  >
+                    <View style={styles.fullSettingsIconWrap}>
+                      <Share2 size={20} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.fullSettingsActionText}>Share Track</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.menuItem}
-                activeOpacity={0.7}
-                onPress={handleShareTrack}
-              >
-                <Share2 size={22} color="#FFFFFF" />
-                <Text style={styles.menuItemText}>Share Track</Text>
-              </TouchableOpacity>
+                {/* Section 2: Streaming Quality Selection */}
+                <Text style={styles.fullSettingsSectionLabel}>STREAMING AUDIO QUALITY</Text>
+                <View style={styles.fullSettingsCard}>
+                  {QUALITY_OPTIONS.map((opt, qIdx) => {
+                    const isSelected = (streamingQuality || '1411k') === opt.id;
+                    const IconComp = opt.icon;
+                    return (
+                      <React.Fragment key={opt.id}>
+                        {qIdx > 0 && <View style={styles.fullSettingsRowDivider} />}
+                        <TouchableOpacity
+                          style={[styles.fullSettingsQualityRow, isSelected && { backgroundColor: (accentColor || colors.primary) + '12' }]}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            setStreamingQuality(opt.id);
+                            if (showToast) showToast(`Streaming quality set to ${opt.label}`, 'success');
+                          }}
+                        >
+                          <View style={[styles.fullSettingsIconWrap, isSelected && { backgroundColor: (accentColor || colors.primary) + '25' }]}>
+                            <IconComp size={20} color={isSelected ? (accentColor || colors.primary) : colors.textSecondary} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <Text style={[styles.fullSettingsActionText, isSelected && { color: accentColor || colors.primary, fontWeight: '800' }]}>
+                                {opt.label}
+                              </Text>
+                              <View style={[styles.qualityOptBadge, { backgroundColor: opt.badgeColor }]}>
+                                <Text style={styles.qualityOptBadgeText}>{opt.badge}</Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.fullSettingsActionSub, { color: isSelected ? (accentColor || colors.primary) : colors.textDim }]}>
+                              {opt.bitrate} · {opt.desc}
+                            </Text>
+                          </View>
+                          {isSelected && <Check size={20} color={accentColor || colors.primary} />}
+                        </TouchableOpacity>
+                      </React.Fragment>
+                    );
+                  })}
+                </View>
 
-              <TouchableOpacity
-                style={styles.sheetCancelBtn}
-                activeOpacity={0.8}
-                onPress={() => setShowMoreSheet(false)}
-              >
-                <Text style={styles.sheetCancelText}>Close</Text>
-              </TouchableOpacity>
-            </Pressable>
-          </Pressable>
+                {/* Section 3: Sleep Timer ("Bedtime Mode") */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 8, paddingHorizontal: 4 }}>
+                  <Text style={styles.fullSettingsSectionLabelPlain}>SLEEP TIMER ("BEDTIME MODE")</Text>
+                  {sleepTimerOption !== 'off' && (
+                    <View style={[styles.activeTimerPill, { backgroundColor: (accentColor || colors.primary) + '22' }]}>
+                      <Text style={[styles.activeTimerPillText, { color: accentColor || colors.primary }]}>
+                        {sleepTimerOption === 'end_of_track' ? 'End of Track' : `${Math.ceil((sleepTimerRemainingSec || 0) / 60)} min left`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.fullSettingsCard}>
+                  {[
+                    { id: 'off', label: 'Turn Off', desc: 'Continuous playback' },
+                    { id: '15m', label: '15 Minutes', desc: 'Quick power nap' },
+                    { id: '30m', label: '30 Minutes', desc: 'Bedtime relaxation' },
+                    { id: '45m', label: '45 Minutes', desc: 'Extended unwind' },
+                    { id: '60m', label: '1 Hour', desc: 'Deep sleep session' },
+                    { id: 'end_of_track', label: 'End of Current Track', desc: 'Pause when this song ends' },
+                  ].map((opt, sIdx) => {
+                    const isSelected = sleepTimerOption === opt.id;
+                    return (
+                      <React.Fragment key={opt.id}>
+                        {sIdx > 0 && <View style={styles.fullSettingsRowDivider} />}
+                        <TouchableOpacity
+                          style={[styles.fullSettingsActionRow, isSelected && { backgroundColor: (accentColor || colors.primary) + '12' }]}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            setSleepTimer(opt.id);
+                            if (showToast) {
+                              showToast(
+                                opt.id === 'off' ? 'Sleep timer turned off' : `Sleep timer set: ${opt.label}`,
+                                'info'
+                              );
+                            }
+                          }}
+                        >
+                          <View style={[styles.fullSettingsIconWrap, isSelected && { backgroundColor: (accentColor || colors.primary) + '25' }]}>
+                            <Moon size={18} color={isSelected ? (accentColor || colors.primary) : colors.textSecondary} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.fullSettingsActionText, isSelected && { color: accentColor || colors.primary, fontWeight: '800' }]}>
+                              {opt.label}
+                            </Text>
+                            <Text style={styles.fullSettingsActionSub}>{opt.desc}</Text>
+                          </View>
+                          {isSelected && <Check size={20} color={accentColor || colors.primary} />}
+                        </TouchableOpacity>
+                      </React.Fragment>
+                    );
+                  })}
+                </View>
+
+                {/* Section 4: Stream Technical Specs Inspector */}
+                <Text style={styles.fullSettingsSectionLabel}>STREAM TECHNICAL SPECS</Text>
+                <View style={styles.fullSettingsCard}>
+                  <View style={styles.fullSettingsActionRow}>
+                    <View style={styles.fullSettingsIconWrap}>
+                      <Info size={18} color={accentColor || colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.specCardLabel}>CODEC & CONTAINER</Text>
+                      <Text style={styles.specCardValue}>
+                        {isActualFlac ? 'FLAC (Free Lossless Audio Codec)' : 'AAC / M4A (MPEG-4 Studio Audio)'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.fullSettingsRowDivider} />
+                  <View style={styles.fullSettingsActionRow}>
+                    <View style={styles.fullSettingsIconWrap}>
+                      <Shield size={18} color={accentColor || colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.specCardLabel}>SAMPLE RATE & BIT DEPTH</Text>
+                      <Text style={styles.specCardValue}>
+                        {isActualFlac ? '44.1 kHz · 16-bit Lossless Master' : '44.1 kHz · High-Bitrate AAC'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.fullSettingsRowDivider} />
+                  <View style={styles.fullSettingsActionRow}>
+                    <View style={styles.fullSettingsIconWrap}>
+                      <Zap size={18} color={accentColor || colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.specCardLabel}>STREAM INFRASTRUCTURE</Text>
+                      <Text style={styles.specCardValue}>
+                        {isDownloaded
+                          ? 'Offline Flash Storage (Local Cache)'
+                          : isActualFlac
+                          ? 'Telegram Lossless Cloud Vault'
+                          : 'Studio Edge Low-Latency CDN'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Close Button */}
+                <TouchableOpacity
+                  style={styles.fullSettingsDoneBtn}
+                  activeOpacity={0.8}
+                  onPress={() => setShowMoreSheet(false)}
+                >
+                  <Text style={styles.fullSettingsDoneText}>Done</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </Modal>
         )}
 
         {/* In-Modal Sheet: Sleep Timer ("Bedtime Mode") */}
@@ -1279,5 +1422,170 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  fullSettingsContainer: {
+    flex: 1,
+    backgroundColor: '#121212',
+    paddingTop: STATUS_BAR_HEIGHT + 4,
+  },
+  fullSettingsTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222222',
+  },
+  fullSettingsBackBtn: {
+    padding: 6,
+  },
+  fullSettingsCloseBtn: {
+    padding: 6,
+  },
+  fullSettingsHeaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  fullSettingsScroll: {
+    flex: 1,
+  },
+  fullSettingsContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 48,
+  },
+  fullSettingsHeroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1E1E',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2E2E2E',
+    marginBottom: 8,
+  },
+  fullSettingsArtwork: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: '#282828',
+  },
+  fullSettingsMeta: {
+    flex: 1,
+    marginLeft: 14,
+    justifyContent: 'center',
+  },
+  fullSettingsTrackTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  fullSettingsTrackArtist: {
+    color: '#CCCCCC',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  fullSettingsTrackAlbum: {
+    color: '#888888',
+    fontSize: 12,
+    marginTop: 1,
+  },
+  fullSettingsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  fullSettingsBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  fullSettingsSectionLabel: {
+    color: '#777777',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 20,
+    paddingHorizontal: 4,
+  },
+  fullSettingsSectionLabelPlain: {
+    color: '#777777',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  fullSettingsCard: {
+    backgroundColor: '#1C1C1C',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    overflow: 'hidden',
+  },
+  fullSettingsActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    gap: 14,
+  },
+  fullSettingsQualityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 14,
+  },
+  fullSettingsIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#272727',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullSettingsActionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  fullSettingsActionSub: {
+    color: '#888888',
+    fontSize: 12,
+    marginTop: 1,
+  },
+  fullSettingsRowDivider: {
+    height: 1,
+    backgroundColor: '#262626',
+    marginLeft: 64,
+  },
+  activeTimerPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  activeTimerPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  fullSettingsDoneBtn: {
+    marginTop: 28,
+    backgroundColor: '#2A2A2A',
+    borderRadius: 24,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullSettingsDoneText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
