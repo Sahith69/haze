@@ -1,7 +1,7 @@
 import { recencyFactor } from './scoring';
 
 export type Track = {
-  id: number;
+  id: number | string;
   artist: string;          // pass artist_key here so "The Beatles"/"Beatles" match
   album: string;
   workKey: string;
