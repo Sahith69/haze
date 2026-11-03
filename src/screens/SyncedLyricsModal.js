@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { ChevronDown, Mic2, Plus, Minus, RotateCcw } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import { ToastBanner } from '../components/ToastBanner';
 import { colors } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
@@ -87,6 +88,7 @@ export const SyncedLyricsModal = () => {
       onRequestClose={() => setActiveModal('now_playing')}
     >
       <View style={styles.container}>
+        <ToastBanner />
         {/* Top Header */}
         <View style={styles.header}>
           <TouchableOpacity

@@ -215,7 +215,7 @@ index 53c36f7..7493d48 100644
 +      CommandButton.Builder(CommandButton.ICON_PREVIOUS)
 +        .setDisplayName("Previous Track")
 +        .setEnabled(true)
-+        .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
++        .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
 +        .setSlots(CommandButton.SLOT_BACK)
 +        .build()
 +    )
@@ -251,14 +251,14 @@ index 53c36f7..7493d48 100644
 +      CommandButton.Builder(CommandButton.ICON_NEXT)
 +        .setDisplayName("Next Track")
 +        .setEnabled(true)
-+        .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
++        .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
 +        .setSlots(CommandButton.SLOT_FORWARD)
 +        .build()
 +    )
  
      session.setCustomLayout(mediaButtons)
      session.setMediaButtonPreferences(mediaButtons)
-@@ -419,13 +370,61 @@ class AudioControlsService : MediaSessionService() {
+@@ -419,13 +370,65 @@ class AudioControlsService : MediaSessionService() {
          seekTo((currentPosition - backwardMs).coerceAtLeast(0))
        }
  
@@ -293,6 +293,10 @@ index 53c36f7..7493d48 100644
 +          super.seekToPreviousMediaItem()
 +        }
 +      }
++
++      override fun hasNextMediaItem(): Boolean = true
++
++      override fun hasPreviousMediaItem(): Boolean = true
 +
        override fun getAvailableCommands(): Player.Commands {
          val commands = super.getAvailableCommands().buildUpon()

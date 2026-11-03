@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { ChevronDown, Trash2, Play, Music } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import { ToastBanner } from '../components/ToastBanner';
 import { colors } from '../theme/colors';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
@@ -37,7 +38,8 @@ export const QueueModal = () => {
       onRequestClose={() => setActiveModal('now_playing')}
     >
       <View style={styles.container}>
-      {/* Top Header */}
+        <ToastBanner />
+        {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeBtn}

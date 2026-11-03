@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import { ToastBanner } from '../components/ToastBanner';
 import { colors } from '../theme/colors';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
@@ -104,6 +105,7 @@ export const EqualizerModal = () => {
       onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
+        <ToastBanner />
         <View style={styles.content}>
           {/* Top Header */}
           <View style={styles.headerBar}>

@@ -33,6 +33,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchArtistDetails, fetchAlbumDetails } from '../services/api';
 import { colors } from '../theme/colors';
 import { MiniPlayer } from '../components/MiniPlayer';
+import { ToastBanner } from '../components/ToastBanner';
 
 const { width } = Dimensions.get('window');
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 44;
@@ -205,6 +206,7 @@ export const DetailViewModal = () => {
       onRequestClose={closeDetailView}
     >
       <View style={styles.container}>
+        <ToastBanner />
         {/* Top Bar with Back Button */}
         <View style={styles.topBar}>
           <TouchableOpacity

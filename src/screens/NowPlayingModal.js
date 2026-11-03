@@ -45,6 +45,7 @@ import {
   Layers,
 } from 'lucide-react-native';
 import { usePlayer } from '../context/PlayerContext';
+import { ToastBanner } from '../components/ToastBanner';
 import { colors } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
@@ -222,6 +223,9 @@ export const NowPlayingModal = () => {
       onRequestClose={closeModal}
     >
       <View style={styles.fullscreenContainer}>
+        {/* Floating Toast Notification Banner */}
+        <ToastBanner />
+
         {/* Top Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -496,6 +500,7 @@ export const NowPlayingModal = () => {
             onRequestClose={() => setShowMoreSheet(false)}
           >
             <View style={styles.fullSettingsContainer}>
+              <ToastBanner />
               {/* Top Bar Header */}
               <View style={styles.fullSettingsTopBar}>
                 <TouchableOpacity
